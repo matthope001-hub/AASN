@@ -20,6 +20,9 @@
     SF: [137, '#FD5A1E'], SEA: [136, '#2EA3A3'], STL: [138, '#C41E3A'], TB: [139, '#8FBCE6'], TEX: [140, '#3A6FD1'],
     TOR: [141, '#3A8DDE'], WSH: [120, '#AB0003']
   };
+  // MLB headshots come on a solid background (no cut-outs like the NHL's),
+  // so cards.css softens the edges with a fade instead.
+  const cutout = url => String(url || '');
   const logo = t => TEAMS[t] ? `https://www.mlbstatic.com/team-logos/${TEAMS[t][0]}.svg` : '';
   const tint = t => TEAMS[t] ? ` data-team="${t}" style="--tc:${TEAMS[t][1]}"` : '';
 
@@ -101,7 +104,7 @@
             ${o.box ? `<div class="aabl-fc-sub">BOX ${esc(o.box.box_id)} · ${esc(o.box.name)}</div>` : ''}
             ${o.isTwoWay ? `<div class="aabl-fc-role">${o.role === 'pitcher' ? 'PITCHING' : 'HITTING'} POINTS ONLY</div>` : ''}
           </div>
-          <div class="aabl-fc-hs">${p.headshot_url ? `<img src="${esc(p.headshot_url)}" alt="" onerror="this.remove()">` : ''}</div>
+          <div class="aabl-fc-hs">${p.headshot_url ? `<img src="${esc(cutout(p.headshot_url))}" alt="" onerror="this.remove()">` : ''}</div>
         </div>
         <div class="aabl-fc-pool">
           <div><small>${esc(o.statsSeason || '')} AABL PTS</small><br><b>${fmt(s.points)}</b></div>
@@ -145,5 +148,5 @@
     }
   });
 
-  window.aablCards = { open, close, register: (key, data) => store.set(key, data) };
+  window.aablCards = { open, close, cutout, register: (key, data) => store.set(key, data) };
 })();
