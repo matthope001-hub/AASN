@@ -102,12 +102,32 @@ function hitterLine(st) {
   };
 }
 
-let qsMissing = false;
-function pitcherLine(st) {
-  if (st.qualityStarts === undefined) qsMissing = true;
+// Quality starts aren't in MLB season totals, so count them from each
+// starter's game log: a start with 6+ IP (18+ outs) and 3 or fewer ER.
+async function qualityStarts(pitchers) {
+  const qs = new Map();
+  const starters = pitchers.filter(p => n(p.stat.gamesStarted) > 0);
+  let i = 0, failed = 0;
+  async function worker() {
+    while (i < starters.length) {
+      const p = starters[i++];
+      try {
+        const data = await mlb(`/people/${p.id}/stats?stats=gameLog&group=pitching&season=${SEASON}&gameType=R`);
+        const splits = (data.stats && data.stats[0] && data.stats[0].splits) || [];
+        qs.set(p.id, splits.filter(g => n(g.stat.gamesStarted) > 0 && n(g.stat.outs) >= 18 && n(g.stat.earnedRuns) <= 3).length);
+      } catch (e) { failed++; }
+    }
+  }
+  await Promise.all(Array.from({ length: 8 }, worker));
+  console.log(`Quality starts counted for ${qs.size} starters (${failed} failed)`);
+  return { qs, failed };
+}
+
+let qsCounts = new Map();
+function pitcherLine(st, id) {
   return {
     games: n(st.gamesPlayed),
-    outs: n(st.outs), k: n(st.strikeOuts), w: n(st.wins), qs: n(st.qualityStarts),
+    outs: n(st.outs), k: n(st.strikeOuts), w: n(st.wins), qs: qsCounts.get(id) || 0,
     sv: n(st.saves), hld: n(st.holds), er: n(st.earnedRuns), l: n(st.losses),
     bb_allowed: n(st.baseOnBalls), h_allowed: n(st.hits)
   };
@@ -136,6 +156,8 @@ async function main() {
     .filter(p => n(p.stat.outs) > 0);
 
   console.log(`Hitters: ${hitters.length}, pitchers: ${pitchers.length}`);
+  const qsResult = await qualityStarts(pitchers);
+  qsCounts = qsResult.qs;
 
   // Players (one row per person; two-way players appear once here)
   const players = new Map();
@@ -159,7 +181,7 @@ async function main() {
   const now = new Date().toISOString();
   const rows = [
     ...hitters.map(p => { const line = hitterLine(p.stat); return { ...zero, ...line, season: SEASON, mlb_id: p.id, role: 'hitter', points: score(line, weights.hitter), updated_at: now }; }),
-    ...pitchers.map(p => { const line = pitcherLine(p.stat); return { ...zero, ...line, season: SEASON, mlb_id: p.id, role: 'pitcher', points: score(line, weights.pitcher), updated_at: now }; })
+    ...pitchers.map(p => { const line = pitcherLine(p.stat, p.id); return { ...zero, ...line, season: SEASON, mlb_id: p.id, role: 'pitcher', points: score(line, weights.pitcher), updated_at: now }; })
   ];
   await sbUpsert('stats_season', rows, 'season,mlb_id,role');
 
@@ -170,7 +192,7 @@ async function main() {
   const summary = [
     `## AABL import — MLB ${SEASON} season totals`,
     `Players: ${players.size} · Hitter rows: ${hitters.length} · Pitcher rows: ${pitchers.length}`,
-    qsMissing ? '\n> ⚠️ MLB did not return quality starts in season totals — QS counted as 0 for now.' : '',
+    `Quality starts counted for ${qsCounts.size} starters` + (qsResult.failed ? ` (⚠️ ${qsResult.failed} failed — rerun to retry)` : ''),
     '\n### Top 10 hitters\n| # | Player | Team | Pts |\n|---|---|---|---|\n' + top('hitter'),
     '\n### Top 10 pitchers\n| # | Player | Team | Pts |\n|---|---|---|---|\n' + top('pitcher')
   ].join('\n');
