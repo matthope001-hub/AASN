@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-10-21",
+    "title": "Optional sign-in",
+    "items": [
+      "Sign in with Google, Hotmail/Outlook, Yahoo or an emailed link — the same account works for the AAHL.",
+      "Signed in, My Team lists every team entered with your email, so you don't need your entry ID or email link. Signing in is never required."
+    ]
+  },
+  {
+    "date": "2026-10-21",
     "title": "More of the AABL is live",
     "items": [
       "Records page: single-game highs, best games, the season 3 Stars tally, best team nights, Team of the Week and team history.",

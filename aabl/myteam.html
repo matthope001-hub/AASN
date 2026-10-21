@@ -73,6 +73,8 @@
 <main class="wrap">
   <h1 class="title">MY TEAM</h1>
 
+  <div id="mine" class="panel" hidden></div>
+
   <form id="lookup" class="panel" hidden>
     <p class="muted" style="margin-bottom: 12px">Use the <b>Manage my team</b> link in your confirmation email, or enter your entry ID and the email you signed up with.</p>
     <div class="fields">
@@ -106,9 +108,53 @@
   let auth = null, data = null, opts = [], boxes = new Map(), stats = new Map(), statsSeason = null, openBox = null;
 
   async function api(action, extra) {
-    const res = await fetch(AASN_API_URL + '/aabl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...auth, ...extra }) });
+    // Signed-in teams use a fresh sign-in token on every call (they expire hourly).
+    let creds = auth;
+    if (auth && auth.signedIn) creds = { entryId: auth.entryId, accessToken: window.aasnAuth ? await aasnAuth.accessToken() : null };
+    const res = await fetch(AASN_API_URL + '/aabl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...creds, ...extra }) });
     return res.json();
   }
+
+  // ---------- signed in: list every team on this account's email(s) ----------
+  async function showMine(session) {
+    const el = document.getElementById('mine');
+    if (!session) {
+      el.hidden = false;
+      el.innerHTML = '<p class="muted" style="margin: 0">Have more than one team? <a href="#" data-signin style="color: var(--red-text)">Sign in</a> to see them all here. Optional.</p>';
+      return;
+    }
+    el.hidden = false;
+    el.innerHTML = '<p class="muted" style="margin: 0">Loading your teams…</p>';
+    const token = await aasnAuth.accessToken();
+    const res = await fetch(AASN_API_URL + '/aabl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'myEntries', accessToken: token }) });
+    const out = await res.json();
+    if (!out.success) { el.innerHTML = `<p class="err" style="margin: 0">${esc(out.error || 'Could not load your teams.')}</p>`; return; }
+    if (!out.entries.length) {
+      el.innerHTML = `<p class="muted" style="margin: 0">No teams found for ${esc(out.emails.join(', ') || 'this account')}. Sign in with the account that has the email you entered with, or use your entry ID below.</p>`;
+      return;
+    }
+    el.innerHTML = `<div style="font-family: var(--mono); font-size: 11px; color: var(--dim); margin-bottom: 8px">YOUR TEAMS</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">${out.entries.map(e => `<button type="button" class="btn${auth && auth.entryId === e.entryId ? '' : ' ghost'}" data-mine="${esc(e.entryId)}">${esc(e.teamName)}</button>`).join('')}</div>`;
+    if (!auth && out.entries.length === 1) openMine(out.entries[0].entryId);
+  }
+  async function openMine(entryId) {
+    auth = { entryId, signedIn: true };
+    const ok = await loadTeam();
+    if (ok) { remember(); document.getElementById('lookup').hidden = true; showMine(aasnAuth.session()); }
+  }
+  document.getElementById('mine').addEventListener('click', e => {
+    const b = e.target.closest('[data-mine]');
+    if (b) { openMine(b.dataset.mine); return; }
+    if (e.target.closest('[data-signin]')) { e.preventDefault(); aasnAuth.open(); }
+  });
+  // auth.js loads after this script, so hook in once the page has parsed.
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!window.aasnAuth) return;
+    aasnAuth.onChange(s => {
+      if (!s && auth && auth.signedIn) { forget(); return; }
+      showMine(s).catch(err => console.error(err));
+    });
+  });
 
   function remember() { try { localStorage.setItem(KEY, JSON.stringify(auth)); } catch (e) { /* ignore */ } }
   function forget() { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } auth = null; location.href = 'myteam.html'; }
@@ -257,6 +303,7 @@
   start().catch(err => { console.error(err); document.getElementById('team').hidden = false; document.getElementById('team').innerHTML = '<p class="status">My Team is unavailable right now.</p>'; });
 })();
 </script>
+<script src="../shared/auth.js"></script>
 <script src="nav.js"></script>
 </body>
 </html>

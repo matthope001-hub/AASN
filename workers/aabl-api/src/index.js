@@ -69,6 +69,7 @@ export default {
         case 'getMyTeam': return json(request, env, await getMyTeam(env, body));
         case 'makeTrade': return json(request, env, await makeTrade(env, ctx, body));
         case 'changeDivision': return json(request, env, await changeDivision(env, body));
+        case 'myEntries': return json(request, env, await myEntries(env, body));
         default:
           if (String(body.action || '').startsWith('admin')) return json(request, env, await admin(env, ctx, body));
           return json(request, env, { success: false, error: 'Unknown action' }, 400);
@@ -184,15 +185,56 @@ async function createEntry(env, ctx, body) {
 
 // A manager proves it's their team with the private emailed link (token),
 // or with their entry ID plus the email they signed up with.
+// Verified sign-in (Supabase Auth): the user's id and every confirmed email
+// across their linked accounts (Google, Microsoft, Yahoo, email link…).
+async function verifyUser(env, accessToken) {
+  if (!accessToken) return null;
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, { headers: { apikey: env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) return null;
+  const user = await res.json();
+  const clean = e => String(e || '').trim().toLowerCase();
+  const emails = new Set();
+  (user.identities || []).forEach(i => {
+    const d = i.identity_data || {};
+    const email = clean(d.email || (i.provider === 'email' ? user.email : ''));
+    if (!email || d.email_verified === false) return;
+    if (i.provider === 'email' && !user.email_confirmed_at) return; // link not clicked yet
+    emails.add(email);
+  });
+  if (user.email && user.email_confirmed_at) emails.add(clean(user.email));
+  return { id: user.id, emails };
+}
+
 async function authEntry(env, body) {
   const id = String(body.entryId || '').trim();
   if (!/^[A-Za-z0-9_-]{4,64}$/.test(id)) return null;
-  const rows = await sb(env, `entries?select=entry_id,season,email,manager_name,team_name,moves_used,access_token_hash,entry_num&entry_id=eq.${encodeURIComponent(id)}`);
+  const rows = await sb(env, `entries?select=entry_id,season,email,manager_name,team_name,moves_used,access_token_hash,entry_num,user_id&entry_id=eq.${encodeURIComponent(id)}`);
   const e = rows[0];
   if (!e) return null;
   if (body.token && e.access_token_hash && await sha256(String(body.token)) === e.access_token_hash) return e;
+  if (body.accessToken) {
+    const u = await verifyUser(env, body.accessToken);
+    if (u && (e.user_id === u.id || u.emails.has(e.email))) return e;
+    return null;
+  }
   if (body.email && String(body.email).trim().toLowerCase() === e.email) return e;
   return null;
+}
+
+// Signed-in member: every team entered with one of their verified emails.
+// Also links those entries to their account (entries.user_id).
+async function myEntries(env, body) {
+  const u = await verifyUser(env, body.accessToken);
+  if (!u) return { success: false, error: 'Your sign-in expired. Sign out and sign in again.' };
+  const cfg = await currentSeason(env);
+  const list = u.emails.size
+    ? await sb(env, `entries?select=entry_id,team_name,email,entry_num,user_id&season=eq.${cfg.season}&or=(user_id.eq.${u.id},email.in.(${[...u.emails].map(e => '"' + e.replace(/"/g, '') + '"').join(',')}))&order=created_at`)
+    : await sb(env, `entries?select=entry_id,team_name,email,entry_num,user_id&season=eq.${cfg.season}&user_id=eq.${u.id}&order=created_at`);
+  const unlinked = list.filter(e => !e.user_id).map(e => e.entry_id);
+  if (unlinked.length) {
+    await sb(env, `entries?entry_id=in.(${unlinked.map(x => '"' + x + '"').join(',')})&user_id=is.null`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ user_id: u.id }) });
+  }
+  return { success: true, emails: [...u.emails], entries: list.map(e => ({ entryId: e.entry_id, teamName: e.team_name, email: e.email, entryNum: e.entry_num })) };
 }
 const NOT_FOUND = { success: false, error: "We couldn't find that team. Check the entry ID and email, or use the link in your confirmation email." };
 
