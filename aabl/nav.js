@@ -21,7 +21,7 @@
     ['rules', 'Rules', soon('Rules')],
     ['signup', 'Sign Up', 'signup.html'],
     ['whatsnew', "What's New", soon("What's New")],
-    ['admin', '⚙️ Admin', soon('Admin')]
+    ['admin', '⚙️ Admin', 'admin.html']
   ];
 
   const css = `

@@ -69,11 +69,13 @@ export default {
         case 'getMyTeam': return json(request, env, await getMyTeam(env, body));
         case 'makeTrade': return json(request, env, await makeTrade(env, ctx, body));
         case 'changeDivision': return json(request, env, await changeDivision(env, body));
-        default: return json(request, env, { success: false, error: 'Unknown action' }, 400);
+        default:
+          if (String(body.action || '').startsWith('admin')) return json(request, env, await admin(env, ctx, body));
+          return json(request, env, { success: false, error: 'Unknown action' }, 400);
       }
     } catch (err) {
       console.log('Worker error: ' + (err && err.stack || err));
-      return json(request, env, { success: false, error: 'Something went wrong saving your entry. Please try again.' }, 500);
+      return json(request, env, { success: false, error: 'Something went wrong. Please try again.' }, 500);
     }
   }
 };
@@ -245,6 +247,105 @@ async function sendTradeEmail(env, e, boxId, optionId, r) {
     <p style="margin:0 0 6px">Box ${boxId}: <b>${esc(name(t.old_option_id))}</b> ➜ <b>${esc(name(t.new_option_id))}</b></p>
     <p style="margin:0;color:#A9B8CC">${esc(line)}</p></div></div>`;
   await gmailSend(env, e.email, `AABL trade confirmed: ${e.team_name}`, `Trade confirmed for ${e.team_name}\nBox ${boxId}: ${name(t.old_option_id)} -> ${name(t.new_option_id)}\n${line}`, html);
+}
+
+// --------------------------------------------------------------- admin
+// Commissioner tools. Every admin action needs the ADMIN_PASSWORD secret
+// (set in the Cloudflare dashboard); admin-only features stay out of What's New.
+
+function safeEqual(a, b) {
+  a = String(a || ''); b = String(b || '');
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
+async function admin(env, ctx, body) {
+  if (!env.ADMIN_PASSWORD) return { success: false, error: 'Admin is not set up yet (ADMIN_PASSWORD secret missing).' };
+  if (!safeEqual(body.password, env.ADMIN_PASSWORD)) {
+    await new Promise(r => setTimeout(r, 800)); // slow down guessing
+    return { success: false, error: 'Wrong admin password.' };
+  }
+  const cfg = await currentSeason(env);
+  const season = cfg.season;
+  switch (body.action) {
+    case 'adminLogin': return { success: true };
+
+    case 'adminOverview': {
+      const [config, entries, il, jobs] = await Promise.all([
+        sb(env, `config?select=*&season=eq.${season}`),
+        sb(env, `entries?select=entry_id,email,manager_name,team_name,entry_num,paid,paid_at,free_entry,moves_used,created_at&season=eq.${season}&order=created_at.asc`),
+        sb(env, 'il?select=mlb_id,note,flagged_at,player:players(full_name,team_abbr)&order=flagged_at.desc'),
+        sb(env, 'job_runs?select=job,run_date,started_at,finished_at,ok,detail&order=id.desc&limit=5')
+      ]);
+      return { success: true, season, config: config[0], entries, il, jobs, email: !!(env.GMAIL_CLIENT_ID && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM) };
+    }
+
+    case 'adminUpdateConfig': {
+      const c = body.config || {}, patch = { updated_at: new Date().toISOString() };
+      for (const k of ['signups_open', 'picks_locked']) if (k in c) patch[k] = !!c[k];
+      for (const k of ['opening_day', 'trade_deadline']) if (k in c) patch[k] = c[k] ? new Date(c[k]).toISOString() : null;
+      if ('entry_fee' in c) patch.entry_fee = Math.max(0, Number(c.entry_fee) || 0);
+      if ('season_moves' in c) patch.season_moves = Math.max(0, Math.min(10, parseInt(c.season_moves, 10) || 0));
+      if ('payment_info' in c) patch.payment_info = cleanText(c.payment_info, 300) || null;
+      if ('digest_day' in c) patch.digest_day = cleanText(c.digest_day, 12).toUpperCase() || 'MONDAY';
+      await sb(env, `config?season=eq.${season}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
+      return { success: true };
+    }
+
+    case 'adminSetPaid': {
+      const id = String(body.entryId || '');
+      await sb(env, `entries?entry_id=eq.${encodeURIComponent(id)}&season=eq.${season}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ paid: !!body.paid, paid_at: body.paid ? new Date().toISOString() : null, free_entry: !!body.free }) });
+      return { success: true };
+    }
+
+    case 'adminResendEmail': {
+      const id = String(body.entryId || '');
+      const [e] = await sb(env, `entries?select=entry_id,email,manager_name,team_name,entry_num&entry_id=eq.${encodeURIComponent(id)}`);
+      if (!e) return { success: false, error: 'Entry not found.' };
+      if (!(env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM)) return { success: false, error: 'Email is not set up yet (Gmail secrets missing).' };
+      const [picks, divs] = await Promise.all([
+        sb(env, `picks?select=box_id,option_id&entry_id=eq.${e.entry_id}`),
+        sb(env, `division_picks?select=division,team_abbr&entry_id=eq.${e.entry_id}`)
+      ]);
+      const token = randomHex(24); // a fresh private link; the old one stops working
+      await sb(env, `entries?entry_id=eq.${e.entry_id}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ access_token_hash: await sha256(token) }) });
+      await sendConfirmation(env, cfg, e, { email: e.email, picks, divs }, token);
+      return { success: true };
+    }
+
+    case 'adminSetIL': {
+      const id = Number(body.mlbId);
+      if (!id) return { success: false, error: 'Pick a player.' };
+      if (body.remove) await sb(env, `il?mlb_id=eq.${id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      else await sb(env, 'il?on_conflict=mlb_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ mlb_id: id, note: cleanText(body.note, 120) || null, flagged_at: new Date().toISOString() }) });
+      return { success: true };
+    }
+
+    case 'adminTrade': {
+      // Official trade recorded by the commissioner: same process and rules as a
+      // manager's own trade (same box, banked points, counts as a move), marked official.
+      const id = String(body.entryId || ''), boxId = Number(body.boxId), optionId = Number(body.optionId);
+      const r = await sb(env, 'rpc/make_trade', { method: 'POST', body: JSON.stringify({ p_entry: id, p_box: boxId, p_option: optionId }) });
+      if (!r || !r.ok) return { success: false, error: (r && r.error) || 'Trade failed.' };
+      const [t] = await sb(env, `trades?select=trade_id&entry_id=eq.${encodeURIComponent(id)}&box_id=eq.${boxId}&order=made_at.desc&limit=1`);
+      if (t) await sb(env, `trades?trade_id=eq.${t.trade_id}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ official: true }) });
+      const [e] = await sb(env, `entries?select=entry_id,email,team_name&entry_id=eq.${encodeURIComponent(id)}`);
+      if (e) ctx.waitUntil(sendTradeEmail(env, e, boxId, optionId, r).catch(err => console.log('Trade email failed: ' + err)));
+      return { success: true, banked: r.banked, preseason: r.preseason, movesUsed: r.moves_used };
+    }
+
+    case 'adminDeleteTestData': {
+      // Only the test teams (entry IDs starting "test"); picks, trades and standings go with them.
+      if (body.confirm !== 'DELETE TEST TEAMS') return { success: false, error: 'Type DELETE TEST TEAMS to confirm.' };
+      await sb(env, 'entries?entry_id=like.test*', { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      return { success: true };
+    }
+
+    default: return { success: false, error: 'Unknown admin action.' };
+  }
 }
 
 // --------------------------------------------------------------- email

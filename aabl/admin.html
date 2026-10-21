@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commissioner — AABL 2027</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<style>
+.panel { background: var(--panel); border: 1px solid var(--border); padding: 16px; margin-bottom: 16px; }
+.panel h2 { font-family: var(--display); font-weight: 400; font-size: 22px; margin-bottom: 12px; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; }
+.field label { display: block; font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .5px; margin-bottom: 4px; }
+.field input, .field select, .field textarea { width: 100%; min-height: 44px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--cond); font-size: 16px; }
+.field textarea { min-height: 70px; resize: vertical; }
+.toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 16px; cursor: pointer; }
+.toggle input { width: 22px; height: 22px; accent-color: var(--red); }
+.btn { min-height: 44px; padding: 0 18px; background: var(--red); border: 0; color: #fff; font-family: var(--cond); font-weight: 700; font-size: 15px; letter-spacing: .5px; cursor: pointer; }
+.btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn.small { min-height: 34px; padding: 0 10px; font-size: 13px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.msg { font-family: var(--mono); font-size: 12px; margin-top: 8px; min-height: 16px; }
+.msg.ok { color: #7EE2A8; } .msg.err { color: #FF9EA2; }
+.stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.stat { min-width: 120px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-top: 3px solid var(--red-text); }
+.stat b { display: block; font-family: var(--mono); font-size: 20px; }
+.stat span { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+th { text-align: left; color: var(--dim); font-size: 11px; padding: 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 7px 8px; border-bottom: 1px solid var(--row); white-space: nowrap; vertical-align: middle; }
+td.team { font-family: var(--cond); font-weight: 700; font-size: 15px; }
+.il-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--row); }
+.danger { border-color: #6B2A33; }
+.danger h2 { color: #FF9EA2; }
+.hide { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="admin"></nav>
+    <button type="button" class="signin" id="logout" hidden>LOG OUT</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">COMMISSIONER</h1>
+
+  <form class="panel" id="login" novalidate>
+    <div class="fields">
+      <div class="field"><label for="pw">ADMIN PASSWORD</label><input id="pw" type="password" autocomplete="current-password"></div>
+      <div><button type="submit" class="btn">SIGN IN</button></div>
+    </div>
+    <div class="msg" id="login-msg" role="alert"></div>
+  </form>
+
+  <div id="app" class="hide">
+    <section class="panel">
+      <h2>SEASON SETTINGS</h2>
+      <form id="cfg" novalidate>
+        <div class="fields">
+          <label class="toggle"><input type="checkbox" id="c-signups"> Sign-ups open</label>
+          <label class="toggle"><input type="checkbox" id="c-locked"> Picks locked</label>
+          <div class="field"><label for="c-opening">PICK DEADLINE (FIRST PITCH, ET)</label><input id="c-opening" type="datetime-local"></div>
+          <div class="field"><label for="c-deadline">TRADE DEADLINE (ET)</label><input id="c-deadline" type="datetime-local"></div>
+          <div class="field"><label for="c-fee">ENTRY FEE ($)</label><input id="c-fee" type="number" min="0" step="1"></div>
+          <div class="field"><label for="c-moves">TRADES PER SEASON</label><input id="c-moves" type="number" min="0" max="10" step="1"></div>
+        </div>
+        <div class="field" style="margin-top: 12px"><label for="c-pay">PAYMENT NOTE (SHOWN ON CONFIRMATION + EMAIL)</label><textarea id="c-pay" maxlength="300" placeholder="e.g. E-transfer $10 to …"></textarea></div>
+        <div style="margin-top: 12px"><button type="submit" class="btn">SAVE SETTINGS</button></div>
+        <div class="msg" id="cfg-msg" role="status"></div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>ENTRIES &amp; PAYMENTS</h2>
+      <div class="stats" id="pot"></div>
+      <div class="scroll"><table>
+        <thead><tr><th>TEAM</th><th>MANAGER</th><th>EMAIL</th><th>#</th><th>SIGNED UP</th><th>TRADES</th><th>PAID</th><th>FREE</th><th></th></tr></thead>
+        <tbody id="entries"></tbody>
+      </table></div>
+      <div class="msg" id="entries-msg" role="status"></div>
+    </section>
+
+    <section class="panel">
+      <h2>OFFICIAL TRADE</h2>
+      <p class="status" style="padding: 0 0 10px">Same rules as a manager's own trade: same box, points banked, uses a trade after Opening Day. Marked official.</p>
+      <div class="fields">
+        <div class="field"><label for="t-entry">TEAM</label><select id="t-entry"></select></div>
+        <div class="field"><label for="t-box">BOX</label><select id="t-box"></select></div>
+        <div class="field"><label for="t-opt">NEW PLAYER</label><select id="t-opt"></select></div>
+        <div><button type="button" class="btn" id="t-go">RECORD TRADE</button></div>
+      </div>
+      <div class="msg" id="t-msg" role="status"></div>
+    </section>
+
+    <section class="panel">
+      <h2>PLAYER STATUS (IR LIST)</h2>
+      <div class="fields">
+        <div class="field"><label for="il-player">PLAYER</label><select id="il-player"></select></div>
+        <div class="field"><label for="il-note">NOTE</label><input id="il-note" maxlength="120" placeholder="e.g. 60-day IL, elbow"></div>
+        <div><button type="button" class="btn" id="il-add">ADD TO IR LIST</button></div>
+      </div>
+      <div id="il-list" style="margin-top: 10px"></div>
+      <div class="msg" id="il-msg" role="status"></div>
+    </section>
+
+    <section class="panel">
+      <h2>NIGHTLY UPDATES</h2>
+      <div id="jobs" class="status"></div>
+    </section>
+
+    <section class="panel danger">
+      <h2>REMOVE TEST TEAMS</h2>
+      <p class="status" style="padding: 0 0 10px">Permanently deletes the test teams (entry IDs starting with "test") and their picks, trades and standings. Real entries are not touched.</p>
+      <div class="fields">
+        <div class="field"><label for="del-confirm">TYPE DELETE TEST TEAMS</label><input id="del-confirm" autocomplete="off"></div>
+        <div><button type="button" class="btn" id="del-go">DELETE TEST TEAMS</button></div>
+      </div>
+      <div class="msg" id="del-msg" role="status"></div>
+    </section>
+  </div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script>
+(function () {
+  const PW_KEY = 'aabl_admin_pw';
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = id => document.getElementById(id);
+  let pw = null, state = null, pool = null;
+  try { pw = sessionStorage.getItem(PW_KEY); } catch (e) { /* ignore */ }
+
+  async function api(action, extra = {}) {
+    const res = await fetch(AASN_API_URL + '/aabl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, password: pw, ...extra }) });
+    return res.json();
+  }
+  function msg(id, text, ok) { const m = $(id); m.textContent = text || ''; m.className = 'msg ' + (ok ? 'ok' : 'err'); }
+
+  // datetime-local <-> ISO, in Eastern time
+  function toLocalInput(iso) {
+    if (!iso) return '';
+    const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso));
+    const g = t => p.find(x => x.type === t).value;
+    return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`;
+  }
+  function fromLocalInput(v) {
+    if (!v) return null;
+    // Find the UTC instant whose Eastern wall-clock time equals v (handles EST/EDT).
+    const guess = new Date(v + ':00Z');
+    for (const off of [4, 5]) { const d = new Date(guess.getTime() + off * 3600000); if (toLocalInput(d.toISOString()) === v) return d.toISOString(); }
+    return new Date(v).toISOString();
+  }
+
+  async function login(e) {
+    if (e) e.preventDefault();
+    if (!pw) pw = $('pw').value;
+    if (!AASN_API_URL) { msg('login-msg', 'The admin service is not connected.'); return; }
+    const out = await api('adminLogin');
+    if (!out.success) { msg('login-msg', out.error); pw = null; try { sessionStorage.removeItem(PW_KEY); } catch (er) { /* ignore */ } return; }
+    try { sessionStorage.setItem(PW_KEY, pw); } catch (er) { /* ignore */ }
+    $('login').classList.add('hide'); $('app').classList.remove('hide'); $('logout').hidden = false;
+    await refresh();
+  }
+
+  async function refresh() {
+    const out = await api('adminOverview');
+    if (!out.success) { msg('entries-msg', out.error); return; }
+    state = out;
+    if (!pool) {
+      const opts = await aasnSelect('box_options', `select=option_id,box_id,mlb_id,role,player:players(full_name,team_abbr)&season=eq.${out.season}&order=box_id`, 'aabl');
+      pool = opts;
+    }
+    renderConfig(); renderEntries(); renderTradeForm(); renderIL(); renderJobs();
+  }
+
+  function renderConfig() {
+    const c = state.config || {};
+    $('c-signups').checked = !!c.signups_open; $('c-locked').checked = !!c.picks_locked;
+    $('c-opening').value = toLocalInput(c.opening_day); $('c-deadline').value = toLocalInput(c.trade_deadline);
+    $('c-fee').value = c.entry_fee ?? 10; $('c-moves').value = c.season_moves ?? 2; $('c-pay').value = c.payment_info || '';
+  }
+
+  function renderEntries() {
+    const list = state.entries, fee = Number(state.config.entry_fee) || 0;
+    const paid = list.filter(e => e.paid && !e.free_entry).length, free = list.filter(e => e.free_entry).length;
+    $('pot').innerHTML = `
+      <div class="stat"><b>${list.length}</b><span>ENTRIES</span></div>
+      <div class="stat"><b>${paid}</b><span>PAID</span></div>
+      <div class="stat"><b>${list.length - paid - free}</b><span>UNPAID</span></div>
+      <div class="stat"><b>${free}</b><span>FREE ENTRIES</span></div>
+      <div class="stat"><b>$${(paid * fee).toLocaleString()}</b><span>COLLECTED</span></div>
+      <div class="stat"><b>$${((list.length - free) * fee).toLocaleString()}</b><span>POT IF ALL PAY</span></div>`;
+    $('entries').innerHTML = list.length ? list.map(e => `<tr>
+      <td class="team">${esc(e.team_name)}</td><td>${esc(e.manager_name)}</td><td>${esc(e.email)}</td><td>${e.entry_num}</td>
+      <td>${new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Toronto' })}</td>
+      <td>${e.moves_used}/${state.config.season_moves}</td>
+      <td><input type="checkbox" aria-label="Paid: ${esc(e.team_name)}" data-paid="${esc(e.entry_id)}" ${e.paid ? 'checked' : ''}></td>
+      <td><input type="checkbox" aria-label="Free entry: ${esc(e.team_name)}" data-free="${esc(e.entry_id)}" ${e.free_entry ? 'checked' : ''}></td>
+      <td><button type="button" class="btn ghost small" data-resend="${esc(e.entry_id)}" ${state.email ? '' : 'disabled title="Gmail not set up yet"'}>RESEND EMAIL</button></td>
+    </tr>`).join('') : '<tr><td colspan="9">No entries yet.</td></tr>';
+  }
+
+  function renderTradeForm() {
+    const ents = [...state.entries].sort((a, b) => a.team_name.localeCompare(b.team_name));
+    $('t-entry').innerHTML = '<option value="">Pick a team…</option>' + ents.map(e => `<option value="${esc(e.entry_id)}">${esc(e.team_name)}</option>`).join('');
+    const boxes = [...new Set(pool.map(o => o.box_id))];
+    $('t-box').innerHTML = '<option value="">Pick a box…</option>' + boxes.map(b => `<option value="${b}">Box ${b}</option>`).join('');
+    $('t-opt').innerHTML = '<option value="">Pick a box first</option>';
+    const players = [...new Map(pool.map(o => [o.mlb_id, o])).values()].sort((a, b) => a.player.full_name.localeCompare(b.player.full_name));
+    $('il-player').innerHTML = '<option value="">Pick a player…</option>' + players.map(o => `<option value="${o.mlb_id}">${esc(o.player.full_name)} (${esc(o.player.team_abbr || '—')})</option>`).join('');
+  }
+  $('t-box').addEventListener('change', () => {
+    const b = Number($('t-box').value);
+    $('t-opt').innerHTML = b ? pool.filter(o => o.box_id === b).map(o => `<option value="${o.option_id}">${esc(o.player.full_name)} (${esc(o.player.team_abbr || '—')})${o.role === 'pitcher' ? ' · P' : ''}</option>`).join('') : '<option value="">Pick a box first</option>';
+  });
+
+  function renderIL() {
+    $('il-list').innerHTML = state.il.length ? state.il.map(r => `<div class="il-row"><span><b>${esc(r.player ? r.player.full_name : r.mlb_id)}</b> <span class="status" style="padding:0">${esc(r.player ? r.player.team_abbr : '')}${r.note ? ' · ' + esc(r.note) : ''}</span></span>
+      <button type="button" class="btn ghost small" data-unil="${r.mlb_id}">REMOVE</button></div>`).join('') : '<p class="status" style="padding: 0">Nobody on the IR list.</p>';
+  }
+
+  function renderJobs() {
+    $('jobs').innerHTML = state.jobs.length ? state.jobs.map(j => {
+      const d = j.detail || {};
+      return `<div>${j.ok === true ? '✅' : j.ok === false ? '❌' : '⏳'} ${esc(j.job)} · ${esc(j.run_date || '')} · ${new Date(j.started_at).toLocaleString('en-US', { timeZone: 'America/Toronto', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${d.games != null ? ` · ${d.games} games` : ''}${d.error ? ' · ' + esc(d.error) : ''}</div>`;
+    }).join('') : 'No runs yet.';
+  }
+
+  // ---------- events ----------
+  $('login').addEventListener('submit', e => login(e).catch(err => msg('login-msg', 'Could not reach the admin service.')));
+  $('logout').addEventListener('click', () => { try { sessionStorage.removeItem(PW_KEY); } catch (e) { /* ignore */ } location.reload(); });
+
+  $('cfg').addEventListener('submit', async e => {
+    e.preventDefault();
+    msg('cfg-msg', 'Saving…', true);
+    const out = await api('adminUpdateConfig', { config: {
+      signups_open: $('c-signups').checked, picks_locked: $('c-locked').checked,
+      opening_day: fromLocalInput($('c-opening').value), trade_deadline: fromLocalInput($('c-deadline').value),
+      entry_fee: $('c-fee').value, season_moves: $('c-moves').value, payment_info: $('c-pay').value } });
+    msg('cfg-msg', out.success ? 'Settings saved.' : out.error, out.success);
+    if (out.success) refresh();
+  });
+
+  $('entries').addEventListener('change', async e => {
+    const p = e.target.closest('[data-paid],[data-free]');
+    if (!p) return;
+    const id = p.dataset.paid || p.dataset.free, row = p.closest('tr');
+    const paid = row.querySelector('[data-paid]').checked, free = row.querySelector('[data-free]').checked;
+    const out = await api('adminSetPaid', { entryId: id, paid, free });
+    msg('entries-msg', out.success ? 'Saved.' : out.error, out.success);
+    if (out.success) { const en = state.entries.find(x => x.entry_id === id); Object.assign(en, { paid, free_entry: free }); renderEntries(); }
+  });
+  $('entries').addEventListener('click', async e => {
+    const b = e.target.closest('[data-resend]');
+    if (!b) return;
+    b.disabled = true; b.textContent = 'SENDING…';
+    const out = await api('adminResendEmail', { entryId: b.dataset.resend });
+    msg('entries-msg', out.success ? 'Confirmation re-sent with a new private link (the old link no longer works).' : out.error, out.success);
+    b.disabled = false; b.textContent = 'RESEND EMAIL';
+  });
+
+  $('t-go').addEventListener('click', async () => {
+    const entryId = $('t-entry').value, boxId = Number($('t-box').value), optionId = Number($('t-opt').value);
+    if (!entryId || !boxId || !optionId) { msg('t-msg', 'Pick a team, a box and a player.'); return; }
+    msg('t-msg', 'Recording…', true);
+    const out = await api('adminTrade', { entryId, boxId, optionId });
+    msg('t-msg', out.success ? `Trade recorded${out.preseason ? ' (pre-season, free)' : `, ${out.banked} points banked`}.` : out.error, out.success);
+    if (out.success) refresh();
+  });
+
+  $('il-add').addEventListener('click', async () => {
+    const id = Number($('il-player').value);
+    if (!id) { msg('il-msg', 'Pick a player.'); return; }
+    const out = await api('adminSetIL', { mlbId: id, note: $('il-note').value });
+    msg('il-msg', out.success ? 'Added to the IR list.' : out.error, out.success);
+    if (out.success) { $('il-note').value = ''; refresh(); }
+  });
+  $('il-list').addEventListener('click', async e => {
+    const b = e.target.closest('[data-unil]');
+    if (!b) return;
+    const out = await api('adminSetIL', { mlbId: Number(b.dataset.unil), remove: true });
+    msg('il-msg', out.success ? 'Removed from the IR list.' : out.error, out.success);
+    if (out.success) refresh();
+  });
+
+  $('del-go').addEventListener('click', async () => {
+    const out = await api('adminDeleteTestData', { confirm: $('del-confirm').value.trim() });
+    msg('del-msg', out.success ? 'Test teams removed.' : out.error, out.success);
+    if (out.success) { $('del-confirm').value = ''; refresh(); }
+  });
+
+  if (pw) login().catch(() => { pw = null; });
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>
