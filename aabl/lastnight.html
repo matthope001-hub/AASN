@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Last Night — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="cards.css">
+<style>
+.day-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.day-label { flex: 1 1 220px; text-align: center; font-family: var(--display); font-size: 22px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+.mini-title { font-size: 16px; font-weight: 700; letter-spacing: .5px; color: var(--dim); margin: 0 0 8px; }
+.panel { background: var(--panel); border: 1px solid var(--border); }
+.trow { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--row); }
+.trow:first-child { border-top: 0; }
+.trow .rk { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+.trow .tm { background: none; border: 0; padding: 0; color: var(--text); font-family: var(--cond); font-weight: 700; font-size: 16px; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: #3A5A88; text-underline-offset: 3px; }
+.trow .pt { font-family: var(--mono); font-weight: 700; color: #7EE2A8; }
+.prow { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--row); cursor: pointer; }
+.prow:first-child { border-top: 0; }
+.prow:hover, .prow:focus-visible { background: color-mix(in srgb, var(--red) 14%, var(--panel)); outline: none; }
+.prow img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: var(--panel-2); }
+.prow b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prow small { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.prow .pt { font-family: var(--mono); font-weight: 700; font-size: 15px; text-align: right; }
+.prow .pt.neg { color: #FF8A7A; }
+.prow .own { display: block; font-size: 10px; font-weight: 400; color: var(--dim); }
+.empty { padding: 14px; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="lastnight"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">LAST NIGHT'S STATS</h1>
+  <div class="day-bar">
+    <button type="button" class="tab" id="prev" aria-label="Previous game day">◀ PREV</button>
+    <div class="day-label" id="day-label">—</div>
+    <button type="button" class="tab" id="next" aria-label="Next game day">NEXT ▶</button>
+  </div>
+  <div class="grid2">
+    <section>
+      <h3 class="mini-title">HOW DID YOUR TEAM DO?</h3>
+      <div class="panel" id="teams"><div class="empty">Loading…</div></div>
+    </section>
+    <section>
+      <h3 class="mini-title" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap">
+        <span>POOL PLAYERS</span>
+        <span class="controls" role="tablist" aria-label="Filter" style="margin: 0">
+          <button type="button" class="tab active" data-f="all">ALL</button>
+          <button type="button" class="tab" data-f="hitter">HITTERS</button>
+          <button type="button" class="tab" data-f="pitcher">PITCHERS</button>
+        </span>
+      </h3>
+      <div class="panel" id="players"><div class="empty">Loading…</div></div>
+    </section>
+  </div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
+<script src="cards.js"></script>
+<script src="teams.js"></script>
+<script src="nights.js"></script>
+<script>
+(function () {
+  const N = aablNights;
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = v => { const x = Number(v) || 0; return Number.isInteger(x) ? x : x.toFixed(1); };
+  let date = null, nav = {}, list = [], own = new Map(), filter = 'all', seasonStats = new Map();
+
+  async function show(d) {
+    date = d;
+    history.replaceState(null, '', 'lastnight.html?d=' + d);
+    document.getElementById('day-label').textContent = N.fmtDate(d).toUpperCase();
+    nav = await N.datesAround(d);
+    document.getElementById('prev').disabled = !nav.prev;
+    document.getElementById('next').disabled = !nav.next;
+    const p = await N.pool();
+    const year = Number(d.slice(0, 4));
+    [list, own] = await Promise.all([N.lines(d, d), own.size ? Promise.resolve(own) : N.ownership()]);
+    const ids = [...new Set(list.map(s => s.mlb_id))];
+    const ss = ids.length ? await aasnSelect('stats_season', `select=*&season=eq.${year}&mlb_id=in.(${ids.join(',')})`, 'aabl') : [];
+    seasonStats = new Map(ss.map(s => [s.mlb_id + '|' + s.role, s]));
+    renderPlayers();
+    renderTeams(p.season, d);
+  }
+
+  function renderPlayers() {
+    const el = document.getElementById('players');
+    const rows = list.filter(s => filter === 'all' || s.role === filter);
+    if (!rows.length) { el.innerHTML = '<div class="empty">No pool players played this day.</div>'; return; }
+    el.innerHTML = rows.map(s => {
+      const key = 'ln|' + s.key;
+      const year = Number(date.slice(0, 4));
+      aablCards.register(key, { player: s.player, stats: seasonStats.get(s.key) || {}, role: s.role, statsSeason: year });
+      const n = own.get(s.option.option_id);
+      return `<div class="prow" data-key="${esc(key)}" role="button" tabindex="0" aria-label="${esc(s.player.full_name)} player card">
+        <img src="${esc(s.player.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+        <span><b>${esc(s.player.full_name)}</b><small>${esc(s.player.team_abbr || '—')} · BOX ${s.option.box_id} · ${esc(N.lineText(s))}</small></span>
+        <span class="pt ${s.points < 0 ? 'neg' : ''}">${s.points > 0 ? '+' : ''}${fmt(s.points)}${n ? `<span class="own">${n} team${n > 1 ? 's' : ''}</span>` : ''}</span>
+      </div>`;
+    }).join('');
+  }
+
+  async function renderTeams(season, d) {
+    const el = document.getElementById('teams');
+    const [rows, teams] = await Promise.all([
+      aasnSelect('standings', `select=entry_id,last_night,rank&season=eq.${season}&snapshot_date=eq.${d}&order=last_night.desc`, 'aabl'),
+      aasnSelect('teams', `select=entry_id,team_name&season=eq.${season}`, 'aabl')
+    ]);
+    if (!rows.length) { el.innerHTML = '<div class="empty">No pool standings for this day yet.</div>'; return; }
+    const name = new Map(teams.map(t => [t.entry_id, t.team_name]));
+    el.innerHTML = rows.map((r, i) => `<div class="trow"><span class="rk">${i + 1}</span>
+      <button type="button" class="tm" data-entry="${esc(r.entry_id)}" data-name="${esc(name.get(r.entry_id) || '')}" data-rank="${r.rank}">${esc(name.get(r.entry_id) || '—')}</button>
+      <span class="pt">${Number(r.last_night) > 0 ? '+' : ''}${fmt(r.last_night)}</span></div>`).join('');
+  }
+
+  document.getElementById('prev').addEventListener('click', () => nav.prev && show(nav.prev));
+  document.getElementById('next').addEventListener('click', () => nav.next && show(nav.next));
+  document.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
+    filter = b.dataset.f;
+    document.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('active', x === b));
+    renderPlayers();
+  }));
+
+  (async () => {
+    const q = new URLSearchParams(location.search).get('d');
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(q || '') ? q : await N.latestDate();
+    if (!d) { document.getElementById('players').innerHTML = '<div class="empty">No games yet.</div>'; document.getElementById('teams').innerHTML = ''; return; }
+    await show(d);
+  })().catch(e => { console.error(e); document.getElementById('players').innerHTML = '<div class="empty">Stats unavailable right now.</div>'; });
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

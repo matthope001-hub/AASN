@@ -9,7 +9,7 @@
     ['home', 'Home', './'],
     ['standings', 'Standings', 'standings.html'],
     ['players', 'Players', 'players.html'],
-    ['lastnight', 'Last Night', soon('Last Night')],
+    ['lastnight', 'Last Night', 'lastnight.html'],
     ['myteam', 'My Team', 'myteam.html']
   ];
   const MORE = [

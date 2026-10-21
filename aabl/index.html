@@ -85,83 +85,25 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 </div>
 </section>
 
+<section id="today-wrap" style="margin-bottom: 20px" hidden>
+<h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC">⚾ TODAY'S GAMES</h3>
+<div id="today-games" style="display: flex; flex-wrap: wrap; gap: 8px"></div>
+</section>
+
 <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 20px">
 <div>
-<h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC">⭐ STARS OF THE NIGHT</h3>
-<div style="background: #132E52; border: 1px solid #25446E; padding: 14px; display: flex; flex-direction: column; gap: 10px">
-
-<div style="display: flex; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #1A3860">
-<span style="font-family: 'Bosox', serif; font-size: 22px; color: #F06A70; width: 24px">1</span>
-<div style="flex: 1; min-width: 0">
-<div style="font-weight: 700; font-size: 17px">[PLAYER]</div>
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9B8CC">[TEAM] · 2-4, 2 HR, 5 RBI</div>
-</div>
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px">+[##]</span>
-</div>
-
-<div style="display: flex; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #1A3860">
-<span style="font-family: 'Bosox', serif; font-size: 22px; color: #F06A70; width: 24px">2</span>
-<div style="flex: 1; min-width: 0">
-<div style="font-weight: 700; font-size: 17px">[PLAYER]</div>
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9B8CC">[TEAM] · 7 IP, 11 K, W</div>
-</div>
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px">+[##]</span>
-</div>
-
-<div style="display: flex; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #1A3860">
-<span style="font-family: 'Bosox', serif; font-size: 22px; color: #F06A70; width: 24px">3</span>
-<div style="flex: 1; min-width: 0">
-<div style="font-weight: 700; font-size: 17px">[PLAYER]</div>
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9B8CC">[TEAM] · 3-5, 3B, 2 SB</div>
-</div>
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px">+[##]</span>
-</div>
-
-</div>
+<h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC; display: flex; justify-content: space-between; gap: 8px">⭐ STARS OF THE NIGHT <span id="stars-date" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 400; color: #F06A70"></span></h3>
+<div id="stars" style="background: #132E52; border: 1px solid #25446E; padding: 6px 14px"><p style="font-family: 'JetBrains Mono', monospace; color: #A9B8CC; padding: 8px 0">Loading…</p></div>
 </div>
 <div>
-<h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC">🏆 PLAYERS OF THE WEEK <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 400; color: #F06A70">[DATES]</span></h3>
-<div style="background: #132E52; border: 1px solid #25446E; padding: 14px; display: flex; flex-direction: column; gap: 10px">
-
-<div style="display: flex; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #1A3860">
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9B8CC; width: 32px">OF</span>
-<div style="flex: 1; min-width: 0; font-weight: 700; font-size: 17px">[PLAYER]</div>
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px">[##]</span>
-</div>
-
-<div style="display: flex; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #1A3860">
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9B8CC; width: 32px">SP</span>
-<div style="flex: 1; min-width: 0; font-weight: 700; font-size: 17px">[PLAYER]</div>
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px">[##]</span>
-</div>
-
-<div style="display: flex; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #1A3860">
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9B8CC; width: 32px">SS</span>
-<div style="flex: 1; min-width: 0; font-weight: 700; font-size: 17px">[PLAYER]</div>
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px">[##]</span>
-</div>
-
-</div>
+<h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC; display: flex; justify-content: space-between; gap: 8px">🏆 PLAYERS OF THE WEEK <span id="week-dates" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 400; color: #F06A70"></span></h3>
+<div id="week" style="background: #132E52; border: 1px solid #25446E; padding: 6px 14px"><p style="font-family: 'JetBrains Mono', monospace; color: #A9B8CC; padding: 8px 0">Loading…</p></div>
 </div>
 </section>
 
 <section>
-<h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC">🔥 LAST NIGHT'S PERFORMERS</h3>
-<div style="display: flex; flex-wrap: wrap; gap: 8px">
-
-<span style="background: #132E52; border: 1px solid #25446E; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px">[PLAYER] <span style="color: #F06A70">HR</span></span>
-
-<span style="background: #132E52; border: 1px solid #25446E; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px">[PLAYER] <span style="color: #F06A70">2 HR</span></span>
-
-<span style="background: #132E52; border: 1px solid #25446E; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px">[PLAYER] <span style="color: #F06A70">SV</span></span>
-
-<span style="background: #132E52; border: 1px solid #25446E; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px">[PLAYER] <span style="color: #F06A70">W · 9 K</span></span>
-
-<span style="background: #132E52; border: 1px solid #25446E; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px">[PLAYER] <span style="color: #F06A70">3 SB</span></span>
-
-<span style="background: #132E52; border: 1px solid #25446E; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px">[PLAYER] <span style="color: #F06A70">QS</span></span>
-
-</div>
+<h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC; display: flex; justify-content: space-between; gap: 8px">🔥 LAST NIGHT'S PERFORMERS <a href="lastnight.html" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 400; color: #F06A70">ALL STATS →</a></h3>
+<div id="performers" style="display: flex; flex-wrap: wrap; gap: 8px"></div>
 </section>
 
 </main>
@@ -247,12 +189,62 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
     else if (!cfg.signups_open) btn.textContent = '⚾ SIGN-UPS OPEN SOON';
   }
 
+
+  // ---------- Stars of the Night, Players of the Week, Performers, Today's games ----------
+  async function loadNights() {
+    const N = aablNights;
+    const esc2 = esc;
+    const f1 = v => { const x = Number(v) || 0; return Number.isInteger(x) ? x : x.toFixed(1); };
+    let seasonStats = new Map(), statsYear = null;
+    const row = (s, lead, key) => {
+      aablCards.register(key, { player: s.player, stats: seasonStats.get(s.key) || {}, role: s.role, statsSeason: statsYear });
+      return `<div data-key="${esc2(key)}" role="button" tabindex="0" style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #1A3860; cursor: pointer">
+        <span style="font-family: 'Bosox', serif; font-size: 22px; color: #F06A70; width: 26px">${lead}</span>
+        <img src="${esc2(s.player.headshot_url)}" alt="" width="36" height="36" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #0A1E38" onerror="this.style.visibility='hidden'">
+        <div style="flex: 1; min-width: 0"><div style="font-weight: 700; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">${esc2(s.player.full_name)}</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A9B8CC; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">${esc2(s.player.team_abbr || '—')} · ${esc2(N.lineText(s))}</div></div>
+        <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px">${s.points > 0 ? '+' : ''}${f1(s.points)}</span></div>`;
+    };
+    const empty = t => `<p style="font-family: 'JetBrains Mono', monospace; color: #A9B8CC; padding: 8px 0">${t}</p>`;
+
+    // Today's games (Eastern)
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const games = await aasnSelect('schedule', `select=away_abbr,home_abbr,start_time,status,away_score,home_score&game_date=eq.${today}&order=start_time`, 'aabl');
+    if (games.length) {
+      document.getElementById('today-wrap').hidden = false;
+      document.getElementById('today-games').innerHTML = games.map(g => {
+        const t = new Date(g.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' });
+        const live = g.away_score != null ? `${g.away_score}–${g.home_score} · ${esc2(g.status || '')}` : (t === '3:33 AM' ? 'TBD' : t);
+        return `<span style="background: #132E52; border: 1px solid #25446E; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px">${esc2(g.away_abbr)} @ ${esc2(g.home_abbr)} <span style="color: #A9B8CC">${live}</span></span>`;
+      }).join('');
+    }
+
+    const last = await N.latestDate();
+    if (!last) { ['stars', 'week'].forEach(id => document.getElementById(id).innerHTML = empty('Starts after Opening Day.')); return; }
+    const from = N.addDays(last, -6);
+    const [day, wk] = await Promise.all([N.lines(last, last), N.lines(from, last)]);
+    statsYear = Number(last.slice(0, 4));
+    const topIds = [...new Set([...day.slice(0, 3), ...wk.slice(0, 3)].map(x => x.mlb_id))];
+    if (topIds.length) {
+      const ss = await aasnSelect('stats_season', `select=*&season=eq.${statsYear}&mlb_id=in.(${topIds.join(',')})`, 'aabl');
+      seasonStats = new Map(ss.map(x => [x.mlb_id + '|' + x.role, x]));
+    }
+    document.getElementById('stars-date').textContent = N.fmtDate(last, { month: 'short', day: 'numeric' }).toUpperCase();
+    document.getElementById('week-dates').textContent = (N.fmtDate(from, { month: 'short', day: 'numeric' }) + ' – ' + N.fmtDate(last, { month: 'short', day: 'numeric' })).toUpperCase();
+    document.getElementById('stars').innerHTML = day.length ? day.slice(0, 3).map((s, i) => row(s, i + 1, 'st|' + s.key)).join('') : empty('No pool players played.');
+    document.getElementById('week').innerHTML = wk.length ? wk.slice(0, 3).map((s, i) => row(s, i + 1, 'wk|' + s.key)).join('') : empty('No games this week.');
+    const hi = day.map(s => ({ s, h: N.highlight(s) })).filter(x => x.h).slice(0, 12);
+    document.getElementById('performers').innerHTML = hi.length ? hi.map(({ s, h }) => `<span style="background: #132E52; border: 1px solid #25446E; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px">${esc2(s.player.full_name)} <span style="color: #F06A70">${esc2(h)}</span></span>`).join('')
+      : empty('No standout lines.');
+  }
+
   async function load() {
     const teams = await aasnSelect('teams', `select=entry_id,team_name&season=eq.${SEASON}`, 'aabl');
     document.getElementById('hero-entries').textContent = teams.length;
     document.getElementById('hero-pool').textContent = '$' + (teams.length * 10).toLocaleString();
     await Promise.all([
       loadHero().catch(e => console.error(e)),
+      loadNights().catch(e => console.error(e)),
       loadStandings().catch(e => { console.error(e); document.getElementById('home-standings').innerHTML = '<p style="color: #A9B8CC">Standings unavailable right now.</p>'; }),
       loadDivisions().catch(e => { console.error(e); document.getElementById('division-leaders').innerHTML = '<p style="color: #A9B8CC">Division leaders unavailable right now.</p>'; })
     ]);
@@ -265,6 +257,7 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 <script src="cards.js"></script>
 <script src="teams.js"></script>
 <script src="standings-table.js"></script>
+<script src="nights.js"></script>
 <script src="nav.js"></script>
 </body>
 </html>
