@@ -27,15 +27,7 @@ a{color:#F06A70}a:hover{color:#FF9EA2}
 <img src="assets/aabl-badge.png" alt="" width="52" height="52" style="width: 52px; height: 52px; display: block">
 AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</span>
 </a>
-<nav aria-label="AABL" style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
-<a href="./" style="color: #F06A70; text-decoration: none; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; padding: 12px 0 4px; border-bottom: 2px solid #F06A70">HOME</a>
-<a href="#" style="color: #A9B8CC; text-decoration: none; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; padding: 12px 0 4px; border-bottom: 2px solid transparent">STANDINGS</a>
-<a href="players.html" style="color: #A9B8CC; text-decoration: none; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; padding: 12px 0 4px; border-bottom: 2px solid transparent">PLAYERS</a>
-<a href="boxes.html" style="color: #A9B8CC; text-decoration: none; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; padding: 12px 0 4px; border-bottom: 2px solid transparent">BOXES</a>
-<a href="#" style="color: #A9B8CC; text-decoration: none; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; padding: 12px 0 4px; border-bottom: 2px solid transparent">LAST NIGHT</a>
-<a href="#" style="color: #A9B8CC; text-decoration: none; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; padding: 12px 0 4px; border-bottom: 2px solid transparent">MY TEAM</a>
-<a href="#" style="color: #A9B8CC; text-decoration: none; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; padding: 12px 0 4px; border-bottom: 2px solid transparent">MORE ▾</a>
-</nav>
+<nav id="aabl-nav" aria-label="AABL" data-active="home"></nav>
 <button type="button" style="min-height: 44px; padding: 0 18px; background: transparent; border: 1px solid #F06A70; color: #F06A70; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; cursor: pointer">SIGN IN</button>
 </div>
 </header>
@@ -245,5 +237,6 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
   load().catch(console.error);
 })();
 </script>
+<script src="nav.js"></script>
 </body>
 </html>

@@ -66,14 +66,7 @@ footer a { color: var(--dim); text-decoration: none; }
 <header>
   <div class="wrap hdr">
     <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
-    <nav aria-label="AABL">
-      <a href="./">HOME</a>
-      <a href="#">STANDINGS</a>
-      <a href="players.html">PLAYERS</a>
-      <a href="boxes.html" class="active">BOXES</a>
-      <a href="#">MY TEAM</a>
-      <a href="#">MORE ▾</a>
-    </nav>
+    <nav id="aabl-nav" aria-label="AABL" data-active="boxes"></nav>
     <button type="button" class="signin">SIGN IN</button>
   </div>
 </header>
@@ -177,5 +170,6 @@ footer a { color: var(--dim); text-decoration: none; }
   });
 })();
 </script>
+<script src="nav.js"></script>
 </body>
 </html>

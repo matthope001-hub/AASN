@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coming soon — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<style>
+.soon { text-align: center; padding: 72px 0 40px; }
+.soon img { width: 140px; height: 140px; margin-bottom: 20px; }
+.soon h1 { font-family: var(--display); font-weight: 400; font-size: 40px; margin-bottom: 8px; }
+.soon p { color: var(--dim); font-size: 18px; }
+.soon a { display: inline-flex; align-items: center; min-height: 48px; margin-top: 24px; padding: 0 28px; background: var(--red); color: #fff; text-decoration: none; font-family: var(--display); font-size: 18px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+<main class="wrap soon">
+  <img src="assets/aabl-badge.png" alt="">
+  <h1 id="soon-title">COMING SOON</h1>
+  <p>This page is still being built for the 2027 season.</p>
+  <a href="./">BACK TO AABL HOME</a>
+</main>
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+<script>
+(function () {
+  const map = { 'Standings': 'standings', 'Last Night': 'lastnight', 'My Team': 'myteam', 'Schedule': 'schedule', 'Records': 'records',
+    'IR List': 'ir', 'Activity': 'activity', 'Rules': 'rules', 'Sign Up': 'signup', "What's New": 'whatsnew', 'Admin': 'admin' };
+  const p = new URLSearchParams(location.search).get('p') || '';
+  const name = Object.prototype.hasOwnProperty.call(map, p) ? p : '';
+  if (name) {
+    document.getElementById('soon-title').textContent = name.toUpperCase() + ' — COMING SOON';
+    document.title = name + ' — AABL 2027';
+    document.getElementById('aabl-nav').dataset.active = map[name];
+  }
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>
