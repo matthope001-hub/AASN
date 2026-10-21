@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="base.css">
 <link rel="stylesheet" href="cards.css">
+<link rel="stylesheet" href="standings.css">
 <style>
 .note { color: var(--dim); font-size: 14px; margin: -8px 0 12px; }
 .note .mono { font-family: var(--mono); font-size: 12px; }
@@ -75,6 +76,7 @@ td.pts { font-weight: 700; color: var(--red-text); }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
 <script src="cards.js"></script>
 <script src="teams.js"></script>
+<script src="standings-table.js"></script>
 <script>
 (function () {
   const SEASON = 2027, STATS_SEASON = 2026;
@@ -84,76 +86,7 @@ td.pts { font-weight: 700; color: var(--red-text); }
   const num = v => Number(v) || 0;
   const fmt = v => num(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-  let teams = [], rows = [], snaps = [], divWon = new Map(), divPicks = new Map(), seasonMoves = 2, finalBonus = false;
-  let sort = { key: 'rank', dir: 'asc' };
-
-  // ---------- Standings table ----------
-  const SORTS = {
-    rank: r => r.rank, players: r => num(r.players_points), div: r => num(r.division_bonus), total: r => num(r.points)
-  };
-  function sortedRows() {
-    const f = SORTS[sort.key];
-    const dir = sort.dir === 'asc' ? 1 : -1;
-    return [...rows].sort((a, b) => (f(a) - f(b)) * dir || a.rank - b.rank);
-  }
-  const head = (key, label, cls, title) => {
-    const on = sort.key === key;
-    const arrow = on && key !== 'rank' ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : '';
-    return `<th class="${cls || ''} ${on ? 'sorted' : ''}" title="${esc(title)}" aria-sort="${on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" data-st-sort="${key}">${label}${arrow}</button></th>`;
-  };
-  function moveHtml(r) {
-    if (r.prevRank == null) return '<span class="flat">—</span>';
-    const d = r.prevRank - r.rank;
-    return d > 0 ? `<span class="up">▲${d}</span>` : d < 0 ? `<span class="down">▼${-d}</span>` : '<span class="flat">–</span>';
-  }
-  function deltaHtml(r) {
-    if (r.prevPoints == null) return '<span class="flat">—</span>';
-    const d = num(r.points) - r.prevPoints;
-    return d > 0 ? `<span class="up">+${fmt(d)}</span>` : d < 0 ? `<span class="down">${fmt(d)}</span>` : '<span class="flat">0.0</span>';
-  }
-  function divHtml(r) {
-    const picks = divPicks.get(r.entry_id) || new Map();
-    const dots = DIVS.map(d => {
-      const on = picks.get(d) && divWon.get(d) === picks.get(d);
-      return `<span class="dot${on ? ' on' : ''}" title="${esc(d)}: ${esc(picks.get(d) || '—')}${on ? ' (leading)' : ''}"></span>`;
-    }).join('');
-    const b = num(r.division_bonus);
-    return `<span class="dots">${dots}</span><span class="bonus" style="color:${b ? 'var(--gold)' : 'var(--dim)'}">${b ? '+' + b : '—'}</span>`;
-  }
-
-  function renderTable() {
-    const el = document.getElementById('standings');
-    if (!rows.length) { el.innerHTML = '<p class="status">No standings yet. They start after Opening Day.</p>'; return; }
-    el.innerHTML = `<div class="scroll"><table>
-      <thead><tr>
-        ${head('rank', 'RANK', '', 'Back to the normal ranking')}<th><span>TEAM</span></th>
-        ${head('players', 'PLAYERS', 'num', 'Points earned by players - click to sort')}
-        ${head('div', 'DIV' + (finalBonus ? '' : '*'), '', 'Division picks leading now, +25 each - click to sort')}
-        ${head('total', finalBonus ? 'TOTAL' : 'PROJECTED*', 'num col-hide-sm', 'Players plus the division bonus - click to sort')}
-        <th class="num col-hide-sm"><span>±PTS (24H)</span></th><th class="col-hide-sm"><span>MOVE</span></th>
-        <th class="num" title="In-season trades used out of the season limit"><span>TRADES</span></th><th class="col-hide-sm"><span>PAYOUT</span></th>
-      </tr></thead>
-      <tbody>${sortedRows().map(r => `<tr>
-        <td class="${r.rank === 1 ? 'rank1' : ''}">${r.rank}</td>
-        <td><button type="button" class="team-link" data-entry="${esc(r.entry_id)}" data-name="${esc(r.team_name)}" data-rank="${r.rank}" data-points="${r.points}">${esc(r.team_name)}</button></td>
-        <td class="num pts">${fmt(r.players_points)}</td>
-        <td>${divHtml(r)}</td>
-        <td class="num col-hide-sm" style="color:${finalBonus ? 'var(--red-text)' : 'var(--dim)'}">${fmt(r.points)}</td>
-        <td class="num col-hide-sm">${deltaHtml(r)}</td>
-        <td class="col-hide-sm">${moveHtml(r)}</td>
-        <td class="num">${num(r.moves_used)}/${seasonMoves}</td>
-        <td class="col-hide-sm" style="color:var(--dim)">TBD</td></tr>`).join('')}</tbody>
-    </table></div>
-    <p class="foot">Trades = in-season trades used out of ${seasonMoves}.</p>
-    ${finalBonus ? '' : '<p class="foot">* <span class="dot on" style="display:inline-block"></span> = a division pick that is leading now. Projected = players + 25 for each leading pick. The bonus is paid once, at the end of the regular season.</p>'}`;
-  }
-  document.getElementById('standings').addEventListener('click', e => {
-    const b = e.target.closest('[data-st-sort]');
-    if (!b) return;
-    const k = b.dataset.stSort;
-    sort = k === 'rank' ? { key: 'rank', dir: 'asc' } : (sort.key === k ? { key: k, dir: sort.dir === 'desc' ? 'asc' : 'desc' } : { key: k, dir: 'desc' });
-    renderTable();
-  });
+  let teams = [], snaps = [];
 
   // ---------- Points race (gap to 1st place, like AAHL) ----------
   let highlight = '';
@@ -267,37 +200,10 @@ td.pts { font-weight: 700; color: var(--red-text); }
 
   // ---------- Load ----------
   async function load() {
-    const [t, cfg, dates, winners] = await Promise.all([
-      aasnSelect('teams', `select=entry_id,team_name,moves_used&season=eq.${SEASON}`, 'aabl'),
-      aasnSelect('config', `select=season_moves&season=eq.${SEASON}`, 'aabl'),
-      aasnSelect('standings', `select=snapshot_date&season=eq.${SEASON}&order=snapshot_date.desc&limit=1`, 'aabl'),
-      aasnSelect('division_winners', 'select=season,division,team_abbr&order=season.desc', 'aabl')
-    ]);
-    teams = t;
-    if (cfg.length) seasonMoves = num(cfg[0].season_moves) || 2;
-    const latestDiv = winners.length ? winners[0].season : null;
-    divWon = new Map(winners.filter(w => w.season === latestDiv).map(w => [w.division, w.team_abbr]));
-    finalBonus = latestDiv === SEASON; // bonus is final only once this season's winners are set
-
-    if (dates.length) {
-      const latest = dates[0].snapshot_date;
-      snaps = await aasnSelect('standings', `select=entry_id,snapshot_date,points,players_points,division_bonus,rank&season=eq.${SEASON}&order=snapshot_date.asc`, 'aabl');
-      const allDates = [...new Set(snaps.map(s => s.snapshot_date))].sort();
-      const prevDate = allDates.length > 1 ? allDates[allDates.length - 2] : null;
-      const prev = new Map(snaps.filter(s => s.snapshot_date === prevDate).map(s => [s.entry_id, s]));
-      const info = new Map(teams.map(x => [x.entry_id, x]));
-      rows = snaps.filter(s => s.snapshot_date === latest).map(s => ({
-        ...s, team_name: (info.get(s.entry_id) || {}).team_name || '—', moves_used: (info.get(s.entry_id) || {}).moves_used,
-        prevRank: prev.has(s.entry_id) ? prev.get(s.entry_id).rank : null,
-        prevPoints: prev.has(s.entry_id) ? num(prev.get(s.entry_id).points) : null
-      }));
-      document.getElementById('stamp').textContent = 'Updated ' + latest;
-      try {
-        const dp = await aasnSelect('division_picks', `select=entry_id,division,team_abbr&entry_id=in.(${rows.map(r => '"' + r.entry_id + '"').join(',')})`, 'aabl');
-        dp.forEach(d => { if (!divPicks.has(d.entry_id)) divPicks.set(d.entry_id, new Map()); divPicks.get(d.entry_id).set(d.division, d.team_abbr); });
-      } catch (e) { /* hidden before the deadline */ }
-    }
-    renderTable();
+    const data = await aablStandings.load(SEASON);
+    teams = data.teams; snaps = data.snaps;
+    if (data.latest) document.getElementById('stamp').textContent = 'Updated ' + data.latest;
+    aablStandings.render(document.getElementById('standings'), data, { deltaLabel: '±PTS (24H)' });
     renderRace();
     renderCompare();
   }

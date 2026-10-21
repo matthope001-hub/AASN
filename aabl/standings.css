@@ -1,0 +1,21 @@
+/* AABL standings table — shared by the Home and Standings pages (standings-table.js). */
+.st-wrap { overflow-x: auto; }
+.st-wrap table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 14px; }
+.st-wrap th { text-align: left; color: var(--dim); font-size: 11px; letter-spacing: .5px; padding: 0; border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; background: var(--panel); z-index: 1; }
+.st-wrap th > span, .st-wrap th button { display: block; min-height: 40px; line-height: 40px; padding: 0 10px; }
+.st-wrap th button { width: 100%; background: none; border: 0; color: inherit; font: inherit; letter-spacing: inherit; text-align: inherit; cursor: pointer; }
+.st-wrap th.sorted { color: var(--red-text); }
+.st-wrap th.num, .st-wrap td.num { text-align: right; }
+.st-wrap td { padding: 8px 10px; border-bottom: 1px solid var(--row); white-space: nowrap; }
+.st-wrap td.rank1 { color: var(--gold); font-weight: 700; }
+.st-wrap td.pts { font-weight: 700; color: var(--red-text); }
+.st-wrap .team-link { background: none; border: 0; padding: 4px 0; min-height: 32px; color: var(--text); font-family: var(--cond); font-weight: 700; font-size: 15px; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: #3A5A88; text-underline-offset: 3px; }
+.st-wrap .team-link:hover { color: var(--red-text); }
+.st-wrap .up { color: #7EE2A8; } .st-wrap .down { color: #FF8A7A; } .st-wrap .flat { color: var(--dim); }
+.st-dots { display: inline-flex; gap: 3px; vertical-align: middle; }
+.st-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #2A4670; }
+.st-dot.on { background: var(--red-text); }
+.st-bonus { margin-left: 8px; }
+.st-foot { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 10px; }
+.st-empty { font-family: var(--mono); color: var(--dim); padding: 12px 0; }
+@media (max-width: 640px) { .st-wrap .col-hide-sm { display: none; } }

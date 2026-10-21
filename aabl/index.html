@@ -9,6 +9,7 @@
 <link rel="icon" type="image/png" href="assets/aabl-badge.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="cards.css">
+<link rel="stylesheet" href="standings.css">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -74,18 +75,7 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 
 <section style="margin-bottom: 20px">
 <h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC; display: flex; gap: 6px; align-items: center">CURRENT STANDINGS <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 400" id="standings-stamp"></span></h3>
-<div style="background: #132E52; border: 1px solid #25446E; padding: 14px; overflow-x: auto">
-<table style="width: 100%; min-width: 480px; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 14px">
-<thead><tr style="text-align: left; color: #A9B8CC; font-size: 12px; letter-spacing: 0.5px">
-<th style="padding: 8px 10px; border-bottom: 1px solid #25446E">RK</th>
-<th style="padding: 8px 10px; border-bottom: 1px solid #25446E">TEAM</th>
-<th style="padding: 8px 10px; border-bottom: 1px solid #25446E; text-align: center">LAST NIGHT</th>
-<th style="padding: 8px 10px; border-bottom: 1px solid #25446E; text-align: center">PTS</th>
-<th style="padding: 8px 10px; border-bottom: 1px solid #25446E; text-align: center">PAYOUT</th>
-</tr></thead>
-<tbody id="standings-body"><tr><td colspan="5" style="padding: 12px 10px; color: #A9B8CC">Loading…</td></tr></tbody>
-</table>
-</div>
+<div id="home-standings" style="background: #132E52; border: 1px solid #25446E; padding: 14px"><p style="font-family: 'JetBrains Mono', monospace; color: #A9B8CC">Loading…</p></div>
 </section>
 
 <section style="margin-bottom: 20px">
@@ -192,20 +182,10 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
   const fmt = v => { const x = Number(v) || 0; return Number.isInteger(x) ? x.toLocaleString() : x.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }); };
   const td = 'padding: 8px 10px; border-bottom: 1px solid #1A3860';
 
-  async function loadStandings(teams) {
-    const latest = await aasnSelect('standings', `select=snapshot_date&season=eq.${SEASON}&order=snapshot_date.desc&limit=1`, 'aabl');
-    const body = document.getElementById('standings-body');
-    if (!latest.length) { body.innerHTML = `<tr><td colspan="5" style="${td}; color: #A9B8CC">Standings start after Opening Day.</td></tr>`; return; }
-    const date = latest[0].snapshot_date;
-    const rows = await aasnSelect('standings', `select=entry_id,points,last_night,rank&season=eq.${SEASON}&snapshot_date=eq.${date}&order=rank&limit=10`, 'aabl');
-    const name = new Map(teams.map(t => [t.entry_id, t.team_name]));
-    document.getElementById('standings-stamp').textContent = 'UPDATED ' + date;
-    body.innerHTML = rows.map(r => `<tr>
-      <td style="${td}; font-weight: 700; ${r.rank === 1 ? 'color: #E5B53A' : ''}">${r.rank}</td>
-      <td style="${td}"><button type="button" data-entry="${esc(r.entry_id)}" data-name="${esc(name.get(r.entry_id) || '')}" data-rank="${r.rank}" data-points="${r.points}" style="background: none; border: 0; padding: 4px 0; min-height: 32px; color: #E8EDF1; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: #3A5A88; text-underline-offset: 3px">${esc(name.get(r.entry_id) || '—')}</button></td>
-      <td style="${td}; text-align: center; color: #F06A70">${Number(r.last_night) ? '+' + fmt(r.last_night) : '—'}</td>
-      <td style="${td}; text-align: center; font-weight: 700">${fmt(r.points)}</td>
-      <td style="${td}; text-align: center; color: #A9B8CC">TBD</td></tr>`).join('');
+  async function loadStandings() {
+    const data = await aablStandings.load(SEASON);
+    if (data.latest) document.getElementById('standings-stamp').textContent = 'UPDATED ' + data.latest;
+    aablStandings.render(document.getElementById('home-standings'), data, { deltaLabel: '±PTS', maxHeight: 470 });
   }
 
   async function loadDivisions() {
@@ -237,16 +217,18 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
     document.getElementById('hero-entries').textContent = teams.length;
     document.getElementById('hero-pool').textContent = '$' + (teams.length * 10).toLocaleString();
     await Promise.all([
-      loadStandings(teams).catch(e => { console.error(e); document.getElementById('standings-body').innerHTML = `<tr><td colspan="5" style="${td}; color: #A9B8CC">Standings unavailable right now.</td></tr>`; }),
+      loadStandings().catch(e => { console.error(e); document.getElementById('home-standings').innerHTML = '<p style="color: #A9B8CC">Standings unavailable right now.</p>'; }),
       loadDivisions().catch(e => { console.error(e); document.getElementById('division-leaders').innerHTML = '<p style="color: #A9B8CC">Division leaders unavailable right now.</p>'; })
     ]);
   }
-  load().catch(console.error);
+  // Wait for cards.js / teams.js / standings-table.js, loaded further down.
+  document.addEventListener('DOMContentLoaded', () => load().catch(console.error));
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
 <script src="cards.js"></script>
 <script src="teams.js"></script>
+<script src="standings-table.js"></script>
 <script src="nav.js"></script>
 </body>
 </html>
