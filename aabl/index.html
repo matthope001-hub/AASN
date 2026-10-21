@@ -18,7 +18,7 @@ a{color:#F06A70}a:hover{color:#FF9EA2}
 </style>
 </head>
 <body>
-<!-- Static preview built from the design mock-up. Placeholders in [BRACKETS] get wired to Supabase (aabl schema) next. -->
+<!-- Standings, entries and division leaders load from Supabase (aabl schema). Other [BRACKETS] are still placeholders. -->
 <div style="min-height: 100vh; background: #0C2340; color: #E8EDF1; font-family: 'Barlow Condensed', sans-serif">
 
 <header style="background: #132E52; border-bottom: 1px solid #25446E">
@@ -50,11 +50,11 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 </div>
 <div style="width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px">
 <div style="display: flex; flex-direction: column; align-items: center; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #D4A017; padding: 12px 10px; text-align: center">
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; color: #E5B53A">$[###]</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; color: #E5B53A" id="hero-pool">—</span>
 <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.5px; color: #A9B8CC; margin-top: 2px">PRIZE POOL</span>
 </div>
 <div style="display: flex; flex-direction: column; align-items: center; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #F06A70; padding: 12px 10px; text-align: center">
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; color: #F06A70">[##]</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; color: #F06A70" id="hero-entries">—</span>
 <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.5px; color: #A9B8CC; margin-top: 2px">ENTRIES</span>
 </div>
 <div style="display: flex; flex-direction: column; align-items: center; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #FFFFFF; padding: 12px 10px; text-align: center">
@@ -74,7 +74,7 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 </section>
 
 <section style="margin-bottom: 20px">
-<h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC; display: flex; gap: 6px; align-items: center">CURRENT STANDINGS <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 400">UPDATED [TIME]</span></h3>
+<h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC; display: flex; gap: 6px; align-items: center">CURRENT STANDINGS <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 400" id="standings-stamp"></span></h3>
 <div style="background: #132E52; border: 1px solid #25446E; padding: 14px; overflow-x: auto">
 <table style="width: 100%; min-width: 480px; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 14px">
 <thead><tr style="text-align: left; color: #A9B8CC; font-size: 12px; letter-spacing: 0.5px">
@@ -84,92 +84,15 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 <th style="padding: 8px 10px; border-bottom: 1px solid #25446E; text-align: center">PTS</th>
 <th style="padding: 8px 10px; border-bottom: 1px solid #25446E; text-align: center">PAYOUT</th>
 </tr></thead>
-<tbody>
-<tr><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; color: #E5B53A; font-weight: 700">1</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px">[TEAM NAME]</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; text-align: center; color: #F06A70">+[##]</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; text-align: center; font-weight: 700">[###]</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; text-align: center">$[##]</td></tr>
-<tr><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; font-weight: 700">2</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px">[TEAM NAME]</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; text-align: center; color: #F06A70">+[##]</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; text-align: center; font-weight: 700">[###]</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; text-align: center">$[##]</td></tr>
-<tr><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; font-weight: 700">3</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px">[TEAM NAME]</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; text-align: center; color: #F06A70">+[##]</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; text-align: center; font-weight: 700">[###]</td><td style="padding: 8px 10px; border-bottom: 1px solid #1A3860; text-align: center">$[##]</td></tr>
-<tr><td style="padding: 8px 10px; font-weight: 700">4</td><td style="padding: 8px 10px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px">[TEAM NAME]</td><td style="padding: 8px 10px; text-align: center; color: #F06A70">+[##]</td><td style="padding: 8px 10px; text-align: center; font-weight: 700">[###]</td><td style="padding: 8px 10px; text-align: center; color: #A9B8CC">—</td></tr>
-</tbody>
+<tbody id="standings-body"><tr><td colspan="5" style="padding: 12px 10px; color: #A9B8CC">Loading…</td></tr></tbody>
 </table>
 </div>
 </section>
 
 <section style="margin-bottom: 20px">
 <h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #A9B8CC; display: flex; gap: 6px; align-items: center">DIVISION LEADERS <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 400; color: #F06A70">+25 pts at season end</span></h3>
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px">
-
-<div style="display: flex; align-items: center; gap: 12px; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #BD3039; padding: 12px 14px; min-width: 0">
-<span style="width: 52px; height: 52px; flex-shrink: 0; border: 1px dashed #3A5A88; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #A9B8CC">LOGO</span>
-<div style="flex: 1; min-width: 0">
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A9B8CC; letter-spacing: 0.5px">AL EAST</div>
-<div style="font-weight: 700; font-size: 18px; line-height: 1.15">[TEAM]</div>
-</div>
-<div style="text-align: right">
-<div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 26px; color: #F06A70">[##]</div>
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A9B8CC">PICKED</div>
-</div>
-</div>
-
-<div style="display: flex; align-items: center; gap: 12px; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #BD3039; padding: 12px 14px; min-width: 0">
-<span style="width: 52px; height: 52px; flex-shrink: 0; border: 1px dashed #3A5A88; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #A9B8CC">LOGO</span>
-<div style="flex: 1; min-width: 0">
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A9B8CC; letter-spacing: 0.5px">AL CENTRAL</div>
-<div style="font-weight: 700; font-size: 18px; line-height: 1.15">[TEAM]</div>
-</div>
-<div style="text-align: right">
-<div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 26px; color: #F06A70">[##]</div>
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A9B8CC">PICKED</div>
-</div>
-</div>
-
-<div style="display: flex; align-items: center; gap: 12px; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #BD3039; padding: 12px 14px; min-width: 0">
-<span style="width: 52px; height: 52px; flex-shrink: 0; border: 1px dashed #3A5A88; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #A9B8CC">LOGO</span>
-<div style="flex: 1; min-width: 0">
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A9B8CC; letter-spacing: 0.5px">AL WEST</div>
-<div style="font-weight: 700; font-size: 18px; line-height: 1.15">[TEAM]</div>
-</div>
-<div style="text-align: right">
-<div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 26px; color: #F06A70">[##]</div>
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A9B8CC">PICKED</div>
-</div>
-</div>
-
-<div style="display: flex; align-items: center; gap: 12px; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #BD3039; padding: 12px 14px; min-width: 0">
-<span style="width: 52px; height: 52px; flex-shrink: 0; border: 1px dashed #3A5A88; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #A9B8CC">LOGO</span>
-<div style="flex: 1; min-width: 0">
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A9B8CC; letter-spacing: 0.5px">NL EAST</div>
-<div style="font-weight: 700; font-size: 18px; line-height: 1.15">[TEAM]</div>
-</div>
-<div style="text-align: right">
-<div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 26px; color: #F06A70">[##]</div>
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A9B8CC">PICKED</div>
-</div>
-</div>
-
-<div style="display: flex; align-items: center; gap: 12px; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #BD3039; padding: 12px 14px; min-width: 0">
-<span style="width: 52px; height: 52px; flex-shrink: 0; border: 1px dashed #3A5A88; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #A9B8CC">LOGO</span>
-<div style="flex: 1; min-width: 0">
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A9B8CC; letter-spacing: 0.5px">NL CENTRAL</div>
-<div style="font-weight: 700; font-size: 18px; line-height: 1.15">[TEAM]</div>
-</div>
-<div style="text-align: right">
-<div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 26px; color: #F06A70">[##]</div>
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A9B8CC">PICKED</div>
-</div>
-</div>
-
-<div style="display: flex; align-items: center; gap: 12px; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #BD3039; padding: 12px 14px; min-width: 0">
-<span style="width: 52px; height: 52px; flex-shrink: 0; border: 1px dashed #3A5A88; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #A9B8CC">LOGO</span>
-<div style="flex: 1; min-width: 0">
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A9B8CC; letter-spacing: 0.5px">NL WEST</div>
-<div style="font-weight: 700; font-size: 18px; line-height: 1.15">[TEAM]</div>
-</div>
-<div style="text-align: right">
-<div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 26px; color: #F06A70">[##]</div>
-<div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A9B8CC">PICKED</div>
-</div>
-</div>
-
+<div id="division-leaders" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px">
+<p style="font-family: 'JetBrains Mono', monospace; color: #A9B8CC">Loading…</p>
 </div>
 </section>
 
@@ -261,5 +184,66 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 
 </div>
 <script src="../shared/config.js"></script>
+<script>
+(function () {
+  const SEASON = 2027;
+  const TEAM_IDS = { AZ:109, ARI:109, ATL:144, BAL:110, BOS:111, CHC:112, CWS:145, CIN:113, CLE:114, COL:115, DET:116, HOU:117, KC:118, LAA:108, LAD:119, MIA:146, MIL:158, MIN:142, NYM:121, NYY:147, ATH:133, OAK:133, PHI:143, PIT:134, SD:135, SF:137, SEA:136, STL:138, TB:139, TEX:140, TOR:141, WSH:120 };
+  const DIVS = ['AL East', 'AL Central', 'AL West', 'NL East', 'NL Central', 'NL West'];
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = v => { const x = Number(v) || 0; return Number.isInteger(x) ? x.toLocaleString() : x.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }); };
+  const td = 'padding: 8px 10px; border-bottom: 1px solid #1A3860';
+
+  async function loadStandings(teams) {
+    const latest = await aasnSelect('standings', `select=snapshot_date&season=eq.${SEASON}&order=snapshot_date.desc&limit=1`, 'aabl');
+    const body = document.getElementById('standings-body');
+    if (!latest.length) { body.innerHTML = `<tr><td colspan="5" style="${td}; color: #A9B8CC">Standings start after Opening Day.</td></tr>`; return; }
+    const date = latest[0].snapshot_date;
+    const rows = await aasnSelect('standings', `select=entry_id,points,last_night,rank&season=eq.${SEASON}&snapshot_date=eq.${date}&order=rank&limit=10`, 'aabl');
+    const name = new Map(teams.map(t => [t.entry_id, t.team_name]));
+    document.getElementById('standings-stamp').textContent = 'UPDATED ' + date;
+    body.innerHTML = rows.map(r => `<tr>
+      <td style="${td}; font-weight: 700; ${r.rank === 1 ? 'color: #E5B53A' : ''}">${r.rank}</td>
+      <td style="${td}; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px">${esc(name.get(r.entry_id) || '—')}</td>
+      <td style="${td}; text-align: center; color: #F06A70">${Number(r.last_night) ? '+' + fmt(r.last_night) : '—'}</td>
+      <td style="${td}; text-align: center; font-weight: 700">${fmt(r.points)}</td>
+      <td style="${td}; text-align: center; color: #A9B8CC">TBD</td></tr>`).join('');
+  }
+
+  async function loadDivisions() {
+    const [winners, counts] = await Promise.all([
+      aasnSelect('division_winners', 'select=season,division,team_abbr&order=season.desc', 'aabl'),
+      aasnSelect('division_pick_counts', `select=division,team_abbr,picks&season=eq.${SEASON}`, 'aabl')
+    ]);
+    const latestSeason = winners.length ? winners[0].season : null;
+    const leader = new Map(winners.filter(w => w.season === latestSeason).map(w => [w.division, w.team_abbr]));
+    const picked = new Map(counts.map(c => [c.division + '|' + c.team_abbr, c.picks]));
+    document.getElementById('division-leaders').innerHTML = DIVS.map(d => {
+      const t = leader.get(d);
+      const logo = t && TEAM_IDS[t] ? `<img src="https://www.mlbstatic.com/team-logos/${TEAM_IDS[t]}.svg" alt="" width="52" height="52" style="width: 52px; height: 52px; object-fit: contain; flex-shrink: 0" onerror="this.style.visibility='hidden'">` : '<span style="width: 52px; height: 52px; flex-shrink: 0"></span>';
+      return `<div style="display: flex; align-items: center; gap: 12px; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #BD3039; padding: 12px 14px; min-width: 0">
+        ${logo}
+        <div style="flex: 1; min-width: 0">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A9B8CC; letter-spacing: 0.5px">${esc(d.toUpperCase())}</div>
+          <div style="font-weight: 700; font-size: 18px; line-height: 1.15">${esc(t || '—')}</div>
+        </div>
+        <div style="text-align: right">
+          <div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 26px; color: #F06A70">${t ? (picked.get(d + '|' + t) || 0) : '—'}</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A9B8CC">PICKED</div>
+        </div></div>`;
+    }).join('');
+  }
+
+  async function load() {
+    const teams = await aasnSelect('teams', `select=entry_id,team_name&season=eq.${SEASON}`, 'aabl');
+    document.getElementById('hero-entries').textContent = teams.length;
+    document.getElementById('hero-pool').textContent = '$' + (teams.length * 10).toLocaleString();
+    await Promise.all([
+      loadStandings(teams).catch(e => { console.error(e); document.getElementById('standings-body').innerHTML = `<tr><td colspan="5" style="${td}; color: #A9B8CC">Standings unavailable right now.</td></tr>`; }),
+      loadDivisions().catch(e => { console.error(e); document.getElementById('division-leaders').innerHTML = '<p style="color: #A9B8CC">Division leaders unavailable right now.</p>'; })
+    ]);
+  }
+  load().catch(console.error);
+})();
+</script>
 </body>
 </html>
