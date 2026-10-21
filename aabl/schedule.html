@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schedule — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<style>
+.wk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.wk-label { flex: 1 1 200px; font-family: var(--mono); font-size: 14px; text-align: center; }
+.team-sel { min-height: 44px; padding: 0 12px; background: var(--panel); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 13px; }
+.days { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.day { background: var(--panel); border: 1px solid var(--border); }
+.day.today { border-top: 3px solid var(--red); }
+.day-head { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.day-head b { font-family: var(--display); font-weight: 400; font-size: 18px; }
+.day-head span { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.game { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; padding: 8px 12px; border-top: 1px solid var(--row); }
+.game:first-of-type { border-top: 0; }
+.teams { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tm { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 16px; }
+.tm img { width: 20px; height: 20px; object-fit: contain; }
+.tm .sc { margin-left: auto; font-family: var(--mono); font-size: 14px; }
+.tm.win { color: #fff; } .tm.loss { color: var(--dim); }
+.when { font-family: var(--mono); font-size: 12px; color: var(--dim); text-align: right; white-space: nowrap; align-self: center; }
+.when b { display: block; color: var(--text); font-size: 13px; }
+.venue { grid-column: 1 / -1; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.empty { padding: 12px; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="schedule"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">WEEKLY SCHEDULE</h1>
+  <p class="intro">MLB <span id="season-label">2027</span> regular season. Times are Eastern.</p>
+  <div class="wk-bar">
+    <button type="button" class="tab" id="prev" aria-label="Previous week">◀ PREV</button>
+    <div class="wk-label" id="wk-label">—</div>
+    <button type="button" class="tab" id="next" aria-label="Next week">NEXT ▶</button>
+    <button type="button" class="tab" id="today">TODAY</button>
+    <label style="display: contents"><span style="position: absolute; left: -9999px">Team</span>
+      <select id="team" class="team-sel"><option value="">All teams</option></select></label>
+  </div>
+  <div id="days"><p class="status">Loading schedule…</p></div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script>
+(function () {
+  const SEASON = 2027;
+  const TZ = 'America/Toronto';
+  const TEAM_IDS = { AZ:109, ARI:109, ATL:144, BAL:110, BOS:111, CHC:112, CWS:145, CIN:113, CLE:114, COL:115, DET:116, HOU:117, KC:118, LAA:108, LAD:119, MIA:146, MIL:158, MIN:142, NYM:121, NYY:147, ATH:133, OAK:133, PHI:143, PIT:134, SD:135, SF:137, SEA:136, STL:138, TB:139, TEX:140, TOR:141, WSH:120 };
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const logo = t => TEAM_IDS[t] ? `<img src="https://www.mlbstatic.com/team-logos/${TEAM_IDS[t]}.svg" alt="" onerror="this.style.visibility='hidden'">` : '';
+
+  // Dates handled as YYYY-MM-DD strings at noon UTC to avoid DST/timezone drift.
+  const toDate = s => new Date(s + 'T12:00:00Z');
+  const iso = d => d.toISOString().slice(0, 10);
+  const addDays = (s, n) => { const d = toDate(s); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
+  const monday = s => { const d = toDate(s); const dow = (d.getUTCDay() + 6) % 7; return addDays(s, -dow); };
+  const todayET = () => new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const dayName = s => toDate(s).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }).toUpperCase();
+  const dayLabel = s => toDate(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const timeET = t => t ? new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ }) : 'TBD';
+
+  let first = null, last = null, week = null;
+
+  function clampWeek(s) {
+    if (first && s < monday(first)) return monday(first);
+    if (last && s > monday(last)) return monday(last);
+    return s;
+  }
+
+  async function render() {
+    const end = addDays(week, 6);
+    document.getElementById('wk-label').textContent = `${dayLabel(week)} – ${dayLabel(end)}, ${week.slice(0, 4)}`;
+    document.getElementById('prev').disabled = first && week <= monday(first);
+    document.getElementById('next').disabled = last && week >= monday(last);
+    const team = document.getElementById('team').value;
+    const el = document.getElementById('days');
+    let q = `select=*&season=eq.${SEASON}&game_date=gte.${week}&game_date=lte.${end}&order=start_time.asc`;
+    if (team) q += `&or=(away_abbr.eq.${encodeURIComponent(team)},home_abbr.eq.${encodeURIComponent(team)})`;
+    const games = await aasnSelect('schedule', q, 'aabl');
+    const today = todayET();
+    el.innerHTML = '<div class="days">' + Array.from({ length: 7 }, (_, i) => addDays(week, i)).map(d => {
+      const list = games.filter(g => g.game_date === d);
+      return `<section class="day${d === today ? ' today' : ''}">
+        <div class="day-head"><b>${dayName(d)} ${dayLabel(d)}</b><span>${list.length ? list.length + ' GAME' + (list.length > 1 ? 'S' : '') : ''}</span></div>
+        ${list.length ? list.map(g => {
+          const done = g.away_score != null && g.home_score != null && /final|completed/i.test(g.status || '');
+          const aw = done && g.away_score > g.home_score, hw = done && g.home_score > g.away_score;
+          const whenTxt = done ? `<b>FINAL</b>` : (/postponed|suspended|cancel/i.test(g.status || '') ? `<b>${esc(g.status.toUpperCase())}</b>` : `<b>${timeET(g.start_time)}</b>${g.doubleheader !== 'N' ? `GM ${g.game_number}` : ''}`);
+          return `<div class="game">
+            <div class="teams">
+              <div class="tm ${done ? (aw ? 'win' : 'loss') : ''}">${logo(g.away_abbr)}${esc(g.away_abbr)}${done ? `<span class="sc">${g.away_score}</span>` : ''}</div>
+              <div class="tm ${done ? (hw ? 'win' : 'loss') : ''}">${logo(g.home_abbr)}@ ${esc(g.home_abbr)}${done ? `<span class="sc">${g.home_score}</span>` : ''}</div>
+            </div>
+            <div class="when">${whenTxt}</div>
+            ${g.venue ? `<div class="venue">${esc(g.venue)}</div>` : ''}
+          </div>`;
+        }).join('') : '<div class="empty">No games</div>'}
+      </section>`;
+    }).join('') + '</div>';
+  }
+
+  const go = s => { week = clampWeek(s); render().catch(fail); };
+  const fail = e => { console.error(e); document.getElementById('days').innerHTML = '<p class="status">Schedule unavailable right now.</p>'; };
+  document.getElementById('prev').addEventListener('click', () => go(addDays(week, -7)));
+  document.getElementById('next').addEventListener('click', () => go(addDays(week, 7)));
+  document.getElementById('today').addEventListener('click', () => go(monday(todayET())));
+  document.getElementById('team').addEventListener('change', () => render().catch(fail));
+
+  async function load() {
+    document.getElementById('season-label').textContent = SEASON;
+    const [a, b] = await Promise.all([
+      aasnSelect('schedule', `select=game_date&season=eq.${SEASON}&order=game_date.asc&limit=1`, 'aabl'),
+      aasnSelect('schedule', `select=game_date&season=eq.${SEASON}&order=game_date.desc&limit=1`, 'aabl')
+    ]);
+    if (!a.length) { document.getElementById('days').innerHTML = `<p class="status">The ${SEASON} schedule hasn't been published yet.</p>`; return; }
+    first = a[0].game_date; last = b[0].game_date;
+    const sel = document.getElementById('team');
+    Object.keys(TEAM_IDS).filter(t => !['ARI', 'OAK'].includes(t)).sort().forEach(t => sel.insertAdjacentHTML('beforeend', `<option value="${t}">${t}</option>`));
+    go(monday(todayET()));
+  }
+  load().catch(fail);
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

@@ -13,7 +13,7 @@
     ['myteam', 'My Team', soon('My Team')]
   ];
   const MORE = [
-    ['schedule', 'Schedule', soon('Schedule')],
+    ['schedule', 'Schedule', 'schedule.html'],
     ['records', 'Records', soon('Records')],
     ['ir', 'IR List', soon('IR List')],
     ['boxes', 'Boxes', 'boxes.html'],
