@@ -1,0 +1,85 @@
+/* AASN hub styles — industrial scoreboard look shared with AAHL */
+:root {
+  --bg: #0B0D10;
+  --panel: #12161B;
+  --panel-2: #0F1216;
+  --border: #1F252C;
+  --border-2: #2E353D;
+  --ice: #00D4FF;
+  --amber: #FFB800;
+  --text: #E8ECF0;
+  --text-2: #C9D1D9;
+  --dim: #9AA4AF;
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-body: 'Barlow', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; }
+a { color: var(--ice); }
+.mono { font-family: var(--font-mono); }
+.dim { color: var(--dim); }
+.ice { color: var(--ice); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+
+/* Header */
+.hdr { background: var(--panel-2); border-bottom: 1px solid var(--border); }
+.hdr-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-top: 16px; padding-bottom: 16px; }
+.brand { display: flex; flex-direction: column; text-decoration: none; color: var(--text); }
+.brand-mark { font-family: var(--font-display); font-weight: 800; font-size: 26px; letter-spacing: 2px; line-height: 1; }
+.brand-sub { font-size: 11px; letter-spacing: 1.5px; color: var(--dim); }
+.nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nav a { padding: 12px 14px; font-family: var(--font-display); font-weight: 600; font-size: 17px; letter-spacing: 1px; text-transform: uppercase; text-decoration: none; color: var(--text-2); }
+.nav a:hover { color: var(--ice); }
+.btn-outline { min-height: 44px; padding: 0 20px; border: 1px solid var(--ice); background: transparent; color: var(--ice); border-radius: 4px; font-family: var(--font-display); font-weight: 700; font-size: 17px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+
+/* Hero */
+.hero { padding-top: 72px; padding-bottom: 48px; }
+.eyebrow { font-size: 13px; letter-spacing: 3px; color: var(--amber); margin-bottom: 16px; }
+.hero h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(48px, 8vw, 104px); line-height: 0.92; letter-spacing: 1px; }
+.hero p { margin-top: 24px; max-width: 620px; font-size: 19px; line-height: 1.55; color: #B4BDC7; }
+
+/* Leagues */
+.block { padding-bottom: 72px; }
+.block-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 24px; }
+.block-head h2 { font-family: var(--font-display); font-weight: 700; font-size: 34px; letter-spacing: 1.5px; }
+.league-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+.league { background: var(--panel); border: 1px solid var(--border); border-top: 4px solid var(--c); border-radius: 6px; padding: 28px; display: flex; flex-direction: column; gap: 20px; }
+.league-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.league-abbr { font-family: var(--font-display); font-weight: 800; font-size: 52px; line-height: 1; color: var(--c); }
+.league-name { font-family: var(--font-display); font-weight: 600; font-size: 19px; letter-spacing: 1px; color: var(--text-2); }
+.tag { padding: 6px 10px; border-radius: 3px; font-size: 12px; font-weight: 700; letter-spacing: 1px; white-space: nowrap; }
+.tag-live { background: #0E3A2A; color: #5BE3A4; }
+.tag-soon { background: #3A2E0A; color: var(--amber); }
+.stat-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.stat { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.stat span { font-size: 11px; letter-spacing: 1px; }
+.stat b { font-size: 18px; }
+.btn-solid, .btn-ghost { min-height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 4px; text-decoration: none; font-family: var(--font-display); font-weight: 800; font-size: 19px; letter-spacing: 1.5px; }
+.btn-solid { background: var(--c); color: var(--bg); }
+.btn-ghost { border: 1px solid var(--c); color: var(--c); }
+
+/* Hall of Champions */
+.hall { background: var(--panel-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 72px 0; }
+.hall-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(40px, 6vw, 64px); letter-spacing: 1.5px; line-height: 1; margin-bottom: 8px; }
+.hall .dim { font-size: 17px; margin-bottom: 32px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+.tab { min-height: 44px; padding: 0 20px; border-radius: 4px; cursor: pointer; font-family: var(--font-display); font-weight: 700; font-size: 17px; letter-spacing: 1.5px; background: transparent; color: var(--text-2); border: 1px solid var(--border-2); }
+.tab.active { background: var(--ice); color: var(--bg); border-color: var(--ice); }
+.champs { display: flex; flex-direction: column; gap: 16px; }
+.champ-row { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 20px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px; }
+.champ-season { flex: 0 0 150px; display: flex; flex-direction: column; gap: 4px; }
+.champ-season span { font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: 2px; }
+.champ-season b { font-size: 26px; }
+.champ-places { flex: 999 1 560px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.place { border-radius: 4px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; font-family: var(--font-display); font-weight: 600; font-size: 21px; }
+.place span { font-weight: 700; font-size: 20px; }
+.p1 { background: #1E1906; border: 1px solid #5A4508; color: #FFE3A3; }
+.p1 span { color: var(--amber); }
+.p2 { background: #161A1F; border: 1px solid var(--border-2); }
+.p2 span { color: var(--text-2); }
+.p3 { background: #1A1410; border: 1px solid #3D2B1E; }
+.p3 span { color: #E0A47A; }
+
+/* Footer */
+.ftr { padding-top: 32px; padding-bottom: 32px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--dim); }
