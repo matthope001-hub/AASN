@@ -49,7 +49,8 @@ tr[data-key]:hover, tr[data-key]:focus-visible { background: color-mix(in srgb, 
 .aabl-pc-meta { font-family: var(--mono); font-size: 11px; color: #C9D3DF; margin: 8px 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .aabl-pc-box { font-family: var(--mono); font-size: 11px; color: var(--red-text); }
 .aabl-pc-hs { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 112px; z-index: 0; }
-.aabl-pc-hs img { width: 112px; height: 112px; object-fit: contain; object-position: bottom; display: block; -webkit-mask-image: radial-gradient(ellipse 70% 75% at 50% 45%, #000 60%, transparent 100%); mask-image: radial-gradient(ellipse 70% 75% at 50% 45%, #000 60%, transparent 100%); }
+.aabl-pc-hs img { width: 112px; height: 112px; object-fit: contain; object-position: bottom; display: block; }
+.aabl-pc-hs img.faded { -webkit-mask-image: radial-gradient(ellipse 70% 75% at 50% 45%, #000 60%, transparent 100%); mask-image: radial-gradient(ellipse 70% 75% at 50% 45%, #000 60%, transparent 100%); }
 .aabl-pc-strip { margin: 0 8px 8px; border: 1px solid var(--border); border-radius: 10px; display: grid; grid-template-columns: repeat(5, 1fr); padding: 8px 2px; background: color-mix(in srgb, var(--tc, #132E52) 10%, var(--bg)); position: relative; transform: translateZ(16px); }
 .aabl-pc-strip div { text-align: center; min-width: 0; }
 .aabl-pc-strip b { display: block; font-family: var(--mono); font-size: 15px; font-weight: 500; }
@@ -164,7 +165,7 @@ tr[data-key]:hover, tr[data-key]:focus-visible { background: color-mix(in srgb, 
           <div class="aabl-pc-meta">${esc(t || 'FA')} · ${esc(p.position || '')}${r.isTwoWay ? (r.role === 'pitcher' ? ' · PITCHING' : ' · HITTING') : ''}</div>
           <div class="aabl-pc-box">BOX ${r.box_id}</div>
         </div>
-        <div class="aabl-pc-hs">${p.headshot_url ? `<img src="${esc(aablCards.cutout(p.headshot_url))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>
+        <div class="aabl-pc-hs">${p.headshot_url ? `<img src="${esc(aablCards.cutout(p.headshot_url))}" data-orig="${esc(p.headshot_url)}" alt="" loading="lazy" ${aablCards.FALLBACK}>` : ''}</div>
       </div>
       <div class="aabl-pc-strip">
         ${strip.map(([l, v]) => `<div><b>${fmt(v)}</b><small>${l}</small></div>`).join('')}
