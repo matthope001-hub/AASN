@@ -3,6 +3,9 @@
  *
  *   GET  /health                    - config check (no secrets shown)
  *   POST /aabl  { action: 'createEntry', entry, idempotencyKey }
+ *   POST /aabl  { action: 'getMyTeam',      entryId, token | email }
+ *   POST /aabl  { action: 'makeTrade',      entryId, token | email, boxId, optionId }
+ *   POST /aabl  { action: 'changeDivision', entryId, token | email, division, team }
  *
  * All writes use the Supabase secret key (bypasses RLS), so every rule is
  * enforced here: sign-ups open, before the deadline, picks not locked, one
@@ -63,6 +66,9 @@ export default {
     try {
       switch (body.action) {
         case 'createEntry': return json(request, env, await createEntry(env, ctx, body));
+        case 'getMyTeam': return json(request, env, await getMyTeam(env, body));
+        case 'makeTrade': return json(request, env, await makeTrade(env, ctx, body));
+        case 'changeDivision': return json(request, env, await changeDivision(env, body));
         default: return json(request, env, { success: false, error: 'Unknown action' }, 400);
       }
     } catch (err) {
@@ -170,6 +176,75 @@ async function createEntry(env, ctx, body) {
 
   ctx.waitUntil(sendConfirmation(env, cfg, entry, v, token).catch(err => console.log('Email failed: ' + (err && err.stack || err))));
   return { success: true, entryId: entry.entry_id, teamName: entry.team_name, entryNum: entry.entry_num, paymentInfo: cfg.payment_info || null };
+}
+
+// ------------------------------------------------- my team + trades
+
+// A manager proves it's their team with the private emailed link (token),
+// or with their entry ID plus the email they signed up with.
+async function authEntry(env, body) {
+  const id = String(body.entryId || '').trim();
+  if (!/^[A-Za-z0-9_-]{4,64}$/.test(id)) return null;
+  const rows = await sb(env, `entries?select=entry_id,season,email,manager_name,team_name,moves_used,access_token_hash,entry_num&entry_id=eq.${encodeURIComponent(id)}`);
+  const e = rows[0];
+  if (!e) return null;
+  if (body.token && e.access_token_hash && await sha256(String(body.token)) === e.access_token_hash) return e;
+  if (body.email && String(body.email).trim().toLowerCase() === e.email) return e;
+  return null;
+}
+const NOT_FOUND = { success: false, error: "We couldn't find that team. Check the entry ID and email, or use the link in your confirmation email." };
+
+async function getMyTeam(env, body) {
+  const e = await authEntry(env, body);
+  if (!e) return NOT_FOUND;
+  const cfg = await currentSeason(env);
+  const [picks, divs, trades] = await Promise.all([
+    sb(env, `picks?select=box_id,option_id,banked_points,picked_at&entry_id=eq.${e.entry_id}&order=box_id`),
+    sb(env, `division_picks?select=division,team_abbr&entry_id=eq.${e.entry_id}`),
+    sb(env, `trades?select=box_id,old_option_id,new_option_id,points_banked,preseason,official,made_at&entry_id=eq.${e.entry_id}&order=made_at.desc`)
+  ]);
+  const cfg2 = (await sb(env, `config?select=trade_deadline,season_moves&season=eq.${cfg.season}`))[0] || {};
+  const preseason = !cfg.picks_locked && (!cfg.opening_day || new Date() < new Date(cfg.opening_day));
+  return {
+    success: true,
+    entry: { entryId: e.entry_id, teamName: e.team_name, managerName: e.manager_name, entryNum: e.entry_num, movesUsed: e.moves_used },
+    season: cfg.season, preseason, openingDay: cfg.opening_day, tradeDeadline: cfg2.trade_deadline || null, seasonMoves: cfg2.season_moves || 2,
+    picks, divisionPicks: divs, trades
+  };
+}
+
+async function makeTrade(env, ctx, body) {
+  const e = await authEntry(env, body);
+  if (!e) return NOT_FOUND;
+  const boxId = Number(body.boxId), optionId = Number(body.optionId);
+  if (!boxId || !optionId) return { success: false, error: 'Pick a player to trade for.' };
+  const r = await sb(env, 'rpc/make_trade', { method: 'POST', body: JSON.stringify({ p_entry: e.entry_id, p_box: boxId, p_option: optionId }) });
+  if (!r || !r.ok) return { success: false, error: (r && r.error) || 'The trade could not be made.' };
+  ctx.waitUntil(sendTradeEmail(env, e, boxId, optionId, r).catch(err => console.log('Trade email failed: ' + (err && err.stack || err))));
+  return { success: true, preseason: r.preseason, banked: r.banked, movesUsed: r.moves_used, seasonMoves: r.season_moves };
+}
+
+async function changeDivision(env, body) {
+  const e = await authEntry(env, body);
+  if (!e) return NOT_FOUND;
+  const division = String(body.division || ''), team = String(body.team || '').toUpperCase();
+  if (!DIVISIONS[division] || !DIVISIONS[division].includes(team)) return { success: false, error: 'Pick a team from that division.' };
+  const r = await sb(env, 'rpc/change_division_pick', { method: 'POST', body: JSON.stringify({ p_entry: e.entry_id, p_division: division, p_team: team }) });
+  return r && r.ok ? { success: true } : { success: false, error: (r && r.error) || 'Could not change the pick.' };
+}
+
+async function sendTradeEmail(env, e, boxId, optionId, r) {
+  if (!(env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM)) return;
+  const [t] = await sb(env, `trades?select=old_option_id,new_option_id&entry_id=eq.${e.entry_id}&box_id=eq.${boxId}&order=made_at.desc&limit=1`);
+  const opts = await sb(env, `box_options?select=option_id,player:players(full_name,team_abbr)&option_id=in.(${t.old_option_id},${t.new_option_id})`);
+  const name = id => { const o = opts.find(x => x.option_id === id); return o ? `${o.player.full_name} (${o.player.team_abbr || '—'})` : '—'; };
+  const line = r.preseason ? 'Pre-season change — free, and it doesn\'t count against your trades.'
+    : `Points banked from the outgoing player: ${r.banked}. Trades used: ${r.moves_used} of ${r.season_moves}.`;
+  const html = `<div style="font-family:Arial,sans-serif;background:#0C2340;color:#E8EDF1;padding:24px"><div style="max-width:560px;margin:0 auto;background:#132E52;border-top:4px solid #BD3039;padding:20px">
+    <h2 style="margin:0 0 10px">⚾ Trade confirmed — ${esc(e.team_name)}</h2>
+    <p style="margin:0 0 6px">Box ${boxId}: <b>${esc(name(t.old_option_id))}</b> ➜ <b>${esc(name(t.new_option_id))}</b></p>
+    <p style="margin:0;color:#A9B8CC">${esc(line)}</p></div></div>`;
+  await gmailSend(env, e.email, `AABL trade confirmed: ${e.team_name}`, `Trade confirmed for ${e.team_name}\nBox ${boxId}: ${name(t.old_option_id)} -> ${name(t.new_option_id)}\n${line}`, html);
 }
 
 // --------------------------------------------------------------- email

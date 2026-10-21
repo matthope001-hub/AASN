@@ -10,14 +10,14 @@
     ['standings', 'Standings', 'standings.html'],
     ['players', 'Players', 'players.html'],
     ['lastnight', 'Last Night', soon('Last Night')],
-    ['myteam', 'My Team', soon('My Team')]
+    ['myteam', 'My Team', 'myteam.html']
   ];
   const MORE = [
     ['schedule', 'Schedule', 'schedule.html'],
     ['records', 'Records', soon('Records')],
     ['ir', 'IR List', soon('IR List')],
     ['boxes', 'Boxes', 'boxes.html'],
-    ['activity', 'Activity', soon('Activity')],
+    ['activity', 'Activity', 'activity.html'],
     ['rules', 'Rules', soon('Rules')],
     ['signup', 'Sign Up', 'signup.html'],
     ['whatsnew', "What's New", soon("What's New")],

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Team — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="cards.css">
+<style>
+.panel { background: var(--panel); border: 1px solid var(--border); padding: 16px; margin-bottom: 16px; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.field label { display: block; font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .5px; margin-bottom: 4px; }
+.field input { width: 100%; min-height: 44px; padding: 0 12px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 14px; }
+.field input:focus { outline: 2px solid var(--red-text); outline-offset: 1px; }
+.btn { min-height: 44px; padding: 0 22px; background: var(--red); border: 0; color: #fff; font-family: var(--display); font-size: 17px; cursor: pointer; }
+.btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--dim); font-family: var(--cond); font-weight: 700; font-size: 15px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.err { color: #FF9EA2; font-family: var(--mono); font-size: 13px; margin-top: 8px; }
+.ok { color: #7EE2A8; font-family: var(--mono); font-size: 13px; }
+.muted { color: var(--dim); font-size: 14px; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.team-name { font-family: var(--display); font-size: 32px; line-height: 1.05; }
+.meta { font-family: var(--mono); font-size: 12px; color: var(--dim); margin-top: 4px; }
+.moves { text-align: right; font-family: var(--mono); }
+.moves b { display: block; font-size: 26px; color: var(--red-text); }
+.status { margin-top: 12px; padding: 10px 12px; border-left: 4px solid var(--red); background: var(--bg); font-size: 15px; }
+.sec-head { font-family: var(--display); font-size: 22px; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.box { border: 1px solid var(--border); background: var(--panel); margin-bottom: 10px; }
+.box-row { display: grid; grid-template-columns: 64px 40px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px 12px; }
+.box-row .bx { font-family: var(--mono); font-size: 11px; color: var(--red-text); }
+.box-row img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--panel-2); }
+.box-row .nm { font-weight: 700; font-size: 17px; cursor: pointer; }
+.box-row .nm small { display: block; font-family: var(--mono); font-size: 11px; font-weight: 400; color: var(--dim); }
+.box-row .pt { font-family: var(--mono); font-size: 14px; text-align: right; }
+.box-row .pt small { display: block; font-size: 10px; color: var(--dim); }
+.opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; padding: 0 12px 12px; }
+.opt { position: relative; display: flex; align-items: center; gap: 9px; padding: 8px 10px; min-height: 54px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; }
+.opt:hover { border-color: var(--red-text); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt:has(input:checked) { border-color: var(--red-text); background: color-mix(in srgb, var(--red) 22%, var(--bg)); }
+.opt:has(input:focus-visible) { outline: 2px solid var(--red-text); outline-offset: 2px; }
+.opt img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: var(--panel-2); }
+.opt .n { font-weight: 700; font-size: 15px; line-height: 1.1; }
+.opt .m { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.opt .p { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0 12px 12px; }
+.confirm p { flex: 1 1 260px; font-size: 14px; color: var(--dim); }
+.div-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.div-card { background: var(--panel); border: 1px solid var(--border); padding: 10px 12px; }
+.div-card .d { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.div-card select { width: 100%; min-height: 44px; margin-top: 6px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--cond); font-size: 17px; font-weight: 700; padding: 0 8px; }
+.div-card .t { font-weight: 700; font-size: 20px; margin-top: 4px; }
+.hist { font-family: var(--mono); font-size: 13px; }
+.hist div { padding: 8px 0; border-top: 1px solid var(--row); }
+@media (max-width: 560px) { .box-row { grid-template-columns: 48px 34px minmax(0, 1fr) auto; } .box-row .pt { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="myteam"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">MY TEAM</h1>
+
+  <form id="lookup" class="panel" hidden>
+    <p class="muted" style="margin-bottom: 12px">Use the <b>Manage my team</b> link in your confirmation email, or enter your entry ID and the email you signed up with.</p>
+    <div class="fields">
+      <div class="field"><label for="entry-id">ENTRY ID</label><input id="entry-id" autocomplete="off" required></div>
+      <div class="field"><label for="entry-email">EMAIL</label><input id="entry-email" type="email" autocomplete="email" required></div>
+    </div>
+    <button type="submit" class="btn">FIND MY TEAM</button>
+    <div class="err" id="lookup-err" role="alert"></div>
+  </form>
+
+  <div id="team" hidden></div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
+<script src="cards.js"></script>
+<script>
+(function () {
+  const DIVISIONS = {
+    'AL East': ['BAL', 'BOS', 'NYY', 'TB', 'TOR'], 'AL Central': ['CLE', 'CWS', 'DET', 'KC', 'MIN'], 'AL West': ['ATH', 'HOU', 'LAA', 'SEA', 'TEX'],
+    'NL East': ['ATL', 'MIA', 'NYM', 'PHI', 'WSH'], 'NL Central': ['CHC', 'CIN', 'MIL', 'PIT', 'STL'], 'NL West': ['AZ', 'COL', 'LAD', 'SD', 'SF']
+  };
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = v => Number(v) || 0;
+  const fmt = v => { const x = num(v); return Number.isInteger(x) ? x.toLocaleString() : x.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }); };
+  const when = d => new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' });
+  const KEY = 'aabl_myteam';
+
+  let auth = null, data = null, opts = [], boxes = new Map(), stats = new Map(), statsSeason = null, openBox = null;
+
+  async function api(action, extra) {
+    const res = await fetch(AASN_API_URL + '/aabl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...auth, ...extra }) });
+    return res.json();
+  }
+
+  function remember() { try { localStorage.setItem(KEY, JSON.stringify(auth)); } catch (e) { /* ignore */ } }
+  function forget() { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } auth = null; location.href = 'myteam.html'; }
+
+  async function start() {
+    const q = new URLSearchParams(location.search);
+    if (q.get('entry') && q.get('token')) {
+      auth = { entryId: q.get('entry'), token: q.get('token') };
+      remember();
+      history.replaceState(null, '', 'myteam.html'); // keep the private token out of the address bar and history
+    } else {
+      try { auth = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { auth = null; }
+    }
+    if (!auth) { document.getElementById('lookup').hidden = false; return; }
+    await loadTeam();
+  }
+
+  document.getElementById('lookup').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = document.getElementById('lookup-err');
+    err.textContent = '';
+    auth = { entryId: document.getElementById('entry-id').value.trim(), email: document.getElementById('entry-email').value.trim() };
+    const ok = await loadTeam();
+    if (ok) { remember(); document.getElementById('lookup').hidden = true; }
+    else err.textContent = (data && data.error) || "We couldn't find that team.";
+  });
+
+  async function loadTeam() {
+    data = await api('getMyTeam');
+    if (!data.success) {
+      if (!document.getElementById('lookup').hidden) return false;
+      document.getElementById('lookup').hidden = false;
+      document.getElementById('lookup-err').textContent = data.error;
+      try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+      return false;
+    }
+    if (!opts.length) {
+      const [o, b] = await Promise.all([
+        aasnSelect('box_options', `select=option_id,box_id,mlb_id,role,player:players(full_name,team_abbr,position,headshot_url)&season=eq.${data.season}`, 'aabl'),
+        aasnSelect('boxes', `select=box_id,name&season=eq.${data.season}`, 'aabl')
+      ]);
+      opts = o; boxes = new Map(b.map(x => [x.box_id, x]));
+      const ids = [...new Set(opts.map(x => x.mlb_id))].join(',');
+      // This season's stats once games are played; until then last season's, for reference.
+      for (const season of [data.season, data.season - 1]) {
+        const rows = await aasnSelect('stats_season', `select=*&season=eq.${season}&mlb_id=in.(${ids})`, 'aabl');
+        if (rows.length) { statsSeason = season; stats = new Map(rows.map(s => [s.mlb_id + '|' + s.role, s])); break; }
+      }
+    }
+    render();
+    return true;
+  }
+
+  const optById = id => opts.find(o => o.option_id === id);
+  const statOf = o => (o && stats.get(o.mlb_id + '|' + o.role)) || {};
+
+  function render() {
+    const el = document.getElementById('team');
+    el.hidden = false;
+    const e = data.entry;
+    const status = data.preseason
+      ? `<b>Pre-season:</b> change any pick as often as you like — free, and it doesn't count against your ${data.seasonMoves} trades.${data.openingDay ? ` Picks lock at first pitch, ${when(data.openingDay)} ET.` : ''}`
+      : (data.tradeDeadline && new Date() >= new Date(data.tradeDeadline)
+        ? '<b>The trade deadline has passed.</b> Your roster is set for the rest of the season.'
+        : `<b>In season:</b> ${data.seasonMoves - e.movesUsed} of ${data.seasonMoves} trades left. Trades are within the same box; points your outgoing player earned stay with you.${data.tradeDeadline ? ` Trade deadline: ${when(data.tradeDeadline)} ET.` : ''}`);
+
+    let html = `<div class="panel"><div class="head">
+        <div><div class="team-name">${esc(e.teamName)}</div><div class="meta">${esc(e.managerName)}${e.entryNum > 1 ? ` · entry #${e.entryNum}` : ''} · ID ${esc(e.entryId)}</div></div>
+        <div class="moves"><b>${e.movesUsed}/${data.seasonMoves}</b>TRADES USED</div>
+      </div><div class="status">${status}</div></div>
+      <div id="msg" aria-live="polite"></div>
+      <h2 class="sec-head">ROSTER <small style="font-family: var(--mono); font-size: 12px; color: var(--dim)">${statsSeason ? statsSeason + ' stats' : ''}</small></h2>`;
+
+    const canTrade = data.preseason || ((!data.tradeDeadline || new Date() < new Date(data.tradeDeadline)) && e.movesUsed < data.seasonMoves);
+    html += data.picks.map(pk => {
+      const o = optById(pk.option_id) || { player: {} }, s = statOf(o), b = boxes.get(pk.box_id) || {};
+      const key = 'mt|' + pk.box_id;
+      aablCards.register(key, { player: o.player, stats: s, role: o.role, box: b, statsSeason });
+      const others = opts.filter(x => x.box_id === pk.box_id && x.option_id !== pk.option_id)
+        .sort((x, y) => num(statOf(y).points) - num(statOf(x).points));
+      return `<div class="box" data-box="${pk.box_id}">
+        <div class="box-row">
+          <span class="bx">BOX ${pk.box_id}</span>
+          <img src="${esc(o.player.headshot_url)}" alt="" onerror="this.style.visibility='hidden'">
+          <span class="nm" data-key="${esc(key)}" role="button" tabindex="0">${esc(o.player.full_name)}<small>${esc(b.name || '')} · ${esc(o.player.team_abbr || '—')}${o.role === 'pitcher' ? ' · P' : ''}</small></span>
+          <span class="pt">${fmt(s.points)}${num(pk.banked_points) ? ` <span style="color:var(--gold)">+${fmt(pk.banked_points)}</span>` : ''}<small>PTS${num(pk.banked_points) ? ' + BANKED' : ''}</small></span>
+          ${canTrade ? `<button type="button" class="btn ghost" data-trade="${pk.box_id}" aria-expanded="${openBox === pk.box_id}">${data.preseason ? 'CHANGE' : 'TRADE'}</button>` : '<span></span>'}
+        </div>
+        ${openBox === pk.box_id ? `<div class="opts" role="radiogroup" aria-label="Trade for">
+            ${others.map(x => `<label class="opt"><input type="radio" name="trade-${pk.box_id}" value="${x.option_id}">
+              <img src="${esc(x.player.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+              <span><span class="n">${esc(x.player.full_name)}</span><br><span class="m">${esc(x.player.team_abbr || '—')}${x.role === 'pitcher' ? ' · P' : ''}</span></span>
+              <span class="p">${fmt(statOf(x).points)}</span></label>`).join('')}
+          </div>
+          <div class="confirm"><p>${data.preseason ? 'Pre-season change: free and unlimited.' : `This uses 1 of your ${data.seasonMoves} trades and can't be undone. ${esc(o.player.full_name)}'s points so far stay with your team.`}</p>
+            <button type="button" class="btn" data-confirm="${pk.box_id}" disabled>${data.preseason ? 'CONFIRM CHANGE' : 'CONFIRM TRADE'}</button>
+            <button type="button" class="btn ghost" data-cancel="1">CANCEL</button></div>` : ''}
+      </div>`;
+    }).join('');
+
+    html += `<h2 class="sec-head">DIVISION WINNERS <small style="font-family: var(--mono); font-size: 12px; color: var(--red-text)">+25 each, once, at season end</small></h2><div class="div-grid">`;
+    const dp = new Map(data.divisionPicks.map(d => [d.division, d.team_abbr]));
+    html += Object.entries(DIVISIONS).map(([d, teams]) => `<div class="div-card"><div class="d">${esc(d.toUpperCase())}</div>
+      ${data.preseason
+        ? `<label style="display:contents"><span style="position:absolute;left:-9999px">${esc(d)} winner</span><select data-division="${esc(d)}">${teams.map(t => `<option${dp.get(d) === t ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`
+        : `<div class="t">${esc(dp.get(d) || '—')}</div>`}</div>`).join('') + '</div>';
+
+    html += `<h2 class="sec-head">TRADE HISTORY</h2><div class="panel hist">${data.trades.length ? data.trades.map(t => {
+      const a = optById(t.old_option_id), b = optById(t.new_option_id);
+      return `<div>${when(t.made_at)} · BOX ${t.box_id}: ${esc(a ? a.player.full_name : '—')} ➜ ${esc(b ? b.player.full_name : '—')}${t.preseason ? ' · <span style="color:var(--dim)">pre-season</span>' : ` · banked ${fmt(t.points_banked)}`}${t.official ? ' · official' : ''}</div>`;
+    }).join('') : '<span class="muted">No trades yet.</span>'}</div>
+      <p style="margin: 8px 0 40px"><button type="button" class="btn ghost" id="forget">FORGET THIS DEVICE</button></p>`;
+    el.innerHTML = html;
+  }
+
+  document.getElementById('team').addEventListener('click', async e => {
+    const t = e.target.closest('[data-trade]'), c = e.target.closest('[data-confirm]');
+    if (e.target.closest('#forget')) return forget();
+    if (e.target.closest('[data-cancel]')) { openBox = null; render(); return; }
+    if (t) { const b = Number(t.dataset.trade); openBox = openBox === b ? null : b; render(); return; }
+    if (c) {
+      const box = Number(c.dataset.confirm);
+      const sel = document.querySelector(`input[name="trade-${box}"]:checked`);
+      if (!sel) return;
+      c.disabled = true; c.textContent = 'SAVING…';
+      const r = await api('makeTrade', { boxId: box, optionId: Number(sel.value) });
+      const msg = r.success
+        ? `<p class="ok" style="margin-bottom:12px">✓ ${r.preseason ? 'Pick changed.' : `Trade done. ${fmt(r.banked)} points banked · ${r.movesUsed}/${r.seasonMoves} trades used.`}</p>`
+        : `<p class="err" style="margin-bottom:12px">${esc(r.error)}</p>`;
+      openBox = null;
+      await loadTeam();
+      document.getElementById('msg').innerHTML = msg;
+    }
+  });
+  document.getElementById('team').addEventListener('change', async e => {
+    if (e.target.matches('input[type=radio][name^="trade-"]')) {
+      const b = e.target.name.slice(6); const btn = document.querySelector(`[data-confirm="${b}"]`); if (btn) btn.disabled = false;
+    }
+    if (e.target.matches('select[data-division]')) {
+      const r = await api('changeDivision', { division: e.target.dataset.division, team: e.target.value });
+      document.getElementById('msg').innerHTML = r.success ? `<p class="ok" style="margin-bottom:12px">✓ ${esc(e.target.dataset.division)} pick changed to ${esc(e.target.value)}.</p>` : `<p class="err" style="margin-bottom:12px">${esc(r.error)}</p>`;
+      if (r.success) { const d = data.divisionPicks.find(x => x.division === e.target.dataset.division); if (d) d.team_abbr = e.target.value; }
+    }
+  });
+
+  start().catch(err => { console.error(err); document.getElementById('team').hidden = false; document.getElementById('team').innerHTML = '<p class="status">My Team is unavailable right now.</p>'; });
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

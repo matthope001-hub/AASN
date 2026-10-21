@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Activity — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<style>
+.panel { background: var(--panel); border: 1px solid var(--border); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.item { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 4px 14px; padding: 12px 16px; border-top: 1px solid var(--row); }
+.item:first-child { border-top: 0; }
+.when { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+.team { font-weight: 700; font-size: 17px; }
+.swap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; font-size: 16px; }
+.swap img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: var(--panel-2); vertical-align: middle; }
+.swap .out { color: var(--dim); text-decoration: line-through; text-decoration-color: #5A6E8C; }
+.swap .arrow { color: var(--red-text); }
+.tag { font-family: var(--mono); font-size: 11px; padding: 2px 6px; background: var(--panel-2); color: var(--dim); }
+.tag.bank { background: #3A2E0A; color: var(--gold); }
+.tag.off { background: #4A1A22; color: #FF9EA2; }
+@media (max-width: 560px) { .item { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="activity"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">RECENT ACTIVITY</h1>
+  <p class="intro">Every trade in the league, newest first.</p>
+  <div class="filters" role="tablist" aria-label="Filter">
+    <button type="button" class="tab active" data-f="all">ALL</button>
+    <button type="button" class="tab" data-f="season">IN-SEASON TRADES</button>
+    <button type="button" class="tab" data-f="pre">PRE-SEASON CHANGES</button>
+  </div>
+  <div id="feed" class="panel"><p class="status" style="padding: 16px">Loading…</p></div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script>
+(function () {
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = v => Number(v) || 0;
+  const when = d => new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' });
+  let items = [], filter = 'all';
+
+  function render() {
+    const list = items.filter(t => filter === 'all' || (filter === 'pre' ? t.preseason : !t.preseason));
+    const el = document.getElementById('feed');
+    if (!list.length) { el.innerHTML = '<p class="status" style="padding: 16px">No activity yet.</p>'; return; }
+    el.innerHTML = list.map(t => `<div class="item">
+      <div class="when">${when(t.made_at)}</div>
+      <div>
+        <div class="team">${esc(t.teamName)} <span class="tag">BOX ${t.box_id}</span>
+          ${t.preseason ? '<span class="tag">PRE-SEASON</span>' : `<span class="tag bank">BANKED ${num(t.points_banked)}</span>`}${t.official ? ' <span class="tag off">OFFICIAL</span>' : ''}</div>
+        <div class="swap">
+          <span class="out">${t.out ? `<img src="${esc(t.out.headshot_url)}" alt="" onerror="this.style.visibility='hidden'"> ${esc(t.out.full_name)}` : '—'}</span>
+          <span class="arrow" aria-label="replaced by">➜</span>
+          <span>${t.in ? `<img src="${esc(t.in.headshot_url)}" alt="" onerror="this.style.visibility='hidden'"> <b>${esc(t.in.full_name)}</b>` : '—'}</span>
+        </div>
+      </div></div>`).join('');
+  }
+
+  document.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
+    filter = b.dataset.f;
+    document.querySelectorAll('[data-f]').forEach(x => { x.classList.toggle('active', x === b); x.setAttribute('aria-selected', x === b); });
+    render();
+  }));
+
+  async function load() {
+    const cfg = (await aasnSelect('config', 'select=season&order=season.desc&limit=1', 'aabl'))[0];
+    const [trades, teams] = await Promise.all([
+      aasnSelect('trades', 'select=entry_id,box_id,old_option_id,new_option_id,points_banked,preseason,official,made_at&order=made_at.desc&limit=200', 'aabl'),
+      aasnSelect('teams', `select=entry_id,team_name&season=eq.${cfg.season}`, 'aabl')
+    ]);
+    const name = new Map(teams.map(t => [t.entry_id, t.team_name]));
+    const ids = [...new Set(trades.flatMap(t => [t.old_option_id, t.new_option_id]))];
+    const opts = ids.length ? await aasnSelect('box_options', `select=option_id,player:players(full_name,headshot_url)&option_id=in.(${ids.join(',')})`, 'aabl') : [];
+    const p = new Map(opts.map(o => [o.option_id, o.player]));
+    items = trades.filter(t => name.has(t.entry_id)).map(t => ({ ...t, teamName: name.get(t.entry_id), out: p.get(t.old_option_id), in: p.get(t.new_option_id) }));
+    render();
+  }
+  load().catch(e => { console.error(e); document.getElementById('feed').innerHTML = '<p class="status" style="padding: 16px">Activity is unavailable right now.</p>'; });
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>
