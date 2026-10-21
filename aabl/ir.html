@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IR List — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="cards.css">
+<style>
+.list { background: var(--panel); border: 1px solid var(--border); }
+.r { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--row); cursor: pointer; }
+.r:first-child { border-top: 0; }
+.r:hover, .r:focus-visible { background: color-mix(in srgb, var(--red) 14%, var(--panel)); outline: none; }
+.r img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--panel-2); }
+.r b { display: block; font-size: 17px; }
+.r small { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.r .tag { font-family: var(--mono); font-size: 11px; color: #FF9EA2; border: 1px solid #6B2A33; padding: 2px 8px; white-space: nowrap; }
+.empty { padding: 16px; font-family: var(--mono); font-size: 13px; color: var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="ir"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">IR LIST</h1>
+  <p class="intro">Every player in the pool who is injured, suspended or otherwise not playing. Updated by the commissioner.</p>
+  <div class="list" id="list"><div class="empty">Loading…</div></div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
+<script src="cards.js"></script>
+<script src="nights.js"></script>
+<script>
+(async function () {
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const el = document.getElementById('list');
+  try {
+    const [rows, pool] = await Promise.all([
+      aasnSelect('il', 'select=mlb_id,note,flagged_at,player:players(full_name,team_abbr,position,headshot_url)&order=flagged_at.desc', 'aabl'),
+      aablNights.pool()
+    ]);
+    if (!rows.length) { el.innerHTML = '<div class="empty">Nobody on the IR list right now. 🎉</div>'; return; }
+    const ids = rows.map(r => r.mlb_id);
+    const last = await aablNights.latestDate();
+    const year = last ? Number(last.slice(0, 4)) : null;
+    const ss = year ? await aasnSelect('stats_season', `select=*&season=eq.${year}&mlb_id=in.(${ids.join(',')})`, 'aabl') : [];
+    el.innerHTML = rows.map(r => {
+      const p = r.player || { full_name: 'Player ' + r.mlb_id };
+      const roles = ['hitter', 'pitcher'].filter(x => pool.map.has(r.mlb_id + '|' + x));
+      const role = roles[0] || 'hitter';
+      const box = pool.map.get(r.mlb_id + '|' + role);
+      const key = 'ir|' + r.mlb_id;
+      aablCards.register(key, { player: p, stats: ss.find(s => s.mlb_id === r.mlb_id && s.role === role) || {}, role, statsSeason: year });
+      return `<div class="r" data-key="${esc(key)}" role="button" tabindex="0" aria-label="${esc(p.full_name)} player card">
+        <img src="${esc(p.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+        <span><b>${esc(p.full_name)}</b><small>${esc(p.team_abbr || '—')} · ${esc(p.position || '')}${box ? ` · BOX ${box.box_id}` : ''} · since ${new Date(r.flagged_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Toronto' })}</small></span>
+        <span class="tag">${esc(r.note || 'OUT')}</span></div>`;
+    }).join('');
+  } catch (e) {
+    console.error(e);
+    el.innerHTML = '<div class="empty">IR list unavailable right now.</div>';
+  }
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

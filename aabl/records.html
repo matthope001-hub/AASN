@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Records — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="cards.css">
+<style>
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 8px; }
+.tile { background: var(--panel); border: 1px solid var(--border); border-top: 3px solid var(--red); padding: 12px 14px; cursor: pointer; }
+.tile:hover { border-color: var(--red-text); }
+.tile small { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .5px; }
+.tile b { display: block; font-family: var(--mono); font-size: 26px; color: var(--red-text); margin: 2px 0; }
+.tile span { font-weight: 700; font-size: 16px; }
+.tile em { display: block; font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 2px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+.mini-title { font-size: 16px; font-weight: 700; letter-spacing: .5px; color: var(--dim); margin: 24px 0 8px; }
+.panel { background: var(--panel); border: 1px solid var(--border); }
+.r { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--row); }
+.r:first-child { border-top: 0; }
+.r .rk { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+.r .nm { min-width: 0; }
+.r .nm b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.r .nm small { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.r .v { font-family: var(--mono); font-weight: 700; font-size: 15px; text-align: right; }
+.r .v small { display: block; font-size: 10px; font-weight: 400; color: var(--dim); }
+.r[data-key], .tile[data-key] { cursor: pointer; }
+.r[data-key]:hover { background: color-mix(in srgb, var(--red) 14%, var(--panel)); }
+.tm { background: none; border: 0; padding: 0; color: var(--text); font-family: var(--cond); font-weight: 700; font-size: 16px; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: #3A5A88; text-underline-offset: 3px; }
+.empty { padding: 14px; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="records"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">SEASON RECORDS</h1>
+  <p class="intro">Bests from the <b id="season">—</b> season, for players in the boxes and teams in the pool.</p>
+
+  <h3 class="mini-title">📊 SEASON BESTS · SINGLE GAME</h3>
+  <div class="tiles" id="highs"><div class="empty">Loading…</div></div>
+
+  <div class="grid2">
+    <section><h3 class="mini-title">🔥 BEST GAMES</h3><div class="panel" id="best-games"><div class="empty">Loading…</div></div></section>
+    <section><h3 class="mini-title">⭐ SEASON 3 STARS TALLY</h3><div class="panel" id="stars"><div class="empty">Loading…</div></div></section>
+    <section><h3 class="mini-title">🌙 BEST TEAM NIGHTS</h3><div class="panel" id="team-nights"><div class="empty">Loading…</div></div></section>
+    <section><h3 class="mini-title">🏅 TEAM OF THE WEEK</h3><div class="panel" id="totw"><div class="empty">Loading…</div></div></section>
+  </div>
+  <section><h3 class="mini-title">📈 TEAM HISTORY</h3><div class="panel" id="history"><div class="empty">Loading…</div></div></section>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
+<script src="cards.js"></script>
+<script src="teams.js"></script>
+<script src="nights.js"></script>
+<script>
+(function () {
+  const N = aablNights;
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = v => Number(v) || 0;
+  const fmt = v => { const x = num(v); return Number.isInteger(x) ? x.toLocaleString() : x.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }); };
+  const ip = o => `${Math.floor(num(o) / 3)}.${num(o) % 3}`;
+  const dt = d => N.fmtDate(d, { month: 'short', day: 'numeric' });
+  const empty = t => `<div class="empty">${t}</div>`;
+  let pool, statsMap = new Map(), year;
+
+  const line = g => g.role === 'pitcher'
+    ? `${ip(g.outs)} IP, ${num(g.k)} K, ${num(g.er)} ER${num(g.w) ? ', W' : ''}${num(g.sv) ? ', SV' : ''}`
+    : `${num(g.hits)} H${num(g.hr) ? `, ${g.hr} HR` : ''}${num(g.rbi) ? `, ${g.rbi} RBI` : ''}${num(g.runs) ? `, ${g.runs} R` : ''}${num(g.sb) ? `, ${g.sb} SB` : ''}`;
+  function who(g) {
+    const o = pool.map.get(g.mlb_id + '|' + g.role);
+    return o ? o.player : { full_name: 'Player ' + g.mlb_id };
+  }
+  function cardKey(prefix, g) {
+    const key = prefix + '|' + g.mlb_id + '|' + g.role + '|' + (g.game_pk || '');
+    aablCards.register(key, { player: who(g), stats: statsMap.get(g.mlb_id + '|' + g.role) || {}, role: g.role, statsSeason: year });
+    return key;
+  }
+
+  async function bests() {
+    const q = (order, extra = '') => aasnSelect('records_best_games', `select=*&season=eq.${year}${extra}&order=${order}&limit=1`, 'aabl');
+    const [topH, topP, hr, k, rbi, sb] = await Promise.all([
+      q('points.desc', '&role=eq.hitter'), q('points.desc', '&role=eq.pitcher'),
+      q('hr.desc,points.desc', '&role=eq.hitter'), q('k.desc,points.desc', '&role=eq.pitcher'),
+      q('rbi.desc,points.desc', '&role=eq.hitter'), q('sb.desc,points.desc', '&role=eq.hitter')
+    ]);
+    const tiles = [
+      ['BEST HITTER GAME', topH[0], g => fmt(g.points) + ' PTS'], ['BEST PITCHER GAME', topP[0], g => fmt(g.points) + ' PTS'],
+      ['MOST HOME RUNS', hr[0], g => g.hr + ' HR'], ['MOST STRIKEOUTS', k[0], g => g.k + ' K'],
+      ['MOST RBI', rbi[0], g => g.rbi + ' RBI'], ['MOST STOLEN BASES', sb[0], g => g.sb + ' SB']
+    ].filter(t => t[1]);
+    document.getElementById('highs').innerHTML = tiles.length ? tiles.map(([label, g, v]) =>
+      `<div class="tile" data-key="${esc(cardKey('hi', g))}" role="button" tabindex="0"><small>${label}</small><b>${v(g)}</b><span>${esc(who(g).full_name)}</span><em>${dt(g.game_date)} · ${esc(line(g))}</em></div>`).join('') : empty('No games yet.');
+
+    const games = await aasnSelect('records_best_games', `select=*&season=eq.${year}&order=points.desc&limit=10`, 'aabl');
+    document.getElementById('best-games').innerHTML = games.length ? games.map((g, i) => `<div class="r" data-key="${esc(cardKey('bg', g))}" role="button" tabindex="0">
+      <span class="rk">${i + 1}</span><span class="nm"><b>${esc(who(g).full_name)}</b><small>${dt(g.game_date)} · ${esc(line(g))}</small></span><span class="v">${fmt(g.points)}<small>PTS</small></span></div>`).join('') : empty('No games yet.');
+  }
+
+  async function stars() {
+    const rows = await aasnSelect('records_three_stars', `select=*&season=eq.${year}&order=total.desc,first_star.desc&limit=10`, 'aabl');
+    document.getElementById('stars').innerHTML = rows.length ? rows.map((r, i) => `<div class="r" data-key="${esc(cardKey('ts', r))}" role="button" tabindex="0">
+      <span class="rk">${i + 1}</span><span class="nm"><b>${esc(who(r).full_name)}</b><small>⭐ ${r.first_star} · ⭐⭐ ${r.second_star} · ⭐⭐⭐ ${r.third_star}</small></span><span class="v">${r.total}<small>STARS</small></span></div>`).join('') : empty('No stars yet.');
+  }
+
+  async function teamRecords() {
+    const season = pool.season;
+    const [teams, snaps] = await Promise.all([
+      aasnSelect('teams', `select=entry_id,team_name&season=eq.${season}`, 'aabl'),
+      (async () => { const out = []; for (let off = 0; ; off += 1000) { const p = await aasnSelect('standings', `select=entry_id,snapshot_date,points,last_night,rank&season=eq.${season}&order=snapshot_date&limit=1000&offset=${off}`, 'aabl'); out.push(...p); if (p.length < 1000) break; } return out; })()
+    ]);
+    const name = new Map(teams.map(t => [t.entry_id, t.team_name]));
+    const team = id => `<button type="button" class="tm" data-entry="${esc(id)}" data-name="${esc(name.get(id) || '')}">${esc(name.get(id) || '—')}</button>`;
+    if (!snaps.length) { ['team-nights', 'totw', 'history'].forEach(id => document.getElementById(id).innerHTML = empty('Starts after Opening Day.')); return; }
+
+    // Best single nights (first snapshot has no "last night", so skip it)
+    const firstDate = snaps[0].snapshot_date;
+    const nights = snaps.filter(s => s.snapshot_date !== firstDate).sort((a, b) => num(b.last_night) - num(a.last_night)).slice(0, 10);
+    document.getElementById('team-nights').innerHTML = nights.map((s, i) => `<div class="r"><span class="rk">${i + 1}</span><span class="nm">${team(s.entry_id)}<small>${dt(s.snapshot_date)}</small></span><span class="v">+${fmt(s.last_night)}<small>PTS</small></span></div>`).join('');
+
+    // Team of the Week: biggest gain each Monday–Sunday week
+    const byTeam = new Map();
+    snaps.forEach(s => { if (!byTeam.has(s.entry_id)) byTeam.set(s.entry_id, []); byTeam.get(s.entry_id).push(s); });
+    const weekStart = d => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() - (x.getUTCDay() + 6) % 7); return x.toISOString().slice(0, 10); };
+    const weeks = new Map(); // week -> entry -> gain
+    byTeam.forEach((list, id) => {
+      let prev = null;
+      list.forEach(s => {
+        const w = weekStart(s.snapshot_date), gain = prev == null ? 0 : num(s.points) - prev;
+        if (!weeks.has(w)) weeks.set(w, new Map());
+        weeks.get(w).set(id, (weeks.get(w).get(id) || 0) + gain);
+        prev = num(s.points);
+      });
+    });
+    const winners = [...weeks.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([w, m]) => {
+      const [id, g] = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+      return { w, id, g };
+    }).filter(x => x.g > 0).slice(0, 10);
+    const wins = new Map(); [...weeks.values()].forEach(m => { const top = [...m.entries()].sort((a, b) => b[1] - a[1])[0]; if (top && top[1] > 0) wins.set(top[0], (wins.get(top[0]) || 0) + 1); });
+    document.getElementById('totw').innerHTML = winners.length ? winners.map(x => `<div class="r"><span class="rk">🏅</span><span class="nm">${team(x.id)}<small>Week of ${dt(x.w)} · ${wins.get(x.id)} win${wins.get(x.id) > 1 ? 's' : ''} this season</small></span><span class="v">+${fmt(x.g)}<small>PTS</small></span></div>`).join('') : empty('No full weeks yet.');
+
+    // Team history: best/worst rank and days in 1st
+    const hist = [...byTeam.entries()].map(([id, list]) => ({
+      id, best: Math.min(...list.map(s => s.rank)), worst: Math.max(...list.map(s => s.rank)),
+      first: list.filter(s => s.rank === 1).length, now: list[list.length - 1].rank, pts: num(list[list.length - 1].points)
+    })).sort((a, b) => a.now - b.now);
+    document.getElementById('history').innerHTML = hist.map(h => `<div class="r"><span class="rk">${h.now}</span><span class="nm">${team(h.id)}<small>Best ${h.best} · Worst ${h.worst} · ${h.first} day${h.first === 1 ? '' : 's'} in 1st</small></span><span class="v">${fmt(h.pts)}<small>PTS</small></span></div>`).join('');
+  }
+
+  (async () => {
+    pool = await N.pool();
+    const last = await N.latestDate();
+    if (!last) { document.querySelectorAll('.panel, #highs').forEach(el => el.innerHTML = empty('Starts after Opening Day.')); return; }
+    year = Number(last.slice(0, 4));
+    document.getElementById('season').textContent = year;
+    const ss = pool.ids.length ? await aasnSelect('stats_season', `select=*&season=eq.${year}&mlb_id=in.(${pool.ids.join(',')})`, 'aabl') : [];
+    statsMap = new Map(ss.map(s => [s.mlb_id + '|' + s.role, s]));
+    await Promise.all([bests(), stars(), teamRecords()].map(p => p.catch(e => console.error(e))));
+  })().catch(e => console.error(e));
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

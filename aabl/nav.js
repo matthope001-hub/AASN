@@ -14,13 +14,13 @@
   ];
   const MORE = [
     ['schedule', 'Schedule', 'schedule.html'],
-    ['records', 'Records', soon('Records')],
-    ['ir', 'IR List', soon('IR List')],
+    ['records', 'Records', 'records.html'],
+    ['ir', 'IR List', 'ir.html'],
     ['boxes', 'Boxes', 'boxes.html'],
     ['activity', 'Activity', 'activity.html'],
-    ['rules', 'Rules', soon('Rules')],
+    ['rules', 'Rules', 'rules.html'],
     ['signup', 'Sign Up', 'signup.html'],
-    ['whatsnew', "What's New", soon("What's New")],
+    ['whatsnew', "What's New", 'whatsnew.html'],
     ['admin', '⚙️ Admin', 'admin.html']
   ];
 
@@ -60,6 +60,18 @@
     btn.addEventListener('click', e => { e.stopPropagation(); setOpen(!menu.classList.contains('open')); });
     document.addEventListener('click', e => { if (!nav.contains(e.target)) setOpen(false); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && menu.classList.contains('open')) { setOpen(false); btn.focus(); } });
+
+    // Red dot on More and What's New when there are entries this browser hasn't seen.
+    if (active !== 'whatsnew') {
+      fetch('whatsnew.json', { cache: 'no-cache' }).then(r => r.json()).then(list => {
+        let seen = 0; try { seen = Number(localStorage.getItem('aabl_whatsnew_seen') || 0); } catch (e) { /* ignore */ }
+        if (list.length > seen) {
+          const dot = '<span aria-label="new" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#F06A70;margin-left:5px;vertical-align:middle"></span>';
+          btn.insertAdjacentHTML('beforeend', dot);
+          const wn = menu.querySelector('a[href="whatsnew.html"]'); if (wn) wn.insertAdjacentHTML('beforeend', dot);
+        }
+      }).catch(() => {});
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
