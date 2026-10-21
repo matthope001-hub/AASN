@@ -1,0 +1,43 @@
+name: AABL nightly
+
+on:
+  schedule:
+    # ~4:17am Eastern daylight time (08:17 UTC); runs before that day's games
+    - cron: '17 8 * * *'
+  workflow_dispatch:
+    inputs:
+      start:
+        description: 'Start date YYYY-MM-DD (blank = yesterday, Eastern)'
+        required: false
+      end:
+        description: 'End date YYYY-MM-DD (blank = same as start)'
+        required: false
+      pool_season:
+        description: 'Pool season for standings (blank = year of the date)'
+        required: false
+      skip_rebuild:
+        description: 'Spot test: do not rebuild season totals (1 = skip)'
+        required: false
+
+concurrency:
+  group: aabl-nightly
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run nightly pipeline
+        env:
+          SUPABASE_URL: https://tetgrmgurobacdohhiby.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          START: ${{ inputs.start }}
+          END: ${{ inputs.end }}
+          POOL_SEASON: ${{ inputs.pool_season }}
+          SKIP_REBUILD: ${{ inputs.skip_rebuild }}
+        run: node scripts/nightly.mjs

@@ -1,0 +1,8 @@
+-- AABL 005 — nightly pipeline helpers (applied Oct 21, 2026).
+-- aabl.rebuild_season_stats(season): stats_season rebuilt from stats_game.
+-- aabl.snapshot_standings(pool_season, stats_season, date): one standings snapshot.
+--   Player points = banked + current pick's points to date; a pick from an in-season
+--   trade counts from the trade date; original picks (incl. late entries) from day 1.
+--   Division bonus = 25 per pick matching the current leader (projected until final).
+-- aabl.job_runs: pipeline log. Both functions are service-role only.
+-- (Full SQL as applied is kept in the Supabase migration history: aabl_005_nightly_functions.)
