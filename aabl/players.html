@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Players — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="cards.css">
+<style>
+.pc-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 16px; }
+.search, .sort { min-height: 44px; padding: 0 12px; background: var(--panel); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 13px; }
+.search { flex: 2 1 220px; }
+.sort { flex: 1 1 180px; }
+.search:focus, .sort:focus { outline: 2px solid var(--red-text); outline-offset: 1px; }
+.view-toggle { display: flex; gap: 4px; }
+.count { font-family: var(--mono); font-size: 12px; color: var(--dim); margin-bottom: 10px; }
+
+/* Table view */
+.table-scroll { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+th { text-align: right; color: var(--dim); font-size: 11px; letter-spacing: .5px; padding: 0; border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; background: var(--panel); }
+th button { width: 100%; min-height: 40px; padding: 0 10px; background: none; border: 0; color: inherit; font: inherit; letter-spacing: inherit; text-align: inherit; cursor: pointer; }
+th.sorted { color: var(--red-text); }
+th.l { text-align: left; }
+td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--row); white-space: nowrap; }
+td.l { text-align: left; }
+td.pts { font-weight: 700; color: var(--red-text); }
+tr[data-key] { cursor: pointer; }
+tr[data-key]:hover, tr[data-key]:focus-visible { background: color-mix(in srgb, var(--red) 16%, var(--panel)); outline: none; }
+.pcell { display: flex; align-items: center; gap: 8px; font-family: var(--cond); font-size: 15px; font-weight: 700; }
+.pcell img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: var(--panel-2); flex-shrink: 0; }
+.pcell small { font-family: var(--mono); font-size: 10px; color: var(--dim); font-weight: 400; margin-left: 2px; }
+
+/* Card view (same build as AAHL's Players cards) */
+.pc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.aabl-pc { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; position: relative; cursor: pointer; transition: border-color .15s; transform-style: preserve-3d; will-change: transform; }
+.aabl-pc[data-team] { background: color-mix(in srgb, var(--tc) 22%, var(--bg)); border-color: color-mix(in srgb, var(--tc) 60%, var(--bg)); }
+.aabl-pc[data-team]::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--tc); z-index: 3; }
+.aabl-pc:hover, .aabl-pc:focus-visible { border-color: var(--red-text); outline: none; }
+.aabl-pc-wm { position: absolute; right: -24px; top: -18px; width: 150px; height: 150px; opacity: .15; pointer-events: none; filter: grayscale(1) brightness(2.2); }
+.aabl-pc-top { display: flex; position: relative; min-height: 132px; transform: translateZ(24px); }
+.aabl-pc-info { flex: 1; padding: 14px 0 10px 14px; min-width: 0; position: relative; z-index: 2; }
+.aabl-pc-nm { font-family: var(--display); font-size: 21px; line-height: 1; text-transform: uppercase; letter-spacing: .5px; }
+.aabl-pc-meta { font-family: var(--mono); font-size: 11px; color: #C9D3DF; margin: 8px 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aabl-pc-box { font-family: var(--mono); font-size: 11px; color: var(--red-text); }
+.aabl-pc-hs { position: absolute; right: 8px; bottom: 0; width: 108px; z-index: 0; }
+.aabl-pc-hs img { width: 108px; height: 108px; object-fit: contain; object-position: bottom; display: block; }
+.aabl-pc-strip { margin: 0 8px 8px; border: 1px solid var(--border); border-radius: 10px; display: grid; grid-template-columns: repeat(5, 1fr); padding: 8px 2px; background: color-mix(in srgb, var(--tc, #132E52) 10%, var(--bg)); position: relative; transform: translateZ(16px); }
+.aabl-pc-strip div { text-align: center; min-width: 0; }
+.aabl-pc-strip b { display: block; font-family: var(--mono); font-size: 15px; font-weight: 500; }
+.aabl-pc-strip small { font-family: var(--mono); font-size: 9px; color: var(--dim); }
+.aabl-pc-strip .pts { border-left: 1px solid var(--border); }
+.aabl-pc-strip .pts b { color: var(--red-text); font-weight: 700; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav aria-label="AABL">
+      <a href="./">HOME</a>
+      <a href="#">STANDINGS</a>
+      <a href="players.html" class="active">PLAYERS</a>
+      <a href="boxes.html">BOXES</a>
+      <a href="#">MY TEAM</a>
+      <a href="#">MORE ▾</a>
+    </nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">PLAYERS</h1>
+  <p class="intro">Every player in the 2027 boxes, with <b id="stats-season">2026</b> regular-season stats and AABL points. Tap a player for their card.</p>
+
+  <div class="controls" role="tablist" aria-label="Filter players">
+    <button type="button" class="tab active" data-filter="all">ALL</button>
+    <button type="button" class="tab" data-filter="hitter">HITTERS</button>
+    <button type="button" class="tab" data-filter="pitcher">PITCHERS</button>
+  </div>
+  <div class="pc-controls">
+    <label class="search-wrap" style="display: contents"><span style="position: absolute; left: -9999px">Search players</span>
+      <input id="search" class="search" type="search" placeholder="Search players or teams…" autocomplete="off"></label>
+    <label style="display: contents"><span style="position: absolute; left: -9999px">Sort by</span>
+      <select id="sort" class="sort"></select></label>
+    <div class="view-toggle" role="group" aria-label="View">
+      <button type="button" class="tab" data-view="cards">CARDS</button>
+      <button type="button" class="tab" data-view="table">TABLE</button>
+    </div>
+  </div>
+  <div id="count" class="count"></div>
+  <div id="players"><p class="status">Loading players…</p></div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
+<script src="cards.js"></script>
+<script>
+(function () {
+  const BOX_SEASON = 2027, STATS_SEASON = 2026;
+  const TINT = { AZ:'#E3D4AD', ARI:'#E3D4AD', ATL:'#CE1141', BAL:'#DF4601', BOS:'#BD3039', CHC:'#2E6BD9', CWS:'#C4CED4', CIN:'#C6011F', CLE:'#E31937', COL:'#8E7CC3', DET:'#FA4616', HOU:'#EB6E1F', KC:'#3A86D1', LAA:'#BA0021', LAD:'#2E73D6', MIA:'#00A3E0', MIL:'#FFC52F', MIN:'#D31145', NYM:'#FF5910', NYY:'#8FA6C9', ATH:'#2E8B57', OAK:'#2E8B57', PHI:'#E81828', PIT:'#FDB827', SD:'#FFC425', SF:'#FD5A1E', SEA:'#2EA3A3', STL:'#C41E3A', TB:'#8FBCE6', TEX:'#3A6FD1', TOR:'#3A8DDE', WSH:'#AB0003' };
+  const TEAM_IDS = { AZ:109, ARI:109, ATL:144, BAL:110, BOS:111, CHC:112, CWS:145, CIN:113, CLE:114, COL:115, DET:116, HOU:117, KC:118, LAA:108, LAD:119, MIA:146, MIL:158, MIN:142, NYM:121, NYY:147, ATH:133, OAK:133, PHI:143, PIT:134, SD:135, SF:137, SEA:136, STL:138, TB:139, TEX:140, TOR:141, WSH:120 };
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = v => Number(v) || 0;
+  const fmt = v => { const x = num(v); return Number.isInteger(x) ? String(x) : x.toFixed(1); };
+  const ipVal = s => num(s.outs) / 3;
+  const ipTxt = s => `${Math.floor(num(s.outs) / 3)}.${num(s.outs) % 3}`;
+  const era = s => num(s.outs) ? num(s.er) * 27 / num(s.outs) : null;
+  const whip = s => num(s.outs) ? (num(s.bb_allowed) + num(s.h_allowed)) * 3 / num(s.outs) : null;
+  const hits = s => num(s.singles) + num(s.doubles) + num(s.triples) + num(s.hr);
+  const logo = t => TEAM_IDS[t] ? `https://www.mlbstatic.com/team-logos/${TEAM_IDS[t]}.svg` : '';
+  const tint = t => TINT[t] ? ` data-team="${esc(t)}" style="--tc:${TINT[t]}"` : '';
+
+  // Columns per filter, like AAHL's PLAYER_COLUMNS. asc = lower is better (ERA, WHIP).
+  const C = (key, label, title, filters, val, txt, opts = {}) => ({ key, label, title, filters, val, txt: txt || (r => fmt(val(r))), ...opts });
+  const ALL = ['all', 'hitter', 'pitcher'], H = ['hitter'], P = ['pitcher'];
+  const COLUMNS = [
+    C('name', 'PLAYER', 'Player', ALL, r => r.player.full_name, null, { text: true, left: true }),
+    C('team', 'TEAM', 'Team', ALL, r => r.player.team_abbr || '', r => esc(r.player.team_abbr || '—'), { text: true, left: true }),
+    C('box', 'BOX', 'Box', ALL, r => r.box_id),
+    C('games', 'G', 'Games', ALL, r => r.s.games),
+    C('hr', 'HR', 'Home runs', H, r => r.s.hr),
+    C('rbi', 'RBI', 'Runs batted in', H, r => r.s.rbi),
+    C('runs', 'R', 'Runs', H, r => r.s.runs),
+    C('sb', 'SB', 'Stolen bases', H, r => r.s.sb),
+    C('hits', 'H', 'Hits', H, r => hits(r.s)),
+    C('bb', 'BB', 'Walks', H, r => r.s.bb),
+    C('so', 'SO', 'Strikeouts', H, r => r.s.so, null, { asc: true }),
+    C('ip', 'IP', 'Innings pitched', P, r => ipVal(r.s), r => ipTxt(r.s)),
+    C('w', 'W', 'Wins', P, r => r.s.w),
+    C('qs', 'QS', 'Quality starts', P, r => r.s.qs),
+    C('k', 'K', 'Strikeouts', P, r => r.s.k),
+    C('sv', 'SV', 'Saves', P, r => r.s.sv),
+    C('hld', 'HLD', 'Holds', P, r => r.s.hld),
+    C('era', 'ERA', 'Earned run average', P, r => era(r.s) ?? 99, r => era(r.s) == null ? '—' : era(r.s).toFixed(2), { asc: true }),
+    C('whip', 'WHIP', 'Walks + hits per inning', P, r => whip(r.s) ?? 99, r => whip(r.s) == null ? '—' : whip(r.s).toFixed(2), { asc: true }),
+    C('pts', 'PTS', 'AABL points (' + STATS_SEASON + ')', ALL, r => r.s.points, null, { cls: 'pts' })
+  ];
+
+  let rows = [], filter = 'all', sort = { key: 'pts', dir: 'desc' };
+  let view = (() => { try { return localStorage.getItem('aabl_players_view') || 'cards'; } catch (e) { return 'cards'; } })();
+
+  const visibleCols = () => COLUMNS.filter(c => c.filters.includes(filter));
+
+  function syncControls(cols) {
+    const sel = document.getElementById('sort');
+    sel.innerHTML = cols.filter(c => c.key !== 'name').map(c => `<option value="${c.key}"${c.key === sort.key ? ' selected' : ''}>Sort: ${esc(c.title)}</option>`).join('');
+    document.querySelectorAll('[data-view]').forEach(b => { b.classList.toggle('active', b.dataset.view === view); b.setAttribute('aria-pressed', b.dataset.view === view); });
+    document.querySelectorAll('[data-filter]').forEach(b => { b.classList.toggle('active', b.dataset.filter === filter); b.setAttribute('aria-selected', b.dataset.filter === filter); });
+  }
+
+  function cardHtml(r) {
+    const p = r.player, s = r.s, t = p.team_abbr || '';
+    const [first, ...rest] = String(p.full_name).split(' ');
+    const strip = r.role === 'pitcher'
+      ? [['W', s.w], ['QS', s.qs], ['K', s.k], ['SV', s.sv]]
+      : [['HR', s.hr], ['RBI', s.rbi], ['R', s.runs], ['SB', s.sb]];
+    return `<div class="aabl-pc" data-key="${esc(r.key)}" role="button" tabindex="0" aria-label="${esc(p.full_name)} player card"${tint(t)}>
+      ${t ? `<img class="aabl-pc-wm" src="${logo(t)}" alt="" width="150" height="150" onerror="this.remove()">` : ''}
+      <div class="aabl-pc-top">
+        <div class="aabl-pc-info">
+          <div class="aabl-pc-nm">${esc(first)}<br>${esc(rest.join(' '))}</div>
+          <div class="aabl-pc-meta">${esc(t || 'FA')} · ${esc(p.position || '')}${r.isTwoWay ? (r.role === 'pitcher' ? ' · PITCHING' : ' · HITTING') : ''}</div>
+          <div class="aabl-pc-box">BOX ${r.box_id}</div>
+        </div>
+        <div class="aabl-pc-hs">${p.headshot_url ? `<img src="${esc(p.headshot_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>
+      </div>
+      <div class="aabl-pc-strip">
+        ${strip.map(([l, v]) => `<div><b>${fmt(v)}</b><small>${l}</small></div>`).join('')}
+        <div class="pts"><b>${fmt(s.points)}</b><small>PTS</small></div>
+      </div>
+    </div>`;
+  }
+
+  function cellHtml(c, r) {
+    if (c.key === 'name') return `<span class="pcell"><img src="${esc(r.player.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">${esc(r.player.full_name)}${r.isTwoWay ? `<small>${r.role === 'pitcher' ? 'P' : 'H'}</small>` : ''}</span>`;
+    return c.txt(r);
+  }
+
+  function render() {
+    const cols = visibleCols();
+    if (!cols.some(c => c.key === sort.key)) sort = { key: 'pts', dir: 'desc' };
+    syncControls(cols);
+
+    const q = document.getElementById('search').value.trim().toLowerCase();
+    let list = rows.filter(r => filter === 'all' || r.role === filter);
+    if (q) list = list.filter(r => r.player.full_name.toLowerCase().includes(q) || (r.player.team_abbr || '').toLowerCase().includes(q));
+
+    const col = COLUMNS.find(c => c.key === sort.key);
+    list.sort((a, b) => {
+      const va = col.val(a), vb = col.val(b);
+      const diff = col.text ? String(va).localeCompare(String(vb)) : num(va) - num(vb);
+      return sort.dir === 'asc' ? diff : -diff;
+    });
+
+    document.getElementById('count').textContent = `${list.length} player${list.length === 1 ? '' : 's'}`;
+    const el = document.getElementById('players');
+    if (!list.length) { el.innerHTML = '<p class="status">No players match.</p>'; return; }
+
+    if (view === 'cards') {
+      el.innerHTML = `<div class="pc-grid">${list.map(cardHtml).join('')}</div>`;
+      if (typeof VanillaTilt !== 'undefined' && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+        VanillaTilt.init(el.querySelectorAll('.aabl-pc'), { max: 12, speed: 400, scale: 1.03, glare: true, 'max-glare': 0.3 });
+      }
+      return;
+    }
+    el.innerHTML = `<div class="table-scroll"><table>
+      <thead><tr>${cols.map(c => `<th class="${c.left ? 'l' : ''} ${c.key === sort.key ? 'sorted' : ''}" title="${esc(c.title)}" aria-sort="${c.key === sort.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" data-sort="${c.key}">${esc(c.label)}${c.key === sort.key ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}</button></th>`).join('')}</tr></thead>
+      <tbody>${list.map(r => `<tr data-key="${esc(r.key)}" tabindex="0">${cols.map(c => `<td class="${c.left ? 'l' : ''} ${c.cls || ''}">${cellHtml(c, r)}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+
+  // Header click: same column flips direction; new column starts at its natural order.
+  document.getElementById('players').addEventListener('click', e => {
+    const b = e.target.closest('[data-sort]');
+    if (!b) return;
+    e.stopPropagation();
+    const c = COLUMNS.find(x => x.key === b.dataset.sort);
+    sort = sort.key === c.key ? { key: c.key, dir: sort.dir === 'desc' ? 'asc' : 'desc' } : { key: c.key, dir: (c.asc || c.text) ? 'asc' : 'desc' };
+    render();
+  }, true);
+  document.getElementById('sort').addEventListener('change', e => {
+    const c = COLUMNS.find(x => x.key === e.target.value);
+    sort = { key: c.key, dir: (c.asc || c.text) ? 'asc' : 'desc' };
+    render();
+  });
+  document.getElementById('search').addEventListener('input', render);
+  document.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => { filter = b.dataset.filter; render(); }));
+  document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+    view = b.dataset.view;
+    try { localStorage.setItem('aabl_players_view', view); } catch (e) { /* ignore */ }
+    render();
+  }));
+
+  async function load() {
+    document.getElementById('stats-season').textContent = STATS_SEASON;
+    const [boxRows, optRows] = await Promise.all([
+      aasnSelect('boxes', `select=box_id,name,section,role&season=eq.${BOX_SEASON}`, 'aabl'),
+      aasnSelect('box_options', `select=box_id,mlb_id,role,player:players(full_name,team_abbr,position,headshot_url)&season=eq.${BOX_SEASON}`, 'aabl')
+    ]);
+    const ids = [...new Set(optRows.map(o => o.mlb_id))];
+    const statRows = ids.length ? await aasnSelect('stats_season', `select=*&season=eq.${STATS_SEASON}&mlb_id=in.(${ids.join(',')})`, 'aabl') : [];
+    const stats = new Map(statRows.map(s => [s.mlb_id + '|' + s.role, s]));
+    const boxes = new Map(boxRows.map(b => [b.box_id, b]));
+    const roles = new Map();
+    optRows.forEach(o => roles.set(o.mlb_id, (roles.get(o.mlb_id) || new Set()).add(o.role)));
+
+    // Box rank for the card
+    const byBox = new Map();
+    optRows.forEach(o => (byBox.get(o.box_id) || byBox.set(o.box_id, []).get(o.box_id)).push(o));
+    byBox.forEach(list => list.sort((a, b) => num((stats.get(b.mlb_id + '|' + b.role) || {}).points) - num((stats.get(a.mlb_id + '|' + a.role) || {}).points)));
+
+    rows = optRows.map(o => {
+      const key = 'p|' + o.box_id + '|' + o.mlb_id + '|' + o.role;
+      const r = { ...o, key, s: stats.get(o.mlb_id + '|' + o.role) || {}, isTwoWay: roles.get(o.mlb_id).size > 1 };
+      const list = byBox.get(o.box_id);
+      aablCards.register(key, { player: o.player, stats: r.s, role: o.role, isTwoWay: r.isTwoWay, box: boxes.get(o.box_id),
+        rank: list.indexOf(o) + 1, boxSize: list.length, statsSeason: STATS_SEASON });
+      return r;
+    });
+    render();
+  }
+
+  load().catch(err => { console.error(err); document.getElementById('players').innerHTML = '<p class="status">Players unavailable right now.</p>'; });
+})();
+</script>
+</body>
+</html>
