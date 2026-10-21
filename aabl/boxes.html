@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boxes — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: 'Bosox'; src: url(assets/BosoxSemibold.ttf) format('truetype'); font-weight: 400; font-display: swap; }
+:root {
+  --bg: #0C2340; --panel: #132E52; --panel-2: #0A1E38; --border: #25446E; --row: #1A3860;
+  --red: #BD3039; --red-text: #F06A70; --gold: #E5B53A; --text: #E8EDF1; --dim: #A9B8CC;
+  --display: 'Bosox', serif; --cond: 'Barlow Condensed', sans-serif; --mono: 'JetBrains Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--cond); min-height: 100vh; }
+a { color: var(--red-text); }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+header { background: var(--panel); border-bottom: 1px solid var(--border); }
+.hdr { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-top: 16px; padding-bottom: 16px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-family: var(--display); font-size: 28px; }
+.brand img { width: 52px; height: 52px; display: block; }
+.brand span { color: var(--dim); } .brand em { color: var(--red-text); font-style: normal; }
+nav { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; }
+nav a { color: var(--dim); text-decoration: none; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; padding: 12px 0 4px; border-bottom: 2px solid transparent; }
+nav a:hover, nav a.active { color: var(--red-text); border-color: var(--red-text); }
+.signin { min-height: 44px; padding: 0 18px; background: transparent; border: 1px solid var(--red-text); color: var(--red-text); font-family: var(--cond); font-weight: 700; font-size: 16px; letter-spacing: 0.5px; cursor: pointer; }
+
+main { padding-top: 20px; padding-bottom: 50px; }
+.title { font-family: var(--display); font-weight: 400; font-size: 34px; margin-bottom: 6px; }
+.intro { color: var(--dim); font-size: 16px; margin-bottom: 16px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.tab { min-height: 44px; padding: 0 16px; background: transparent; color: var(--dim); border: 1px solid var(--border); font-family: var(--cond); font-weight: 700; font-size: 15px; letter-spacing: 0.5px; cursor: pointer; }
+.tab.active { background: var(--red); border-color: var(--red); color: #fff; }
+
+.section-head { font-family: var(--display); font-size: 22px; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 14px; }
+.box { background: var(--panel); border: 1px solid var(--border); border-top: 3px solid var(--red); }
+.box-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.box-num { font-family: var(--mono); font-size: 12px; color: var(--red-text); }
+.box-name { font-weight: 700; font-size: 18px; letter-spacing: 0.5px; }
+.cols, .player { display: grid; grid-template-columns: 34px minmax(0, 1fr) repeat(4, 34px) 46px; align-items: center; gap: 6px; padding: 0 14px; }
+.cols { font-family: var(--mono); font-size: 10px; color: var(--dim); padding-top: 8px; padding-bottom: 4px; }
+.cols span, .player .n { text-align: right; }
+.player { padding-top: 7px; padding-bottom: 7px; border-top: 1px solid var(--row); }
+.player img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: var(--panel-2); }
+.pname { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pmeta { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.n { font-family: var(--mono); font-size: 13px; }
+.pts { font-family: var(--mono); font-size: 14px; font-weight: 700; text-align: right; }
+.player:first-of-type .pts { color: var(--gold); }
+.tag { display: inline-block; margin-left: 4px; padding: 0 4px; background: #4A1A22; color: #FF9EA2; font-family: var(--mono); font-size: 10px; font-weight: 700; vertical-align: middle; }
+.status { font-family: var(--mono); color: var(--dim); padding: 24px 0; }
+
+footer { text-align: center; padding: 24px; color: var(--dim); font-size: 12px; border-top: 1px solid var(--border); font-family: var(--mono); }
+footer a { color: var(--dim); text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav aria-label="AABL">
+      <a href="./">HOME</a>
+      <a href="#">STANDINGS</a>
+      <a href="#">PLAYERS</a>
+      <a href="boxes.html" class="active">BOXES</a>
+      <a href="#">MY TEAM</a>
+      <a href="#">MORE ▾</a>
+    </nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">THE BOXES</h1>
+  <p class="intro">Pick one player from each of the 21 boxes. Stats shown are from the <b id="stats-season">2026</b> regular season, scored with AABL points, for reference.</p>
+  <div class="controls" role="tablist" aria-label="Section">
+    <button type="button" class="tab active" data-section="all">ALL</button>
+    <button type="button" class="tab" data-section="Infield">INFIELD</button>
+    <button type="button" class="tab" data-section="Outfield & DH">OUTFIELD &amp; DH</button>
+    <button type="button" class="tab" data-section="Pitching">PITCHING</button>
+  </div>
+  <div id="boxes"><p class="status">Loading boxes…</p></div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script>
+(function () {
+  const BOX_SEASON = 2027;   // the season these boxes are for
+  const STATS_SEASON = 2026; // last completed season, shown for reference
+  const SECTIONS = ['Infield', 'Outfield & DH', 'Pitching'];
+  let boxes = [], section = 'all';
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = v => (Number(v) || 0);
+  const fmt = v => { const x = num(v); return Number.isInteger(x) ? x : x.toFixed(1); };
+
+  const COLS = {
+    hitter:  [['HR', 'hr'], ['RBI', 'rbi'], ['R', 'runs'], ['SB', 'sb']],
+    pitcher: [['W', 'w'], ['QS', 'qs'], ['K', 'k'], ['SV', 'sv']]
+  };
+
+  function playerRow(o) {
+    const p = o.player, s = o.stats || {};
+    const tag = o.isTwoWay ? `<span class="tag">${o.role === 'pitcher' ? 'P' : 'H'}</span>` : '';
+    return `<div class="player">
+      <img src="${esc(p.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div><div class="pname">${esc(p.full_name)}${tag}</div><div class="pmeta">${esc(p.team_abbr || '—')} · ${esc(p.position || '')}</div></div>
+      ${COLS[o.role].map(([, k]) => `<span class="n">${fmt(s[k])}</span>`).join('')}
+      <span class="pts">${fmt(s.points)}</span>
+    </div>`;
+  }
+
+  function boxCard(b) {
+    return `<article class="box">
+      <div class="box-head"><span class="box-name">${esc(b.name)}</span><span class="box-num">BOX ${b.box_id}</span></div>
+      <div class="cols"><span></span><span style="text-align:left">PLAYER</span>${COLS[b.role].map(([l]) => `<span>${l}</span>`).join('')}<span>PTS</span></div>
+      ${b.options.map(playerRow).join('')}
+    </article>`;
+  }
+
+  function render() {
+    const el = document.getElementById('boxes');
+    const show = section === 'all' ? SECTIONS : [section];
+    el.innerHTML = show.map(sec => {
+      const list = boxes.filter(b => b.section === sec);
+      return list.length ? `<h2 class="section-head">${esc(sec.toUpperCase())}</h2><div class="grid">${list.map(boxCard).join('')}</div>` : '';
+    }).join('') || '<p class="status">No boxes yet.</p>';
+  }
+
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+    section = t.dataset.section;
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    render();
+  }));
+
+  async function load() {
+    document.getElementById('stats-season').textContent = STATS_SEASON;
+    const [boxRows, optRows] = await Promise.all([
+      aasnSelect('boxes', `select=box_id,name,section,role&season=eq.${BOX_SEASON}&order=box_id`, 'aabl'),
+      aasnSelect('box_options', `select=box_id,mlb_id,role,sort_order,player:players(full_name,team_abbr,position,headshot_url)&season=eq.${BOX_SEASON}`, 'aabl')
+    ]);
+    const ids = [...new Set(optRows.map(o => o.mlb_id))];
+    const statRows = ids.length
+      ? await aasnSelect('stats_season', `select=mlb_id,role,hr,rbi,runs,sb,w,qs,k,sv,points&season=eq.${STATS_SEASON}&mlb_id=in.(${ids.join(',')})`, 'aabl')
+      : [];
+    const stats = new Map(statRows.map(s => [s.mlb_id + '|' + s.role, s]));
+    const roles = new Map();
+    optRows.forEach(o => roles.set(o.mlb_id, (roles.get(o.mlb_id) || new Set()).add(o.role)));
+
+    boxes = boxRows.map(b => ({
+      ...b,
+      options: optRows.filter(o => o.box_id === b.box_id)
+        .map(o => ({ ...o, stats: stats.get(o.mlb_id + '|' + o.role), isTwoWay: roles.get(o.mlb_id).size > 1 }))
+        .sort((a, b2) => num(b2.stats && b2.stats.points) - num(a.stats && a.stats.points))
+    }));
+    render();
+  }
+
+  load().catch(err => {
+    console.error(err);
+    document.getElementById('boxes').innerHTML = '<p class="status">Boxes unavailable right now.</p>';
+  });
+})();
+</script>
+</body>
+</html>
