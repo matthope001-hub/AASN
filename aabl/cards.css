@@ -1,0 +1,42 @@
+/* AABL player cards — same build as AAHL's cards (cards.js / style.css),
+   restyled for the AABL navy/red theme. */
+.aabl-card-ov { position: fixed; inset: 0; background: rgba(4, 12, 24, .8); display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px; overflow-y: auto; }
+.aabl-card-ov.on { display: flex; }
+.aabl-fc { width: 100%; max-width: 440px; margin: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; position: relative; animation: aablPop .2s ease-out; color: var(--text); transform-style: preserve-3d; will-change: transform; }
+@keyframes aablPop { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+.aabl-fc[data-team] { background: color-mix(in srgb, var(--tc) 22%, var(--bg)); border-color: color-mix(in srgb, var(--tc) 70%, var(--bg)); }
+.aabl-fc[data-team]::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--tc); z-index: 3; }
+.aabl-fc-wm { position: absolute; right: -40px; top: -30px; width: 240px; height: 240px; opacity: .16; pointer-events: none; filter: grayscale(1) brightness(2.2); }
+.aabl-fc-x { position: absolute; top: 6px; right: 10px; width: 44px; height: 44px; background: none; border: 0; color: var(--dim); font-size: 30px; cursor: pointer; z-index: 4; line-height: 1; }
+.aabl-fc-top { display: flex; position: relative; min-height: 190px; transform: translateZ(24px); }
+.aabl-fc-info { flex: 1; padding: 20px 0 14px 20px; min-width: 0; position: relative; z-index: 2; }
+.aabl-fc-nm { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; letter-spacing: .5px; text-transform: uppercase; }
+.aabl-fc-meta { font-family: var(--mono); font-size: 13px; color: #C9D3DF; margin: 10px 0 6px; display: flex; align-items: center; gap: 6px; }
+.aabl-fc-meta img { width: 22px; height: 22px; }
+.aabl-fc-sub { font-family: var(--mono); font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+.aabl-fc-role { display: inline-block; margin-top: 4px; padding: 2px 6px; background: #4A1A22; color: #FF9EA2; font-family: var(--mono); font-size: 11px; font-weight: 700; }
+.aabl-fc-hs { position: absolute; right: 12px; bottom: 0; width: 150px; z-index: 0; }
+.aabl-fc-hs img { width: 150px; display: block; }
+.aabl-fc-pool { display: flex; justify-content: space-between; align-items: baseline; margin: 0 12px 8px; padding: 10px 14px; border: 1px solid var(--red-text); border-radius: 12px; background: color-mix(in srgb, var(--tc, #132E52) 14%, var(--bg)); position: relative; transform: translateZ(16px); }
+.aabl-fc-pool small, .aabl-fc-strip small { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .5px; }
+.aabl-fc-pool b { font-family: var(--mono); font-size: 26px; color: var(--red-text); font-weight: 700; }
+.aabl-fc-pool .rk { font-family: var(--mono); font-size: 13px; color: var(--text); text-align: right; }
+.aabl-fc-strip { margin: 0 12px 8px; border: 1px solid var(--border); border-radius: 12px; display: grid; padding: 12px 4px; background: color-mix(in srgb, var(--tc, #132E52) 10%, var(--bg)); position: relative; transform: translateZ(16px); }
+.aabl-fc-strip div { text-align: center; min-width: 0; }
+.aabl-fc-strip b { display: block; font-family: var(--mono); font-size: 20px; font-weight: 500; }
+.aabl-fc-break { margin: 0 12px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); font-family: var(--mono); font-size: 12px; }
+.aabl-fc-break summary { padding: 10px 14px; cursor: pointer; color: var(--dim); letter-spacing: .5px; min-height: 44px; display: flex; align-items: center; }
+.aabl-fc-break table { width: 100%; border-collapse: collapse; }
+.aabl-fc-break td { padding: 5px 14px; border-top: 1px solid var(--row); }
+.aabl-fc-break td:not(:first-child) { text-align: right; }
+.aabl-fc-break .neg { color: #FF9EA2; }
+.aabl-fc-break tfoot td { font-weight: 700; color: var(--red-text); }
+@media (max-width: 520px) {
+  .aabl-fc-hs, .aabl-fc-hs img { width: 116px; }
+  .aabl-fc-nm { font-size: 25px; }
+  .aabl-fc-strip b { font-size: 17px; }
+}
+/* Box rows open the card */
+.player[data-key] { cursor: pointer; transition: background .15s; }
+.player[data-key]:hover, .player[data-key]:focus-visible { background: color-mix(in srgb, var(--red) 18%, var(--panel)); outline: none; }
+@media (prefers-reduced-motion: reduce) { .aabl-fc { animation: none; } }

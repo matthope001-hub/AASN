@@ -139,6 +139,19 @@ function score(line, weights) {
   return Math.round(pts * 10) / 10;
 }
 
+// Division leaders from MLB standings (final winners once the season is over).
+const DIVISION_BY_ID = { 201: 'AL East', 202: 'AL Central', 200: 'AL West', 204: 'NL East', 205: 'NL Central', 203: 'NL West' };
+async function divisionLeaders(teamAbbr) {
+  const data = await mlb(`/standings?leagueId=103,104&season=${SEASON}&standingsTypes=regularSeason`);
+  const out = [];
+  for (const rec of data.records || []) {
+    const division = DIVISION_BY_ID[rec.division && rec.division.id];
+    const leader = (rec.teamRecords || []).find(t => String(t.divisionRank) === '1');
+    if (division && leader) out.push({ season: SEASON, division, team_abbr: teamAbbr.get(leader.team.id) || String(leader.team.id) });
+  }
+  return out;
+}
+
 // ---------- Main ----------
 async function main() {
   console.log(`Importing MLB ${SEASON} regular-season totals…`);
@@ -185,6 +198,10 @@ async function main() {
   ];
   await sbUpsert('stats_season', rows, 'season,mlb_id,role');
 
+  const leaders = await divisionLeaders(teamAbbr);
+  if (leaders.length) await sbUpsert('division_winners', leaders, 'season,division');
+  console.log(`Division leaders: ${leaders.map(l => `${l.division} ${l.team_abbr}`).join(', ')}`);
+
   // Summary
   const name = id => players.get(id).full_name;
   const top = role => rows.filter(r => r.role === role).sort((a, b) => b.points - a.points).slice(0, 10)
@@ -193,6 +210,7 @@ async function main() {
     `## AABL import — MLB ${SEASON} season totals`,
     `Players: ${players.size} · Hitter rows: ${hitters.length} · Pitcher rows: ${pitchers.length}`,
     `Quality starts counted for ${qsCounts.size} starters` + (qsResult.failed ? ` (⚠️ ${qsResult.failed} failed — rerun to retry)` : ''),
+    '\n### Division leaders\n' + leaders.map(l => `- ${l.division}: ${l.team_abbr}`).join('\n'),
     '\n### Top 10 hitters\n| # | Player | Team | Pts |\n|---|---|---|---|\n' + top('hitter'),
     '\n### Top 10 pitchers\n| # | Player | Team | Pts |\n|---|---|---|---|\n' + top('pitcher')
   ].join('\n');
