@@ -7,7 +7,7 @@
   const soon = name => 'soon.html?p=' + encodeURIComponent(name);
   const MAIN = [
     ['home', 'Home', './'],
-    ['standings', 'Standings', soon('Standings')],
+    ['standings', 'Standings', 'standings.html'],
     ['players', 'Players', 'players.html'],
     ['lastnight', 'Last Night', soon('Last Night')],
     ['myteam', 'My Team', soon('My Team')]

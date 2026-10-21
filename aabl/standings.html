@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Standings — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="cards.css">
+<style>
+.note { color: var(--dim); font-size: 14px; margin: -8px 0 12px; }
+.note .mono { font-family: var(--mono); font-size: 12px; }
+.panel { background: var(--panel); border: 1px solid var(--border); padding: 14px; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 14px; }
+th { text-align: left; color: var(--dim); font-size: 11px; letter-spacing: .5px; padding: 0; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th > span, th button { display: block; min-height: 40px; line-height: 40px; padding: 0 10px; }
+th button { width: 100%; background: none; border: 0; color: inherit; font: inherit; letter-spacing: inherit; text-align: inherit; cursor: pointer; }
+th.sorted { color: var(--red-text); }
+th.num, td.num { text-align: right; }
+td { padding: 8px 10px; border-bottom: 1px solid var(--row); white-space: nowrap; }
+td.rank1 { color: var(--gold); font-weight: 700; }
+td.pts { font-weight: 700; color: var(--red-text); }
+.team-link { background: none; border: 0; padding: 4px 0; min-height: 32px; color: var(--text); font-family: var(--cond); font-weight: 700; font-size: 15px; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: #3A5A88; text-underline-offset: 3px; }
+.team-link:hover { color: var(--red-text); }
+.up { color: #7EE2A8; } .down { color: #FF8A7A; } .flat { color: var(--dim); }
+.dots { display: inline-flex; gap: 3px; vertical-align: middle; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: #2A4670; }
+.dot.on { background: var(--red-text); }
+.bonus { margin-left: 8px; }
+.foot { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 10px; }
+.mini-title { font-size: 16px; font-weight: 700; letter-spacing: .5px; color: var(--dim); margin: 28px 0 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.mini-title small { font-family: var(--mono); font-size: 12px; font-weight: 400; }
+.sel { min-height: 44px; padding: 0 12px; background: var(--panel); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 13px; max-width: 260px; }
+.race-wrap { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.race-svg { flex: 1 1 520px; min-width: 0; }
+.race-legend { flex: 0 1 220px; font-family: var(--mono); font-size: 12px; display: flex; flex-direction: column; gap: 6px; }
+.race-legend div { display: flex; align-items: center; gap: 8px; }
+.race-legend i { width: 14px; height: 3px; flex-shrink: 0; }
+.cmp-pickers { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cmp-pickers span { font-family: var(--mono); color: var(--dim); }
+.cmp td { font-size: 13px; }
+.cmp td.box { color: var(--red-text); font-size: 11px; text-align: center; }
+.cmp td.nm { font-family: var(--cond); font-weight: 700; font-size: 15px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.cmp tr.same td { background: #1A3860; }
+.cmp .win { color: #7EE2A8; font-weight: 700; }
+.cmp tfoot td { font-weight: 700; border-top: 2px solid var(--border); }
+@media (max-width: 640px) { .col-hide-sm { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="standings"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">STANDINGS</h1>
+  <p class="note">Payout reflects the current prize pool and will grow as more entries join. <span class="mono" id="stamp"></span></p>
+  <div id="standings" class="panel"><p class="status">Loading standings…</p></div>
+  <div id="race"></div>
+  <div id="compare"></div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
+<script src="cards.js"></script>
+<script src="teams.js"></script>
+<script>
+(function () {
+  const SEASON = 2027, STATS_SEASON = 2026;
+  const DIVS = ['AL East', 'AL Central', 'AL West', 'NL East', 'NL Central', 'NL West'];
+  const RACE_COLORS = ['#F06A70', '#E5B53A', '#5FB8F5', '#7EE2A8', '#C59BF0'];
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = v => Number(v) || 0;
+  const fmt = v => num(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+  let teams = [], rows = [], snaps = [], divWon = new Map(), divPicks = new Map(), seasonMoves = 2, finalBonus = false;
+  let sort = { key: 'rank', dir: 'asc' };
+
+  // ---------- Standings table ----------
+  const SORTS = {
+    rank: r => r.rank, players: r => num(r.players_points), div: r => num(r.division_bonus), total: r => num(r.points)
+  };
+  function sortedRows() {
+    const f = SORTS[sort.key];
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => (f(a) - f(b)) * dir || a.rank - b.rank);
+  }
+  const head = (key, label, cls, title) => {
+    const on = sort.key === key;
+    const arrow = on && key !== 'rank' ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : '';
+    return `<th class="${cls || ''} ${on ? 'sorted' : ''}" title="${esc(title)}" aria-sort="${on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" data-st-sort="${key}">${label}${arrow}</button></th>`;
+  };
+  function moveHtml(r) {
+    if (r.prevRank == null) return '<span class="flat">—</span>';
+    const d = r.prevRank - r.rank;
+    return d > 0 ? `<span class="up">▲${d}</span>` : d < 0 ? `<span class="down">▼${-d}</span>` : '<span class="flat">–</span>';
+  }
+  function deltaHtml(r) {
+    if (r.prevPoints == null) return '<span class="flat">—</span>';
+    const d = num(r.points) - r.prevPoints;
+    return d > 0 ? `<span class="up">+${fmt(d)}</span>` : d < 0 ? `<span class="down">${fmt(d)}</span>` : '<span class="flat">0.0</span>';
+  }
+  function divHtml(r) {
+    const picks = divPicks.get(r.entry_id) || new Map();
+    const dots = DIVS.map(d => {
+      const on = picks.get(d) && divWon.get(d) === picks.get(d);
+      return `<span class="dot${on ? ' on' : ''}" title="${esc(d)}: ${esc(picks.get(d) || '—')}${on ? ' (leading)' : ''}"></span>`;
+    }).join('');
+    const b = num(r.division_bonus);
+    return `<span class="dots">${dots}</span><span class="bonus" style="color:${b ? 'var(--gold)' : 'var(--dim)'}">${b ? '+' + b : '—'}</span>`;
+  }
+
+  function renderTable() {
+    const el = document.getElementById('standings');
+    if (!rows.length) { el.innerHTML = '<p class="status">No standings yet. They start after Opening Day.</p>'; return; }
+    el.innerHTML = `<div class="scroll"><table>
+      <thead><tr>
+        ${head('rank', 'RANK', '', 'Back to the normal ranking')}<th><span>TEAM</span></th>
+        ${head('players', 'PLAYERS', 'num', 'Points earned by players - click to sort')}
+        ${head('div', 'DIV' + (finalBonus ? '' : '*'), '', 'Division picks leading now, +25 each - click to sort')}
+        ${head('total', finalBonus ? 'TOTAL' : 'PROJECTED*', 'num col-hide-sm', 'Players plus the division bonus - click to sort')}
+        <th class="num col-hide-sm"><span>±PTS (24H)</span></th><th class="col-hide-sm"><span>MOVE</span></th>
+        <th class="num" title="In-season trades used out of the season limit"><span>TRADES</span></th><th class="col-hide-sm"><span>PAYOUT</span></th>
+      </tr></thead>
+      <tbody>${sortedRows().map(r => `<tr>
+        <td class="${r.rank === 1 ? 'rank1' : ''}">${r.rank}</td>
+        <td><button type="button" class="team-link" data-entry="${esc(r.entry_id)}" data-name="${esc(r.team_name)}" data-rank="${r.rank}" data-points="${r.points}">${esc(r.team_name)}</button></td>
+        <td class="num pts">${fmt(r.players_points)}</td>
+        <td>${divHtml(r)}</td>
+        <td class="num col-hide-sm" style="color:${finalBonus ? 'var(--red-text)' : 'var(--dim)'}">${fmt(r.points)}</td>
+        <td class="num col-hide-sm">${deltaHtml(r)}</td>
+        <td class="col-hide-sm">${moveHtml(r)}</td>
+        <td class="num">${num(r.moves_used)}/${seasonMoves}</td>
+        <td class="col-hide-sm" style="color:var(--dim)">TBD</td></tr>`).join('')}</tbody>
+    </table></div>
+    <p class="foot">Trades = in-season trades used out of ${seasonMoves}.</p>
+    ${finalBonus ? '' : '<p class="foot">* <span class="dot on" style="display:inline-block"></span> = a division pick that is leading now. Projected = players + 25 for each leading pick. The bonus is paid once, at the end of the regular season.</p>'}`;
+  }
+  document.getElementById('standings').addEventListener('click', e => {
+    const b = e.target.closest('[data-st-sort]');
+    if (!b) return;
+    const k = b.dataset.stSort;
+    sort = k === 'rank' ? { key: 'rank', dir: 'asc' } : (sort.key === k ? { key: k, dir: sort.dir === 'desc' ? 'asc' : 'desc' } : { key: k, dir: 'desc' });
+    renderTable();
+  });
+
+  // ---------- Points race (gap to 1st place, like AAHL) ----------
+  let highlight = '';
+  try { highlight = localStorage.getItem('aabl_race_team') || ''; } catch (e) { /* ignore */ }
+  function renderRace() {
+    const el = document.getElementById('race');
+    const dates = [...new Set(snaps.map(s => s.snapshot_date))].sort();
+    if (dates.length < 2) { el.innerHTML = ''; return; }
+    const name = new Map(teams.map(t => [t.entry_id, t.team_name]));
+    const byTeam = new Map();
+    snaps.forEach(s => { if (!byTeam.has(s.entry_id)) byTeam.set(s.entry_id, {}); byTeam.get(s.entry_id)[s.snapshot_date] = num(s.points); });
+    const leader = dates.map(d => Math.max(...[...byTeam.values()].map(t => t[d] ?? -Infinity)));
+    const last = dates[dates.length - 1];
+    const series = [...byTeam.entries()].map(([id, t]) => ({ id, name: name.get(id) || id, gap: dates.map((d, i) => t[d] == null ? null : t[d] - leader[i]), final: t[last] ?? -Infinity }))
+      .sort((a, b) => b.final - a.final);
+    const top = series.slice(0, 5);
+    const mine = series.find(s => s.id === highlight);
+    const shown = mine && !top.includes(mine) ? top.concat([mine]) : top;
+    const color = s => top.includes(s) ? RACE_COLORS[top.indexOf(s)] : '#E8EDF1';
+
+    const W = 640, H = 260, L = 56, R = 12, T = 12, B = 28;
+    const minGap = Math.min(0, ...shown.flatMap(s => s.gap.filter(g => g != null)));
+    const x = i => L + (W - L - R) * (dates.length === 1 ? 0 : i / (dates.length - 1));
+    const y = g => T + (H - T - B) * (minGap === 0 ? 0 : g / minGap);
+    const ticks = [0, minGap / 2, minGap].map(g => `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="#25446E" stroke-dasharray="${g ? '3 4' : ''}"/><text x="${L - 6}" y="${y(g) + 4}" text-anchor="end" fill="#A9B8CC" font-size="11" font-family="JetBrains Mono, monospace">${g ? Math.round(g) : '1ST'}</text>`).join('');
+    const xl = dates.map((d, i) => (i === 0 || i === dates.length - 1 || dates.length <= 8) ? `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" fill="#A9B8CC" font-size="11" font-family="JetBrains Mono, monospace">${d.slice(5)}</text>` : '').join('');
+    const lines = shown.map(s => {
+      const pts = s.gap.map((g, i) => g == null ? null : `${x(i).toFixed(1)},${y(g).toFixed(1)}`).filter(Boolean).join(' ');
+      const strong = !highlight || s.id === highlight;
+      return `<polyline points="${pts}" fill="none" stroke="${color(s)}" stroke-width="${s.id === highlight ? 3.5 : 2}" stroke-linejoin="round" opacity="${strong ? 1 : .35}"><title>${esc(s.name)}</title></polyline>`;
+    }).join('');
+
+    el.innerHTML = `<h3 class="mini-title"><span>POINTS RACE <small>points behind 1st place</small></span>
+      <label style="display:contents"><span style="position:absolute;left:-9999px">Highlight a team</span>
+      <select class="sel" id="race-team"><option value="">Highlight a team…</option>${[...series].sort((a, b) => a.name.localeCompare(b.name)).map(s => `<option value="${esc(s.id)}"${s.id === highlight ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label></h3>
+      <div class="panel race-wrap">
+        <svg class="race-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Points behind first place over time">${ticks}${xl}${lines}</svg>
+        <div class="race-legend">${shown.map(s => `<div><i style="background:${color(s)}"></i>${esc(s.name)}</div>`).join('')}</div>
+      </div>`;
+    document.getElementById('race-team').addEventListener('change', e => {
+      highlight = e.target.value;
+      try { localStorage.setItem('aabl_race_team', highlight); } catch (er) { /* ignore */ }
+      renderRace();
+    });
+  }
+
+  // ---------- Compare two teams (like AAHL) ----------
+  let cmp = { a: '', b: '' };
+  const picksCache = new Map();
+  async function entryPicks(id) {
+    if (!picksCache.has(id)) {
+      picksCache.set(id, (async () => {
+        const picks = await aasnSelect('picks', `select=box_id,option:box_options(mlb_id,role,player:players(full_name,team_abbr,position,headshot_url))&entry_id=eq.${encodeURIComponent(id)}`, 'aabl');
+        const ids = [...new Set(picks.map(p => p.option.mlb_id))];
+        const stats = ids.length ? await aasnSelect('stats_season', `select=*&season=eq.${STATS_SEASON}&mlb_id=in.(${ids.join(',')})`, 'aabl') : [];
+        const s = new Map(stats.map(x => [x.mlb_id + '|' + x.role, x]));
+        return new Map(picks.map(p => [p.box_id, { ...p.option, stats: s.get(p.option.mlb_id + '|' + p.option.role) || {} }]));
+      })());
+    }
+    return picksCache.get(id);
+  }
+  function renderCompare() {
+    const el = document.getElementById('compare');
+    if (teams.length < 2) { el.innerHTML = ''; return; }
+    const sorted = [...teams].sort((a, b) => a.team_name.localeCompare(b.team_name));
+    const opts = sel => '<option value="">Pick a team…</option>' + sorted.map(t => `<option value="${esc(t.entry_id)}"${t.entry_id === sel ? ' selected' : ''}>${esc(t.team_name)}</option>`).join('');
+    el.innerHTML = `<h3 class="mini-title"><span>⚖️ COMPARE TWO TEAMS</span></h3>
+      <div class="panel"><div class="cmp-pickers">
+        <label style="display:contents"><span style="position:absolute;left:-9999px">First team</span><select class="sel" id="cmp-a">${opts(cmp.a)}</select></label>
+        <span>vs</span>
+        <label style="display:contents"><span style="position:absolute;left:-9999px">Second team</span><select class="sel" id="cmp-b">${opts(cmp.b)}</select></label>
+      </div><div id="cmp-body"></div></div>`;
+    const on = () => { cmp = { a: document.getElementById('cmp-a').value, b: document.getElementById('cmp-b').value }; drawCompare(); };
+    document.getElementById('cmp-a').addEventListener('change', on);
+    document.getElementById('cmp-b').addEventListener('change', on);
+    drawCompare();
+  }
+  async function drawCompare() {
+    const body = document.getElementById('cmp-body');
+    const { a, b } = cmp;
+    if (!a || !b) { body.innerHTML = '<p class="foot">Pick two teams to see their picks side by side.</p>'; return; }
+    if (a === b) { body.innerHTML = '<p class="foot">Pick two different teams.</p>'; return; }
+    body.innerHTML = '<p class="foot">Loading…</p>';
+    const want = a + '|' + b;
+    try {
+      const [A, B] = await Promise.all([entryPicks(a), entryPicks(b)]);
+      if (cmp.a + '|' + cmp.b !== want) return;
+      const boxIds = [...new Set([...A.keys(), ...B.keys()])].sort((x, y) => x - y);
+      let same = 0, ta = 0, tb = 0;
+      const cell = (p, o, key) => {
+        if (!p) return '<td>—</td><td class="num"></td>';
+        const pts = num(p.stats.points), other = o ? num(o.stats.points) : -Infinity;
+        if (window.aablCards) aablCards.register(key, { player: p.player, stats: p.stats, role: p.role, statsSeason: STATS_SEASON });
+        return `<td class="nm" data-key="${esc(key)}" role="button" tabindex="0" style="cursor:pointer">${esc(p.player.full_name)}</td><td class="num ${pts > other && !(o && o.mlb_id === p.mlb_id) ? 'win' : ''}">${fmt(pts)}</td>`;
+      };
+      const tr = boxIds.map(id => {
+        const pa = A.get(id), pb = B.get(id);
+        const isSame = pa && pb && pa.mlb_id === pb.mlb_id && pa.role === pb.role;
+        if (isSame) same++;
+        ta += pa ? num(pa.stats.points) : 0; tb += pb ? num(pb.stats.points) : 0;
+        return `<tr class="${isSame ? 'same' : ''}">${cell(pa, pb, 'ca|' + id)}<td class="box">BOX ${id}</td>${cell(pb, pa, 'cb|' + id)}</tr>`;
+      }).join('');
+      body.innerHTML = `<div class="scroll"><table class="cmp"><tbody>${tr}</tbody>
+        <tfoot><tr><td>Players total</td><td class="num ${ta > tb ? 'win' : ''}">${fmt(ta)}</td><td class="box">${same} SAME</td><td>Players total</td><td class="num ${tb > ta ? 'win' : ''}">${fmt(tb)}</td></tr></tfoot></table></div>
+        <p class="foot">Shaded rows = same pick. Green = the better pick in that box (${STATS_SEASON} points).</p>`;
+    } catch (e) {
+      console.error(e);
+      body.innerHTML = '<p class="foot">Couldn\'t load one of the teams. Picks stay hidden until the pick deadline.</p>';
+    }
+  }
+
+  // ---------- Load ----------
+  async function load() {
+    const [t, cfg, dates, winners] = await Promise.all([
+      aasnSelect('teams', `select=entry_id,team_name,moves_used&season=eq.${SEASON}`, 'aabl'),
+      aasnSelect('config', `select=season_moves&season=eq.${SEASON}`, 'aabl'),
+      aasnSelect('standings', `select=snapshot_date&season=eq.${SEASON}&order=snapshot_date.desc&limit=1`, 'aabl'),
+      aasnSelect('division_winners', 'select=season,division,team_abbr&order=season.desc', 'aabl')
+    ]);
+    teams = t;
+    if (cfg.length) seasonMoves = num(cfg[0].season_moves) || 2;
+    const latestDiv = winners.length ? winners[0].season : null;
+    divWon = new Map(winners.filter(w => w.season === latestDiv).map(w => [w.division, w.team_abbr]));
+    finalBonus = latestDiv === SEASON; // bonus is final only once this season's winners are set
+
+    if (dates.length) {
+      const latest = dates[0].snapshot_date;
+      snaps = await aasnSelect('standings', `select=entry_id,snapshot_date,points,players_points,division_bonus,rank&season=eq.${SEASON}&order=snapshot_date.asc`, 'aabl');
+      const allDates = [...new Set(snaps.map(s => s.snapshot_date))].sort();
+      const prevDate = allDates.length > 1 ? allDates[allDates.length - 2] : null;
+      const prev = new Map(snaps.filter(s => s.snapshot_date === prevDate).map(s => [s.entry_id, s]));
+      const info = new Map(teams.map(x => [x.entry_id, x]));
+      rows = snaps.filter(s => s.snapshot_date === latest).map(s => ({
+        ...s, team_name: (info.get(s.entry_id) || {}).team_name || '—', moves_used: (info.get(s.entry_id) || {}).moves_used,
+        prevRank: prev.has(s.entry_id) ? prev.get(s.entry_id).rank : null,
+        prevPoints: prev.has(s.entry_id) ? num(prev.get(s.entry_id).points) : null
+      }));
+      document.getElementById('stamp').textContent = 'Updated ' + latest;
+      try {
+        const dp = await aasnSelect('division_picks', `select=entry_id,division,team_abbr&entry_id=in.(${rows.map(r => '"' + r.entry_id + '"').join(',')})`, 'aabl');
+        dp.forEach(d => { if (!divPicks.has(d.entry_id)) divPicks.set(d.entry_id, new Map()); divPicks.get(d.entry_id).set(d.division, d.team_abbr); });
+      } catch (e) { /* hidden before the deadline */ }
+    }
+    renderTable();
+    renderRace();
+    renderCompare();
+  }
+  load().catch(e => { console.error(e); document.getElementById('standings').innerHTML = '<p class="status">Standings unavailable right now.</p>'; });
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>
