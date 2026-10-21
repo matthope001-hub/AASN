@@ -46,7 +46,7 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 <div style="flex: 1 1 400px; min-width: 0">
 <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; color: #F06A70; margin-bottom: 4px">MLB 2027 · INAUGURAL SEASON ⚾</div>
 <h1 style="margin: 0; font-family: 'Bosox', serif; font-weight: 400; font-size: 44px; line-height: 1">AABL BOX PICK<span style="color: #F06A70">'EM</span></h1>
-<a href="#" style="display: inline-block; margin: 16px 0 8px; padding: 18px 44px; background: #BD3039; border: 2px solid #BD3039; color: #FFFFFF; text-decoration: none; font-family: 'Bosox', serif; font-size: 22px; letter-spacing: 0.5px">⚾ SIGN UP NOW</a>
+<a href="signup.html" id="hero-signup" style="display: inline-block; margin: 16px 0 8px; padding: 18px 44px; background: #BD3039; border: 2px solid #BD3039; color: #FFFFFF; text-decoration: none; font-family: 'Bosox', serif; font-size: 22px; letter-spacing: 0.5px">⚾ SIGN UP NOW</a>
 </div>
 <div style="width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px">
 <div style="display: flex; flex-direction: column; align-items: center; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #D4A017; padding: 12px 10px; text-align: center">
@@ -58,16 +58,16 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.5px; color: #A9B8CC; margin-top: 2px">ENTRIES</span>
 </div>
 <div style="display: flex; flex-direction: column; align-items: center; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #FFFFFF; padding: 12px 10px; text-align: center">
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; color: #FFFFFF">[MAR DD]</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; color: #FFFFFF" id="hero-deadline">—</span>
 <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.5px; color: #A9B8CC; margin-top: 2px">DEADLINE</span>
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-top: 3px">[DD]d [HH]h [MM]m</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-top: 3px" id="hero-countdown"></span>
 </div>
 <div style="display: flex; flex-direction: column; align-items: center; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #FFFFFF; padding: 12px 10px; text-align: center">
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; color: #FFFFFF">[###]</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; color: #FFFFFF" id="hero-days">—</span>
 <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.5px; color: #A9B8CC; margin-top: 2px">DAYS LEFT</span>
 </div>
 <div style="display: flex; flex-direction: column; align-items: center; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #F06A70; padding: 12px 10px; text-align: center">
-<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; color: #F06A70">[####]</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; color: #F06A70" id="hero-games">—</span>
 <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.5px; color: #A9B8CC; margin-top: 2px">MLB GAMES LEFT</span>
 </div>
 </div>
@@ -212,11 +212,47 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
     }).join('');
   }
 
+
+  // ---------- Hero: deadline countdown, days left, MLB games left ----------
+  async function loadHero() {
+    const [cfgRows, first, last, left] = await Promise.all([
+      aasnSelect('config', `select=opening_day,picks_locked,signups_open&season=eq.${SEASON}`, 'aabl'),
+      aasnSelect('schedule', `select=game_date&season=eq.${SEASON}&order=game_date.asc&limit=1`, 'aabl'),
+      aasnSelect('schedule', `select=game_date&season=eq.${SEASON}&order=game_date.desc&limit=1`, 'aabl'),
+      aasnCount('schedule', `season=eq.${SEASON}&or=(status.is.null,status.not.ilike.*final*)`, 'aabl')
+    ]);
+    const cfg = cfgRows[0] || {};
+    const short = d => new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).toUpperCase();
+    const todayET = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    if (left != null) document.getElementById('hero-games').textContent = left.toLocaleString();
+    if (last.length) {
+      const days = Math.max(0, Math.round((new Date(last[0].game_date + 'T12:00:00Z') - new Date(todayET + 'T12:00:00Z')) / 86400000));
+      document.getElementById('hero-days').textContent = days;
+    }
+    const dl = document.getElementById('hero-deadline'), cd = document.getElementById('hero-countdown');
+    if (cfg.picks_locked) { dl.textContent = 'LOCKED'; cd.textContent = 'picks locked'; }
+    else if (cfg.opening_day) {
+      const target = new Date(cfg.opening_day);
+      dl.textContent = target.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Toronto' }).toUpperCase();
+      const tick = () => {
+        const ms = target - Date.now();
+        if (ms <= 0) { cd.textContent = 'picks locked'; return; }
+        const d = Math.floor(ms / 86400000), h = Math.floor(ms / 3600000) % 24, m = Math.floor(ms / 60000) % 60;
+        cd.textContent = `${d}d ${h}h ${m}m`;
+      };
+      tick(); setInterval(tick, 30000);
+    } else if (first.length) { dl.textContent = short(first[0].game_date); cd.textContent = 'first pitch TBA'; }
+    const btn = document.getElementById('hero-signup');
+    if (cfg.picks_locked) btn.style.display = 'none';
+    else if (!cfg.signups_open) btn.textContent = '⚾ SIGN-UPS OPEN SOON';
+  }
+
   async function load() {
     const teams = await aasnSelect('teams', `select=entry_id,team_name&season=eq.${SEASON}`, 'aabl');
     document.getElementById('hero-entries').textContent = teams.length;
     document.getElementById('hero-pool').textContent = '$' + (teams.length * 10).toLocaleString();
     await Promise.all([
+      loadHero().catch(e => console.error(e)),
       loadStandings().catch(e => { console.error(e); document.getElementById('home-standings').innerHTML = '<p style="color: #A9B8CC">Standings unavailable right now.</p>'; }),
       loadDivisions().catch(e => { console.error(e); document.getElementById('division-leaders').innerHTML = '<p style="color: #A9B8CC">Division leaders unavailable right now.</p>'; })
     ]);

@@ -1,0 +1,258 @@
+/**
+ * AASN member-saves API — Cloudflare Worker (AABL first).
+ *
+ *   GET  /health                    - config check (no secrets shown)
+ *   POST /aabl  { action: 'createEntry', entry, idempotencyKey }
+ *
+ * All writes use the Supabase secret key (bypasses RLS), so every rule is
+ * enforced here: sign-ups open, before the deadline, picks not locked, one
+ * valid pick per box, one valid team per division, clean text fields.
+ * Confirmation emails go out from Matt's Gmail via the Gmail API.
+ */
+
+const VERSION = '2026-10-21';
+const TOTAL_BOXES = 21;
+const TOTAL_PICKS = 27; // 21 boxes + 6 division picks
+const DIVISIONS = {
+  'AL East': ['BAL', 'BOS', 'NYY', 'TB', 'TOR'],
+  'AL Central': ['CLE', 'CWS', 'DET', 'KC', 'MIN'],
+  'AL West': ['ATH', 'HOU', 'LAA', 'SEA', 'TEX'],
+  'NL East': ['ATL', 'MIA', 'NYM', 'PHI', 'WSH'],
+  'NL Central': ['CHC', 'CIN', 'MIL', 'PIT', 'STL'],
+  'NL West': ['AZ', 'COL', 'LAD', 'SD', 'SF']
+};
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// ---------------------------------------------------------------- HTTP
+
+function corsHeaders(request, env) {
+  const origin = request.headers.get('Origin') || '';
+  const allowed = String(env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+  const ok = allowed.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin);
+  return {
+    'Access-Control-Allow-Origin': ok ? origin : (allowed[0] || '*'),
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin'
+  };
+}
+const json = (request, env, obj, status = 200) => new Response(JSON.stringify(obj), {
+  status, headers: { 'Content-Type': 'application/json', ...corsHeaders(request, env) }
+});
+
+export default {
+  async fetch(request, env, ctx) {
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request, env) });
+    const url = new URL(request.url);
+
+    if (url.pathname === '/health') {
+      return json(request, env, {
+        ok: true, version: VERSION,
+        supabase: !!(env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY),
+        email: !!(env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM)
+      });
+    }
+    if (url.pathname !== '/aabl') return new Response('Not found', { status: 404 });
+    if (request.method !== 'POST') return json(request, env, { success: false, error: 'Method not allowed' }, 405);
+
+    let body;
+    try { body = JSON.parse(await request.text()); } catch (e) { return json(request, env, { success: false, error: 'Invalid JSON body' }, 400); }
+
+    try {
+      switch (body.action) {
+        case 'createEntry': return json(request, env, await createEntry(env, ctx, body));
+        default: return json(request, env, { success: false, error: 'Unknown action' }, 400);
+      }
+    } catch (err) {
+      console.log('Worker error: ' + (err && err.stack || err));
+      return json(request, env, { success: false, error: 'Something went wrong saving your entry. Please try again.' }, 500);
+    }
+  }
+};
+
+// ------------------------------------------------------------- Supabase
+
+async function sb(env, path, init = {}) {
+  const key = env.SUPABASE_SERVICE_KEY;
+  const headers = { apikey: key, 'Content-Type': 'application/json', 'Accept-Profile': 'aabl', 'Content-Profile': 'aabl', ...(init.headers || {}) };
+  if (key.startsWith('eyJ')) headers.Authorization = `Bearer ${key}`;
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, { ...init, headers });
+  if (!res.ok) throw new Error(`Supabase ${init.method || 'GET'} ${path.split('?')[0]}: ${res.status} ${await res.text()}`);
+  const t = await res.text();
+  return t ? JSON.parse(t) : null;
+}
+
+async function currentSeason(env) {
+  const rows = await sb(env, 'config?select=season,opening_day,picks_locked,signups_open,payment_info,entry_fee&order=season.desc&limit=1');
+  return rows[0] || null;
+}
+
+// ---------------------------------------------------------- validation
+
+function cleanText(v, max) {
+  return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+async function validateEntry(env, cfg, e) {
+  const team = cleanText(e.teamName, 40), manager = cleanText(e.managerName, 40);
+  const email = String(e.email || '').trim().toLowerCase();
+  if (team.length < 2) return { error: 'Please enter a team name (at least 2 characters).' };
+  if (manager.length < 2) return { error: 'Please enter your name.' };
+  if (!EMAIL_RE.test(email) || email.length > 120) return { error: 'Please enter a valid email address.' };
+
+  // Box picks: { boxId: optionId } — exactly one valid option for each of the 21 boxes.
+  const picks = e.picks && typeof e.picks === 'object' ? e.picks : {};
+  const options = await sb(env, `box_options?select=option_id,box_id&season=eq.${cfg.season}`);
+  const optBox = new Map(options.map(o => [o.option_id, o.box_id]));
+  const boxIds = [...new Set(options.map(o => o.box_id))];
+  if (boxIds.length !== TOTAL_BOXES) return { error: 'The boxes for this season are not ready yet.' };
+  const clean = [];
+  for (const b of boxIds) {
+    const opt = Number(picks[b]);
+    if (!opt || optBox.get(opt) !== b) return { error: `Please pick one player in Box ${b}.` };
+    clean.push({ box_id: b, option_id: opt });
+  }
+
+  // Division picks: { 'AL East': 'NYY', ... } — one real team per division.
+  const div = e.divisionPicks && typeof e.divisionPicks === 'object' ? e.divisionPicks : {};
+  const divs = [];
+  for (const [d, teams] of Object.entries(DIVISIONS)) {
+    const t = String(div[d] || '').toUpperCase();
+    if (!teams.includes(t)) return { error: `Please pick the ${d} winner.` };
+    divs.push({ division: d, team_abbr: t });
+  }
+  if (clean.length + divs.length !== TOTAL_PICKS) return { error: 'Your entry is missing picks.' };
+  return { team, manager, email, picks: clean, divs };
+}
+
+// ------------------------------------------------------------- actions
+
+async function createEntry(env, ctx, body) {
+  if (body.website) return { success: true }; // honeypot field: bots fill it, people never see it
+  const cfg = await currentSeason(env);
+  if (!cfg) return { success: false, error: 'No season is set up yet.' };
+  if (!cfg.signups_open) return { success: false, error: 'Sign-ups are not open yet.' };
+  if (cfg.picks_locked || (cfg.opening_day && new Date() >= new Date(cfg.opening_day))) {
+    return { success: false, error: 'Picks are locked — the season has started and new entries are no longer accepted.' };
+  }
+
+  // A retried save (double-click, flaky connection) returns the entry that already went through.
+  const key = UUID_RE.test(body.idempotencyKey || '') ? body.idempotencyKey : null;
+  if (key) {
+    const prior = await sb(env, `entries?select=entry_id,team_name&idempotency_key=eq.${key}`);
+    if (prior.length) return { success: true, entryId: prior[0].entry_id, teamName: prior[0].team_name, repeat: true };
+  }
+
+  const v = await validateEntry(env, cfg, body.entry || {});
+  if (v.error) return { success: false, error: v.error };
+
+  const existing = await sb(env, `entries?select=entry_id&season=eq.${cfg.season}&email=eq.${encodeURIComponent(v.email)}`);
+  const token = randomHex(24);
+  const [entry] = await sb(env, 'entries', {
+    method: 'POST', headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      season: cfg.season, email: v.email, manager_name: v.manager, team_name: v.team,
+      entry_num: existing.length + 1, access_token_hash: await sha256(token), idempotency_key: key
+    })
+  });
+  try {
+    await sb(env, 'picks', { method: 'POST', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify(v.picks.map(p => ({ entry_id: entry.entry_id, season: cfg.season, ...p }))) });
+    await sb(env, 'division_picks', { method: 'POST', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify(v.divs.map(d => ({ entry_id: entry.entry_id, ...d }))) });
+  } catch (err) {
+    // Don't leave a half-saved entry behind (picks cascade with it).
+    await sb(env, `entries?entry_id=eq.${entry.entry_id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => {});
+    throw err;
+  }
+
+  ctx.waitUntil(sendConfirmation(env, cfg, entry, v, token).catch(err => console.log('Email failed: ' + (err && err.stack || err))));
+  return { success: true, entryId: entry.entry_id, teamName: entry.team_name, entryNum: entry.entry_num, paymentInfo: cfg.payment_info || null };
+}
+
+// --------------------------------------------------------------- email
+
+async function sendConfirmation(env, cfg, entry, v, token) {
+  if (!(env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM)) {
+    console.log('Email not configured - skipped confirmation for ' + entry.entry_id);
+    return;
+  }
+  // Names for the pick list
+  const ids = v.picks.map(p => p.option_id).join(',');
+  const opts = await sb(env, `box_options?select=option_id,box_id,role,player:players(full_name,team_abbr)&option_id=in.(${ids})`);
+  const byId = new Map(opts.map(o => [o.option_id, o]));
+  const boxes = await sb(env, `boxes?select=box_id,name&season=eq.${cfg.season}`);
+  const boxName = new Map(boxes.map(b => [b.box_id, b.name]));
+
+  const link = `${env.SITE_URL}/aabl/myteam.html?entry=${encodeURIComponent(entry.entry_id)}&token=${token}`;
+  const fee = Number(cfg.entry_fee || 10);
+  const rows = v.picks.sort((a, b) => a.box_id - b.box_id).map(p => {
+    const o = byId.get(p.option_id) || {}, pl = o.player || {};
+    return `<tr><td style="padding:4px 10px 4px 0;color:#A9B8CC;font-family:monospace">BOX ${p.box_id}</td><td style="padding:4px 10px 4px 0;color:#A9B8CC">${esc(boxName.get(p.box_id) || '')}</td><td style="padding:4px 0"><b>${esc(pl.full_name || '')}</b> <span style="color:#A9B8CC">${esc(pl.team_abbr || '')}${o.role === 'pitcher' ? ' · P' : ''}</span></td></tr>`;
+  }).join('');
+  const divRows = v.divs.map(d => `<tr><td style="padding:4px 10px 4px 0;color:#A9B8CC">${esc(d.division)}</td><td style="padding:4px 0"><b>${esc(d.team_abbr)}</b></td></tr>`).join('');
+
+  const html = `<div style="background:#0C2340;color:#E8EDF1;font-family:Arial,sans-serif;padding:24px">
+    <div style="max-width:600px;margin:0 auto;background:#132E52;border-top:4px solid #BD3039;padding:24px">
+      <h1 style="margin:0 0 6px;font-size:24px;letter-spacing:1px">⚾ YOU'RE IN THE AABL!</h1>
+      <p style="margin:0 0 16px;color:#A9B8CC">Angry Alpaca Baseball League · ${cfg.season} season</p>
+      <p style="margin:0 0 4px">Team: <b>${esc(entry.team_name)}</b>${entry.entry_num > 1 ? ` (your entry #${entry.entry_num})` : ''}</p>
+      <p style="margin:0 0 16px">Manager: <b>${esc(entry.manager_name)}</b></p>
+      <p style="margin:0 0 20px;padding:12px;background:#0C2340;border:1px solid #25446E">
+        <b>Entry fee: $${fee}.</b> ${cfg.payment_info ? esc(cfg.payment_info) : 'The commissioner will be in touch about payment.'}</p>
+      <p style="margin:0 0 20px"><a href="${link}" style="display:inline-block;background:#BD3039;color:#fff;text-decoration:none;padding:12px 22px;font-weight:bold">MANAGE MY TEAM</a><br>
+        <span style="font-size:12px;color:#A9B8CC">Keep this email — this private link lets you make trades without signing in.</span></p>
+      <h2 style="font-size:16px;margin:0 0 6px">YOUR 21 BOX PICKS</h2>
+      <table style="border-collapse:collapse;font-size:14px;margin-bottom:16px">${rows}</table>
+      <h2 style="font-size:16px;margin:0 0 6px">DIVISION WINNERS (+25 each, at season end)</h2>
+      <table style="border-collapse:collapse;font-size:14px;margin-bottom:16px">${divRows}</table>
+      <p style="font-size:12px;color:#A9B8CC;margin:0">Entry ID: ${esc(entry.entry_id)} · Standings: <a href="${env.SITE_URL}/aabl/standings.html" style="color:#F06A70">${env.SITE_URL.replace(/^https?:\/\//, '')}/aabl</a></p>
+    </div></div>`;
+  const text = `You're in the AABL!\n\nTeam: ${entry.team_name}\nManager: ${entry.manager_name}\nEntry fee: $${fee}. ${cfg.payment_info || 'The commissioner will be in touch about payment.'}\n\nManage your team (keep this private): ${link}\n\nEntry ID: ${entry.entry_id}`;
+  await gmailSend(env, v.email, `AABL ${cfg.season} entry confirmed: ${entry.team_name}`, text, html);
+}
+
+async function gmailToken(env) {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: env.GMAIL_CLIENT_ID, client_secret: env.GMAIL_CLIENT_SECRET, refresh_token: env.GMAIL_REFRESH_TOKEN, grant_type: 'refresh_token' })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.access_token) throw new Error('Gmail token: ' + JSON.stringify(data));
+  return data.access_token;
+}
+
+async function gmailSend(env, to, subject, text, html) {
+  const boundary = 'aasn' + randomHex(8);
+  const mime = [
+    `From: ${env.GMAIL_FROM}`, `To: ${to}`, `Subject: =?UTF-8?B?${b64(subject)}?=`,
+    'MIME-Version: 1.0', `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
+    `--${boundary}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64(text),
+    `--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64(html),
+    `--${boundary}--`
+  ].join('\r\n');
+  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${await gmailToken(env)}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw: b64(mime).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') })
+  });
+  if (!res.ok) throw new Error('Gmail send: ' + res.status + ' ' + await res.text());
+}
+
+// ------------------------------------------------------------- helpers
+
+function b64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function randomHex(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return [...a].map(x => x.toString(16).padStart(2, '0')).join(''); }
+async function sha256(text) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

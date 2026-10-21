@@ -75,7 +75,12 @@
   const todayET = () => new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const dayName = s => toDate(s).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }).toUpperCase();
   const dayLabel = s => toDate(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  const timeET = t => t ? new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ }) : 'TBD';
+  // MLB uses 3:33 AM ET as a placeholder when a start time isn't set yet.
+  const timeET = t => {
+    if (!t) return 'TBD';
+    const txt = new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
+    return txt === '3:33 AM' ? 'TBD' : txt;
+  };
 
   let first = null, last = null, week = null;
 

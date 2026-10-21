@@ -19,7 +19,7 @@
     ['boxes', 'Boxes', 'boxes.html'],
     ['activity', 'Activity', soon('Activity')],
     ['rules', 'Rules', soon('Rules')],
-    ['signup', 'Sign Up', soon('Sign Up')],
+    ['signup', 'Sign Up', 'signup.html'],
     ['whatsnew', "What's New", soon("What's New")],
     ['admin', '⚙️ Admin', soon('Admin')]
   ];

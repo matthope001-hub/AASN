@@ -1,0 +1,22 @@
+# AASN member-saves API (AABL first) - Cloudflare Worker.
+# Deployed by Cloudflare from GitHub: Workers & Pages -> this worker ->
+# Settings -> Build, root directory "workers/aabl-api".
+name = "aasn-api"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+keep_vars = true
+
+[observability]
+enabled = true
+
+# Public, non-secret settings. Secrets are added in the Cloudflare dashboard,
+# never here (this file is public on GitHub):
+#   SUPABASE_SERVICE_KEY   Supabase secret key
+#   GMAIL_CLIENT_ID        Google OAuth client id
+#   GMAIL_CLIENT_SECRET    Google OAuth client secret
+#   GMAIL_REFRESH_TOKEN    refresh token for the sending Gmail account
+#   GMAIL_FROM             e.g.  AABL <you@gmail.com>
+[vars]
+SUPABASE_URL = "https://tetgrmgurobacdohhiby.supabase.co"
+SITE_URL = "https://matthope001-hub.github.io/AASN"
+ALLOWED_ORIGINS = "https://matthope001-hub.github.io"

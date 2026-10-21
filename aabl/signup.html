@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign Up — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<style>
+.panel { background: var(--panel); border: 1px solid var(--border); padding: 16px; margin-bottom: 16px; }
+.banner { padding: 14px 16px; border: 1px solid var(--border); border-left: 4px solid var(--red); background: var(--panel); margin-bottom: 16px; font-size: 16px; }
+.banner b { color: var(--red-text); }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.field label { display: block; font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .5px; margin-bottom: 4px; }
+.field input { width: 100%; min-height: 44px; padding: 0 12px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--cond); font-size: 17px; }
+.field input:focus { outline: 2px solid var(--red-text); outline-offset: 1px; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+.counter { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; margin: 0 0 16px; background: #0A1E38; border: 1px solid var(--border); border-top: 3px solid var(--red); }
+.counter b { font-family: var(--mono); font-size: 20px; color: var(--red-text); }
+.counter .bar { flex: 1 1 160px; height: 6px; background: var(--row); }
+.counter .bar i { display: block; height: 100%; width: 0; background: var(--red-text); transition: width .2s; }
+
+.sec-head { font-family: var(--display); font-size: 22px; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+fieldset { border: 1px solid var(--border); background: var(--panel); padding: 0 0 10px; margin: 0 0 12px; min-width: 0; }
+legend { float: left; width: 100%; display: flex; justify-content: space-between; align-items: baseline; padding: 10px 14px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+legend span { font-weight: 700; font-size: 18px; }
+legend small { font-family: var(--mono); font-size: 11px; color: var(--red-text); }
+legend .done { color: #7EE2A8; }
+.opts { clear: both; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; padding: 0 10px; }
+.opt { position: relative; display: flex; align-items: center; gap: 9px; padding: 8px 10px; min-height: 58px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; }
+.opt:hover { border-color: var(--red-text); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt:has(input:checked) { border-color: var(--red-text); background: color-mix(in srgb, var(--red) 22%, var(--bg)); box-shadow: inset 0 0 0 1px var(--red-text); }
+.opt:has(input:focus-visible) { outline: 2px solid var(--red-text); outline-offset: 2px; }
+.opt img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: var(--panel-2); flex-shrink: 0; }
+.opt .t { min-width: 0; }
+.opt .n { font-weight: 700; font-size: 15px; line-height: 1.1; }
+.opt .m { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-top: 2px; }
+.opt .p { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--dim); text-align: right; }
+.opt.team img { border-radius: 0; object-fit: contain; background: none; width: 32px; height: 32px; }
+.opts.teams { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+
+.submit-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 20px 0 40px; }
+.btn { min-height: 52px; padding: 0 32px; background: var(--red); border: 0; color: #fff; font-family: var(--display); font-size: 20px; cursor: pointer; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.err { color: #FF9EA2; font-family: var(--mono); font-size: 13px; }
+.done-panel { text-align: center; padding: 32px 16px; }
+.done-panel h2 { font-family: var(--display); font-weight: 400; font-size: 32px; margin-bottom: 8px; }
+.done-panel p { color: var(--dim); font-size: 17px; margin: 6px 0; }
+.done-panel .pay { margin: 16px auto; max-width: 520px; padding: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="signup"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">BUILD YOUR ROSTER</h1>
+  <p class="intro">Pick one player from each of the 21 boxes and a winner in all 6 MLB divisions. $<span id="fee">10</span> an entry — enter as many teams as you like.</p>
+  <div id="status-banner"></div>
+
+  <form id="form" novalidate hidden>
+    <div class="panel">
+      <div class="fields">
+        <div class="field"><label for="manager">YOUR NAME</label><input id="manager" name="manager" maxlength="40" autocomplete="name" required></div>
+        <div class="field"><label for="team">TEAM NAME</label><input id="team" name="team" maxlength="40" required></div>
+        <div class="field"><label for="email">EMAIL</label><input id="email" name="email" type="email" maxlength="120" autocomplete="email" required></div>
+      </div>
+      <div class="hp" aria-hidden="true"><label for="website">Leave blank</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
+    </div>
+
+    <div class="counter" aria-live="polite"><span><b id="count">0</b> / 27 PICKS</span><div class="bar"><i id="bar"></i></div></div>
+
+    <div id="boxes"><p class="status">Loading boxes…</p></div>
+
+    <h2 class="sec-head">DIVISION WINNERS <small style="font-family: var(--mono); font-size: 12px; color: var(--red-text)">+25 each, once, at the end of the regular season</small></h2>
+    <div id="divisions"></div>
+
+    <div class="submit-row">
+      <button type="submit" class="btn" id="submit">SUBMIT MY TEAM</button>
+      <span class="err" id="error" role="alert"></span>
+    </div>
+  </form>
+
+  <div id="done" class="panel done-panel" hidden></div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script>
+(function () {
+  const STATS_SEASON = 2026;
+  const TOTAL_BOXES = 21, TOTAL_PICKS = 27;
+  const DIVISIONS = {
+    'AL East': ['BAL', 'BOS', 'NYY', 'TB', 'TOR'], 'AL Central': ['CLE', 'CWS', 'DET', 'KC', 'MIN'], 'AL West': ['ATH', 'HOU', 'LAA', 'SEA', 'TEX'],
+    'NL East': ['ATL', 'MIA', 'NYM', 'PHI', 'WSH'], 'NL Central': ['CHC', 'CIN', 'MIL', 'PIT', 'STL'], 'NL West': ['AZ', 'COL', 'LAD', 'SD', 'SF']
+  };
+  const TEAM_IDS = { AZ:109, ATL:144, BAL:110, BOS:111, CHC:112, CWS:145, CIN:113, CLE:114, COL:115, DET:116, HOU:117, KC:118, LAA:108, LAD:119, MIA:146, MIL:158, MIN:142, NYM:121, NYY:147, ATH:133, PHI:143, PIT:134, SD:135, SF:137, SEA:136, STL:138, TB:139, TEX:140, TOR:141, WSH:120 };
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = v => Number(v) || 0;
+  const fmt = v => { const x = num(v); return Number.isInteger(x) ? x : x.toFixed(1); };
+  const DRAFT_KEY = 'aabl_signup_draft';
+  let cfg = null, idemKey = null;
+
+  function banner(html) { document.getElementById('status-banner').innerHTML = html ? `<div class="banner">${html}</div>` : ''; }
+
+  function countPicks() {
+    const f = document.getElementById('form');
+    const n = f.querySelectorAll('input[type=radio]:checked').length;
+    document.getElementById('count').textContent = n;
+    document.getElementById('bar').style.width = (n / TOTAL_PICKS * 100) + '%';
+    f.querySelectorAll('fieldset').forEach(fs => {
+      const s = fs.querySelector('legend small');
+      if (s) { const done = !!fs.querySelector('input:checked'); s.textContent = done ? '✓ PICKED' : s.dataset.todo; s.classList.toggle('done', done); }
+    });
+    saveDraft();
+  }
+
+  function saveDraft() {
+    const f = document.getElementById('form'), d = { picks: {}, div: {} };
+    ['manager', 'team', 'email'].forEach(k => { d[k] = f[k].value; });
+    f.querySelectorAll('input[type=radio]:checked').forEach(r => { if (r.name.startsWith('box-')) d.picks[r.name] = r.value; else d.div[r.name] = r.value; });
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch (e) { /* ignore */ }
+  }
+  function loadDraft() {
+    let d; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { d = null; }
+    if (!d) return;
+    const f = document.getElementById('form');
+    ['manager', 'team', 'email'].forEach(k => { if (d[k]) f[k].value = d[k]; });
+    Object.entries({ ...d.picks, ...d.div }).forEach(([name, val]) => {
+      const r = f.querySelector(`input[name="${CSS.escape(name)}"][value="${CSS.escape(val)}"]`); if (r) r.checked = true;
+    });
+  }
+
+  async function load() {
+    const rows = await aasnSelect('config', 'select=season,opening_day,picks_locked,signups_open,entry_fee&order=season.desc&limit=1', 'aabl');
+    cfg = rows[0];
+    if (!cfg) { banner('No season is set up yet.'); return; }
+    document.getElementById('fee').textContent = num(cfg.entry_fee) || 10;
+    const deadlinePassed = cfg.opening_day && new Date() >= new Date(cfg.opening_day);
+    if (cfg.picks_locked || deadlinePassed) { banner('<b>Picks are locked.</b> The season has started and new entries are no longer accepted.'); return; }
+    if (!cfg.signups_open) { banner('<b>Sign-ups aren\'t open yet.</b> You can look through the boxes now and build your team as soon as they open.'); }
+    else banner(cfg.opening_day
+      ? `Picks lock at first pitch: <b>${new Date(cfg.opening_day).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' })} ET</b>.`
+      : 'Picks lock at the first pitch of MLB Opening Day.');
+
+    const [boxes, opts] = await Promise.all([
+      aasnSelect('boxes', `select=box_id,name,section,role&season=eq.${cfg.season}&order=box_id`, 'aabl'),
+      aasnSelect('box_options', `select=option_id,box_id,mlb_id,role,player:players(full_name,team_abbr,position,headshot_url)&season=eq.${cfg.season}`, 'aabl')
+    ]);
+    const ids = [...new Set(opts.map(o => o.mlb_id))];
+    const stats = ids.length ? await aasnSelect('stats_season', `select=mlb_id,role,points&season=eq.${STATS_SEASON}&mlb_id=in.(${ids.join(',')})`, 'aabl') : [];
+    const pts = new Map(stats.map(s => [s.mlb_id + '|' + s.role, num(s.points)]));
+    const roles = new Map(); opts.forEach(o => roles.set(o.mlb_id, (roles.get(o.mlb_id) || new Set()).add(o.role)));
+
+    let section = '';
+    document.getElementById('boxes').innerHTML = boxes.map(b => {
+      const list = opts.filter(o => o.box_id === b.box_id).sort((x, y) => (pts.get(y.mlb_id + '|' + y.role) || 0) - (pts.get(x.mlb_id + '|' + x.role) || 0));
+      const head = b.section !== section ? `<h2 class="sec-head">${esc((section = b.section).toUpperCase())}</h2>` : '';
+      return head + `<fieldset><legend><span>BOX ${b.box_id} · ${esc(b.name)}</span><small data-todo="PICK ONE">PICK ONE</small></legend><div class="opts">
+        ${list.map(o => `<label class="opt"><input type="radio" name="box-${b.box_id}" value="${o.option_id}" required>
+          <img src="${esc(o.player.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+          <span class="t"><span class="n">${esc(o.player.full_name)}</span><span class="m">${esc(o.player.team_abbr || '—')} · ${esc(o.player.position || '')}${roles.get(o.mlb_id).size > 1 ? (o.role === 'pitcher' ? ' · PITCHING' : ' · HITTING') : ''}</span></span>
+          <span class="p">${fmt(pts.get(o.mlb_id + '|' + o.role))}<br>PTS</span></label>`).join('')}
+      </div></fieldset>`;
+    }).join('') + `<p class="status" style="padding: 4px 0 0">Points shown are from the ${STATS_SEASON} season, for reference.</p>`;
+
+    document.getElementById('divisions').innerHTML = Object.entries(DIVISIONS).map(([d, teams]) =>
+      `<fieldset><legend><span>${esc(d.toUpperCase())}</span><small data-todo="PICK A WINNER">PICK A WINNER</small></legend><div class="opts teams">
+        ${teams.map(t => `<label class="opt team"><input type="radio" name="div-${esc(d)}" value="${t}" required>
+          <img src="https://www.mlbstatic.com/team-logos/${TEAM_IDS[t]}.svg" alt="" onerror="this.style.visibility='hidden'"><span class="n">${t}</span></label>`).join('')}
+      </div></fieldset>`).join('');
+
+    const form = document.getElementById('form');
+    form.hidden = false;
+    loadDraft();
+    countPicks();
+    form.addEventListener('change', countPicks);
+    form.addEventListener('input', e => { if (e.target.matches('input[type=text], input[type=email], input:not([type])')) saveDraft(); });
+    if (!cfg.signups_open) { const b = document.getElementById('submit'); b.disabled = true; b.textContent = 'SIGN-UPS OPEN SOON'; }
+  }
+
+  document.getElementById('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const f = e.target, err = document.getElementById('error'), btn = document.getElementById('submit');
+    err.textContent = '';
+    const picks = {}, divisionPicks = {};
+    f.querySelectorAll('input[type=radio]:checked').forEach(r => {
+      if (r.name.startsWith('box-')) picks[r.name.slice(4)] = Number(r.value); else divisionPicks[r.name.slice(4)] = r.value;
+    });
+    // First missing thing gets focus, so it's clear what's left.
+    for (const k of ['manager', 'team', 'email']) if (!f[k].value.trim() || !f[k].checkValidity()) { err.textContent = 'Please fill in your name, team name and a valid email.'; f[k].focus(); return; }
+    const missing = [...f.querySelectorAll('fieldset')].find(fs => !fs.querySelector('input:checked'));
+    if (missing) { err.textContent = `Still to pick: ${missing.querySelector('legend span').textContent}`; missing.querySelector('input').focus(); return; }
+    if (Object.keys(picks).length !== TOTAL_BOXES || Object.keys(divisionPicks).length !== 6) { err.textContent = 'Your entry is missing picks.'; return; }
+    if (!AASN_API_URL) { err.textContent = 'Sign-ups aren\'t connected yet. Please try again soon.'; return; }
+
+    idemKey = idemKey || (crypto.randomUUID ? crypto.randomUUID() : null);
+    btn.disabled = true; btn.textContent = 'SAVING…';
+    try {
+      const res = await fetch(AASN_API_URL + '/aabl', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'createEntry', idempotencyKey: idemKey, website: f.website.value,
+          entry: { managerName: f.manager.value, teamName: f.team.value, email: f.email.value, picks, divisionPicks } }) });
+      const out = await res.json();
+      if (!out.success) throw new Error(out.error || 'Could not save your entry.');
+      try { localStorage.removeItem(DRAFT_KEY); } catch (er) { /* ignore */ }
+      f.hidden = true; banner('');
+      const done = document.getElementById('done');
+      done.hidden = false;
+      done.innerHTML = `<h2>⚾ YOU'RE IN!</h2>
+        <p><b style="color: var(--text)">${esc(out.teamName || f.team.value)}</b> is entered in the AABL${out.entryNum > 1 ? ` (your entry #${out.entryNum})` : ''}.</p>
+        <p>A confirmation with your picks and a private link to manage your team is on its way to <b style="color: var(--text)">${esc(f.email.value.trim())}</b>.</p>
+        <div class="pay"><b>Entry fee: $${num(cfg.entry_fee) || 10}.</b> ${out.paymentInfo ? esc(out.paymentInfo) : 'The commissioner will be in touch about payment.'}</div>
+        <p><a href="signup.html" style="color: var(--red-text)">Enter another team</a> · <a href="standings.html" style="color: var(--red-text)">See the standings</a></p>`;
+      done.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (ex) {
+      err.textContent = ex.message || 'Could not save your entry. Please try again.';
+      btn.disabled = false; btn.textContent = 'SUBMIT MY TEAM';
+    }
+  });
+
+  load().catch(e => { console.error(e); banner('The sign-up form is unavailable right now. Please try again soon.'); });
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>
