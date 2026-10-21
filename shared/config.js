@@ -3,7 +3,7 @@ const AASN_SUPABASE_URL = 'https://tetgrmgurobacdohhiby.supabase.co';
 const AASN_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldGdybWd1cm9iYWNkb2hoaWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5Njc4MTYsImV4cCI6MjEwNDU0MzgxNn0.Jn0MdAdYslGv7znS0DFiSUjlZ6rpw0qsvQwiNq63vWk';
 
 // AASN member-saves API (Cloudflare Worker). Set once the Worker is deployed.
-const AASN_API_URL = '';
+const AASN_API_URL = 'https://aasn-api.matt-hope001.workers.dev';
 
 // Read rows from Supabase REST. schema: 'public' or 'aabl'.
 async function aasnSelect(table, query = 'select=*', schema = 'public') {
