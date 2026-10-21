@@ -1,0 +1,25 @@
+name: Import MLB season totals
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'MLB season to import'
+        required: true
+        default: '2026'
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Import season totals into Supabase
+        env:
+          SUPABASE_URL: https://tetgrmgurobacdohhiby.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SEASON: ${{ inputs.season }}
+        run: node scripts/import-season-totals.mjs
