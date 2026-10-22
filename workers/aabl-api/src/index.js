@@ -94,6 +94,10 @@ export default {
       ctx.waitUntil(sendWeeklyDigest(env).catch(err => console.log('Digest failed: ' + (err && err.stack || err))));
       return;
     }
+    const at = new Date(event.scheduledTime || Date.now());
+    if (at.getUTCHours() === 5 && at.getUTCMinutes() === 0) {
+      ctx.waitUntil(loadDeathPool(env).then(o => saveDeathPoolSnapshot(env, o)).catch(err => console.log('Death Pool snapshot failed: ' + err)));
+    }
     if (env.LIVE_POINTS === 'off') return;
     ctx.waitUntil(runLivePoints(env).catch(err => console.log('Live points failed: ' + (err && err.stack || err))));
   }
@@ -490,22 +494,33 @@ async function deathPool(request, env, ctx) {
 // paid status). Cached 10 minutes at the edge.
 async function deathPoolData(request, env, ctx) {
   const cache = caches.default;
-  const key = new Request('https://aasn-cache.internal/deathpool-data-v4');
+  const key = new Request('https://aasn-cache.internal/deathpool-data-v5');
   // ?only=a,b returns just those keys (handy for checking one section).
   const only = new URL(request.url).searchParams.get('only');
   const pickKeys = o => only ? Object.fromEntries(Object.entries(o).filter(([k]) => k === 'success' || only.split(',').includes(k))) : o;
   const hit = await cache.match(key);
   if (hit) return json(request, env, pickKeys(await hit.json()));
+  const out = await loadDeathPool(env);
+  if (!out) return json(request, env, { success: false }, 404);
+  try { await addDeathPoolHistory(env, out); } catch (e) { console.log('history: ' + e); }
+  ctx.waitUntil(saveDeathPoolSnapshot(env, out).catch(e => console.log('snapshot: ' + e)));
+  ctx.waitUntil(cache.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } })));
+  return json(request, env, pickKeys(out));
+}
 
+async function loadDeathPool(env) {
   const [cfg] = await sb(env, 'aasn_private?select=value&key=eq.deathpool_sheet_id', { headers: { 'Accept-Profile': 'public' } });
-  if (!cfg) return json(request, env, { success: false }, 404);
+  if (!cfg) return null;
   const tab = async (name, extra = '') => {
     const res = await fetch(`https://docs.google.com/spreadsheets/d/${cfg.value}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}${extra}`);
     if (!res.ok) throw new Error(`sheet ${name}: ${res.status}`);
     return parseCsv(await res.text());
   };
-  const [standings, picksTab, grave, deathRow, bdays, boxes] = await Promise.all([
-    tab('Standings'), tab('Form Responses 1'), tab('GraveYard'), tab('Death Row'), tab('Birthdays', '&headers=1'), tab('Pick Boxes', '&headers=0')
+  // Data tab: only the columns the site uses (never column E), rows with a name.
+  const dataQuery = '&headers=0&tq=' + encodeURIComponent('select C,F,G,H,I,J,K,AB,AD,AE where C is not null');
+  const [standings, picksTab, grave, deathRow, bdays, boxes, dataTab, pickSheets] = await Promise.all([
+    tab('Standings'), tab('Form Responses 1'), tab('GraveYard'), tab('Death Row'), tab('Birthdays', '&headers=1'), tab('Pick Boxes', '&headers=0'),
+    tab('Data', dataQuery).catch(() => []), tab('Pick Sheets').catch(() => [])
   ]);
   const c = v => String(v ?? '').trim();
   const num = v => { const x = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return Number.isFinite(x) ? x : null; };
@@ -593,8 +608,45 @@ async function deathPoolData(request, env, ctx) {
   out.boxes = boxes.map(r => r.map(c)).filter(r => r[0] && r[1] && /^[a-z0-9_]+$/.test(r[0]))
     .map(r => ({ name: r[1], celebs: r.slice(2).filter(Boolean) }));
 
-  ctx.waitUntil(cache.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } })));
-  return json(request, env, pickKeys(out));
+  // Celeb cards: name, age, born, died, age at death, point value, times picked, total points, category, Wikipedia.
+  out.celebs = dataTab.map(r => r.map(c)).filter(r => r[0] && !/^(name|start date:?)$/i.test(r[0])).map(r => ({
+    name: r[0], age: num(r[1]), born: r[2], died: r[3], ageAtDeath: num(r[4]), value: num(r[5]), picked: num(r[6]),
+    points: num(r[7]), category: r[8], wiki: /^https?:\/\//i.test(r[9]) ? r[9] : ''
+  }));
+  // Category descriptions from the Pick Sheets headers, e.g. "Mummy's Curse (pick who you DO NOT want to die)".
+  const labels = [...new Set((pickSheets[0] || []).map(c).filter(Boolean))];
+  out.categoryInfo = labels.map(l => { const m = l.match(/^(.*?)\s*\((.+)\)\s*$/); return m ? { name: m[1].trim(), desc: m[2].trim() } : { name: l, desc: '' }; });
+  return out;
+}
+
+// One snapshot of the standings per day (Eastern), for movement arrows and the race chart.
+async function saveDeathPoolSnapshot(env, out) {
+  if (!out || !(out.standings || []).length) return;
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const rows = out.standings.map(s => ({ season: 2026, snap_date: day, cemetery: s.name, points: s.points, rank: s.rank }));
+  await sb(env, 'deathpool_snapshots?on_conflict=season,snap_date,cemetery', {
+    method: 'POST', headers: { 'Accept-Profile': 'public', 'Content-Profile': 'public', Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(rows)
+  });
+}
+
+// Attach yesterday-or-earlier ranks (movement) and the snapshot history (race chart).
+async function addDeathPoolHistory(env, out) {
+  const rows = [];
+  for (let off = 0; ; off += 1000) {
+    const page = await sb(env, `deathpool_snapshots?select=snap_date,cemetery,points,rank&season=eq.2026&order=snap_date.asc&limit=1000&offset=${off}`, { headers: { 'Accept-Profile': 'public' } });
+    rows.push(...page);
+    if (page.length < 1000) break;
+  }
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const dates = [...new Set(rows.map(r => r.snap_date))].sort();
+  const prevDate = [...dates].reverse().find(d => d < today);
+  out.history = { dates, rows: rows.map(r => [r.snap_date, r.cemetery, Number(r.points)]) };
+  if (prevDate) {
+    const prev = new Map(rows.filter(r => r.snap_date === prevDate).map(r => [r.cemetery, r]));
+    out.prevDate = prevDate;
+    out.standings.forEach(s => { const p = prev.get(s.name); if (p) { s.prevRank = p.rank; s.prevPoints = Number(p.points); } });
+  }
 }
 
 // ---------------------------------------------------------- live points
