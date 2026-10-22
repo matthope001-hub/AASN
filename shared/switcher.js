@@ -19,6 +19,14 @@
   // Pools not open to the public yet: shown in the bar but not clickable
   // (except on that pool's own pages). Remove an id here to switch its link on.
   const LOCKED = ['aabl'];
+  // Exception: the commissioner, while signed in on the site, can still click through.
+  // Emails are stored only as SHA-256 hashes.
+  const ADMIN_HASHES = [
+    '151d5c340cdf9463eb6a300de214c14dcbd2d6924ecae1711be2c870147b36f8',
+    '4f6a82e70c1b2065606d552344f2606a9cc793196633b9d76b360900a1d52514'
+  ];
+  const AUTH_KEYS = ['aahl-auth', 'aasn-auth'];   // supabase-js session keys (AAHL, AASN sites)
+  let unlocked = false;
   const SB_URL = 'https://tetgrmgurobacdohhiby.supabase.co';
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldGdybWd1cm9iYWNkb2hoaWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5Njc4MTYsImV4cCI6MjEwNDU0MzgxNn0.Jn0MdAdYslGv7znS0DFiSUjlZ6rpw0qsvQwiNq63vWk';
   const POOLS = [
@@ -62,7 +70,7 @@
   }
   @media print { #aasn-bar { display: none; } }`;
 
-  const isLocked = id => LOCKED.includes(id) && id !== current;
+  const isLocked = id => LOCKED.includes(id) && id !== current && !unlocked;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function build() {
@@ -72,7 +80,18 @@
     document.head.appendChild(style);
     const bar = document.createElement('div');
     bar.id = 'aasn-bar';
-    bar.innerHTML = `<div class="ab-in">
+    bar.innerHTML = navHtml();
+    document.body.insertBefore(bar, document.body.firstChild);
+    refresh();
+    setInterval(() => { if (!document.hidden) refresh(); }, 120000);
+    applyGate();
+    window.addEventListener('storage', applyGate);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) applyGate(); });
+    setInterval(applyGate, 15000);
+  }
+
+  function navHtml() {
+    return `<div class="ab-in">
       <a class="ab-hub" href="${LINKS.hub}" aria-label="AASN home — Angry Alpaca Sports Network"><b>AASN</b><span>ANGRY ALPACA SPORTS NETWORK</span></a>
       <nav aria-label="Pools">${POOLS.map(p => {
         const inner = `<img src="${p.logo}" alt=""${p.round ? ' class="round"' : ''} onerror="this.style.visibility='hidden'">
@@ -83,9 +102,32 @@
         <a class="ab-pill" href="${LINKS[p.id]}" style="--ab-accent:${p.accent}"${p.id === current ? ' aria-current="page"' : ''}>${inner}</a>`;
       }).join('')}
       </nav></div>`;
-    document.body.insertBefore(bar, document.body.firstChild);
-    refresh();
-    setInterval(() => { if (!document.hidden) refresh(); }, 120000);
+  }
+
+  // ---- commissioner exception to the locked badges
+  function signedInEmail() {
+    for (const k of AUTH_KEYS) {
+      try {
+        const v = JSON.parse(localStorage.getItem(k) || 'null');
+        const u = v && (v.user || (v.currentSession && v.currentSession.user));
+        if (u && u.email) return String(u.email).trim().toLowerCase();
+      } catch (e) { /* ignore */ }
+    }
+    return '';
+  }
+  async function applyGate() {
+    let ok = false;
+    const email = signedInEmail();
+    try {
+      if (email && window.crypto && crypto.subtle) {
+        const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(email));
+        ok = ADMIN_HASHES.includes([...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''));
+      }
+    } catch (e) { ok = false; }
+    if (ok === unlocked) return;
+    unlocked = ok;
+    const bar = document.getElementById('aasn-bar');
+    if (bar) { bar.innerHTML = navHtml(); refresh(); }
   }
 
   async function sb(path, schema) {
