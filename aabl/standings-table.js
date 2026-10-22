@@ -33,7 +33,7 @@
 
     data.latest = dates[0].snapshot_date;
     if (window.aablLive) { const lv = await aablLive.get(); data.live = aablLive.active(lv, data.latest) && Object.keys(lv.entries || {}).length ? lv : null; }
-    data.snaps = await aasnSelect('standings', `select=entry_id,snapshot_date,points,players_points,division_bonus,rank&season=eq.${season}&order=snapshot_date.asc`, 'aabl');
+    data.snaps = await aasnSelect('standings', `select=entry_id,snapshot_date,points,players_points,division_bonus,rank,tb_hr_rbi,tb_k&season=eq.${season}&order=snapshot_date.asc`, 'aabl');
     const allDates = [...new Set(data.snaps.map(s => s.snapshot_date))].sort();
     const prevDate = allDates.length > 1 ? allDates[allDates.length - 2] : null;
     const prev = new Map(data.snaps.filter(s => s.snapshot_date === prevDate).map(s => [s.entry_id, s]));
@@ -66,7 +66,11 @@
     const lastRank = () => Math.max(...rowsForLast.map(r => r.rank || 0));
     let rowsForLast = data.rows;
     const payCell = r => {
-      const amt = payout(r.rank, data.pot);
+      // Teams still tied after the tiebreakers split the prizes for the places they cover.
+      const tied = rowsForLast.filter(x => x.rank === r.rank).length;
+      let amt = null;
+      for (let k = r.rank; k < r.rank + tied; k++) { const a = payout(k, data.pot); if (a != null) amt = (amt || 0) + a; }
+      if (amt != null) amt = amt / tied;
       if (amt != null) return `<span style="color:#E5B53A;font-weight:700">$${amt.toFixed(2)}</span>`;
       if (data.rows.length > 1 && r.rank === lastRank()) return '<span style="color:var(--dim);font-size:12px">🎟️ Free entry</span>';
       return '<span style="color:var(--dim)">—</span>';
@@ -84,7 +88,8 @@
         const t = (L.entries[r.entry_id] || {});
         return { ...r, tonight: num(t.pts), tonightN: t.n || 0, officialRank: r.rank, players_points: num(r.players_points) + num(t.pts), points: num(r.points) + num(t.pts) };
       });
-      base.forEach(r => { r.rank = 1 + base.filter(x => x.points > r.points).length; r.liveMove = r.officialRank - r.rank; });
+      const ahead = (x, r) => x.points > r.points || (x.points === r.points && (num(x.tb_hr_rbi) > num(r.tb_hr_rbi) || (num(x.tb_hr_rbi) === num(r.tb_hr_rbi) && num(x.tb_k) > num(r.tb_k))));
+      base.forEach(r => { r.rank = 1 + base.filter(x => ahead(x, r)).length; r.liveMove = r.officialRank - r.rank; });
     } else if (state.key === 'tonight') { state.key = 'rank'; state.dir = 'asc'; }
     const dir = state.dir === 'asc' ? 1 : -1;
     const f = SORTS[state.key];
