@@ -141,3 +141,4 @@ a { color: var(--ice); }
   .league-abbr, .dp-title { font-size: 38px; }
 }
 @media (prefers-reduced-motion: reduce) { .dp-alive path { animation: none; stroke-dasharray: none; } }
+[hidden].btn-ghost, [hidden].btn-solid { display: none; }
