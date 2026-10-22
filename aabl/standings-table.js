@@ -16,7 +16,7 @@
   async function load(season) {
     const [teams, cfg, dates, winners] = await Promise.all([
       aasnSelect('teams', `select=entry_id,team_name,moves_used&season=eq.${season}`, 'aabl'),
-      aasnSelect('config', `select=season_moves&season=eq.${season}`, 'aabl'),
+      aasnSelect('config', `select=season_moves,entry_fee&season=eq.${season}`, 'aabl'),
       aasnSelect('standings', `select=snapshot_date&season=eq.${season}&order=snapshot_date.desc&limit=1`, 'aabl'),
       aasnSelect('division_winners', 'select=season,division,team_abbr&order=season.desc', 'aabl')
     ]);
@@ -24,6 +24,7 @@
     const data = {
       season, teams, rows: [], snaps: [], latest: null,
       seasonMoves: cfg.length ? (num(cfg[0].season_moves) || 2) : 2,
+      pot: teams.length * (cfg.length && cfg[0].entry_fee != null ? num(cfg[0].entry_fee) : 10),
       divWon: new Map(winners.filter(w => w.season === latestDiv).map(w => [w.division, w.team_abbr])),
       finalBonus: latestDiv === season,      // final only once this season's winners are set
       divPicks: new Map()
@@ -50,9 +51,24 @@
     return data;
   }
 
+  // Same tiers as the AAHL, but the whole pot goes to the players (no 50/50 split).
+  // Pot under $1,000: 1st 80%, 2nd 20%. Pot $1,000+: 1st 50%, 2nd 40%, 3rd 10%. Last place: free entry next season.
+  function payout(rank, pot) {
+    if (rank == null || rank > 3) return null;
+    const split = pot < 1000 ? [0.80, 0.20] : [0.50, 0.40, 0.10];
+    return split[rank - 1] != null ? pot * split[rank - 1] : null;
+  }
+
   const SORTS = { rank: r => r.rank, players: r => num(r.players_points), div: r => num(r.division_bonus), total: r => num(r.points) };
 
   function render(el, data, opts = {}) {
+    const lastRank = Math.max(...data.rows.map(r => r.rank || 0));
+    const payCell = r => {
+      const amt = payout(r.rank, data.pot);
+      if (amt != null) return `<span style="color:#E5B53A;font-weight:700">$${amt.toFixed(2)}</span>`;
+      if (data.rows.length > 1 && r.rank === lastRank) return '<span style="color:var(--dim);font-size:12px">🎟️ Free entry</span>';
+      return '<span style="color:var(--dim)">—</span>';
+    };
     const state = el._stSort || { key: 'rank', dir: 'asc' };
     el._stSort = state;
     const deltaLabel = opts.deltaLabel || '±PTS (24H)';
@@ -104,7 +120,7 @@
         <td class="num col-hide-sm">${delta(r)}</td>
         <td class="col-hide-sm">${move(r)}</td>
         <td class="num">${num(r.moves_used)}/${data.seasonMoves}</td>
-        <td class="col-hide-sm" style="color:var(--dim)">TBD</td></tr>`).join('')}</tbody>
+        <td class="col-hide-sm">${payCell(r)}</td></tr>`).join('')}</tbody>
     </table></div>
     <p class="st-foot">Trades = in-season trades used out of ${data.seasonMoves}.</p>
     ${data.finalBonus ? '' : '<p class="st-foot">* <span class="st-dot on"></span> = a division pick that is leading now. Projected = players + 25 for each leading pick. The bonus is paid once, at the end of the regular season.</p>'}`;
@@ -121,5 +137,5 @@
     }
   }
 
-  window.aablStandings = { load, render };
+  window.aablStandings = { load, render, payout };
 })();
