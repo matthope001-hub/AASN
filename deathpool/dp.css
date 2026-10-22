@@ -115,3 +115,4 @@ dialog::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(3px); }
   .hide-sm { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ekg path { animation: none; stroke-dasharray: none; } }
+#k-lead { font-size: 15px; white-space: normal; line-height: 1.15; }

@@ -15,7 +15,7 @@
     hub: BASE,
     aahl: 'https://theaahl.ca/',
     aabl: BASE + 'aabl/',
-    dp: 'https://sites.google.com/view/deathpool2026/home'   // update yearly
+    dp: BASE + 'deathpool/'
   };
   const API = 'https://aasn-api.matt-hope001.workers.dev';
   // Death Pool icon: a heartbeat line in a ring (inline, no image file needed).
@@ -36,7 +36,7 @@
   const POOLS = [
     { id: 'aahl', name: 'AAHL', year: '26/27', accent: '#00D4FF', logo: LINKS.aahl + 'aahl-logo.png', round: false },
     { id: 'aabl', name: 'AABL', year: '2027', accent: '#F06A70', logo: BASE + 'aabl/assets/aabl-badge.png', round: true },
-    { id: 'dp', name: 'DEATH POOL', short: 'D.POOL', year: '2026', accent: '#8BE37A', icon: DP_ICON, external: true }
+    { id: 'dp', name: 'DEATH POOL', short: 'D.POOL', year: '2026', accent: '#8BE37A', icon: DP_ICON }
   ];
 
   const css = `
