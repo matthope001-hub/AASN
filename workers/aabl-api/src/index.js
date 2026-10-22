@@ -490,7 +490,7 @@ async function deathPool(request, env, ctx) {
 // paid status). Cached 10 minutes at the edge.
 async function deathPoolData(request, env, ctx) {
   const cache = caches.default;
-  const key = new Request('https://aasn-cache.internal/deathpool-data-v3');
+  const key = new Request('https://aasn-cache.internal/deathpool-data-v4');
   // ?only=a,b returns just those keys (handy for checking one section).
   const only = new URL(request.url).searchParams.get('only');
   const pickKeys = o => only ? Object.fromEntries(Object.entries(o).filter(([k]) => k === 'success' || only.split(',').includes(k))) : o;
@@ -505,7 +505,7 @@ async function deathPoolData(request, env, ctx) {
     return parseCsv(await res.text());
   };
   const [standings, picksTab, grave, deathRow, bdays, boxes] = await Promise.all([
-    tab('Standings'), tab('Form Responses 1'), tab('GraveYard'), tab('Death Row'), tab('Birthdays'), tab('Pick Boxes', '&headers=0')
+    tab('Standings'), tab('Form Responses 1'), tab('GraveYard'), tab('Death Row'), tab('Birthdays', '&headers=1'), tab('Pick Boxes', '&headers=0')
   ]);
   const c = v => String(v ?? '').trim();
   const num = v => { const x = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return Number.isFinite(x) ? x : null; };
