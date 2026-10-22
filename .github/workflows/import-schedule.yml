@@ -1,6 +1,10 @@
 name: Import MLB schedule
 
 on:
+  schedule:
+    # Daily ~6:05am Eastern: keeps the schedule current and sets the pick
+    # deadline once MLB posts the Opening Day first-pitch time.
+    - cron: '5 10 * * *'
   workflow_dispatch:
     inputs:
       season:
