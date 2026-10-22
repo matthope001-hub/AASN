@@ -142,3 +142,6 @@ a { color: var(--ice); }
 }
 @media (prefers-reduced-motion: reduce) { .dp-alive path { animation: none; stroke-dasharray: none; } }
 [hidden].btn-ghost, [hidden].btn-solid { display: none; }
+.btn-solid, .btn-ghost, .dp-btn { gap: 10px; }
+.btn-logo { width: 30px; height: 30px; object-fit: contain; flex: none; }
+.btn-logo.round { object-fit: cover; border-radius: 50%; }
