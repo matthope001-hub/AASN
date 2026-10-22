@@ -97,16 +97,16 @@
     lastFocus = document.activeElement;
     ov.innerHTML = `
       <div class="aabl-fc" role="dialog" aria-modal="true" aria-label="${esc(p.full_name)}"${tint(team)}>
-        ${team ? `<img class="aabl-fc-wm" src="${logo(team)}" alt="" onerror="this.remove()">` : ''}
         <button type="button" class="aabl-fc-x" aria-label="Close">×</button>
         <div class="aabl-fc-top">
+          <div class="aabl-fc-nm">${esc(first)}<br>${esc(last)}</div>
           <div class="aabl-fc-info">
-            <div class="aabl-fc-nm">${esc(first)}<br>${esc(last)}</div>
             <div class="aabl-fc-meta">${team ? `<img src="${logo(team)}" alt="" onerror="this.remove()">` : ''}${esc(team || 'FA')} · ${esc(p.position || '')}</div>
             ${o.box ? `<div class="aabl-fc-sub">BOX ${esc(o.box.box_id)} · ${esc(o.box.name)}</div>` : ''}
             ${o.isTwoWay ? `<div class="aabl-fc-role">${o.role === 'pitcher' ? 'PITCHING' : 'HITTING'} POINTS ONLY</div>` : ''}
           </div>
           <div class="aabl-fc-hs">${p.headshot_url ? `<img src="${esc(cutout(p.headshot_url))}" data-orig="${esc(p.headshot_url)}" alt="" ${FALLBACK}>` : ''}</div>
+          <div class="aabl-fc-logo">${team ? `<img class="aabl-fc-wm" src="${logo(team)}" alt="" onerror="this.remove()">` : ''}</div>
         </div>
         <div class="aabl-fc-pool">
           <div><small>${esc(o.statsSeason || '')} AABL PTS</small><br><b>${fmt(s.points)}</b></div>

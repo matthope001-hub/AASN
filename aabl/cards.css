@@ -6,17 +6,19 @@
 @keyframes aablPop { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
 .aabl-fc[data-team] { background: color-mix(in srgb, var(--tc) 22%, var(--bg)); border-color: color-mix(in srgb, var(--tc) 70%, var(--bg)); }
 .aabl-fc[data-team]::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--tc); z-index: 3; }
-.aabl-fc-wm { position: absolute; right: -40px; top: -30px; width: 240px; height: 240px; opacity: .16; pointer-events: none; filter: grayscale(1) brightness(2.2); }
+.aabl-fc-wm { width: 100%; max-width: 130px; height: auto; opacity: .2; pointer-events: none; filter: grayscale(1) brightness(2.2); }
 .aabl-fc-x { position: absolute; top: 6px; right: 10px; width: 44px; height: 44px; background: none; border: 0; color: var(--dim); font-size: 30px; cursor: pointer; z-index: 4; line-height: 1; }
-.aabl-fc-top { display: flex; position: relative; min-height: 190px; transform: translateZ(24px); }
-.aabl-fc-info { flex: 1; padding: 20px 0 14px 20px; min-width: 0; position: relative; z-index: 2; }
-.aabl-fc-nm { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; letter-spacing: .5px; text-transform: uppercase; }
-.aabl-fc-meta { font-family: var(--mono); font-size: 13px; color: #C9D3DF; margin: 10px 0 6px; display: flex; align-items: center; gap: 6px; }
+/* Header: name across the top, then three zones — info | headshot | team logo — so nothing overlaps. */
+.aabl-fc-top { display: grid; grid-template-columns: minmax(0, 1fr) 170px minmax(0, 1fr); grid-template-areas: 'nm nm nm' 'info hs logo'; column-gap: 8px; position: relative; padding: 18px 16px 0 20px; transform: translateZ(24px); }
+.aabl-fc-info { grid-area: info; align-self: center; min-width: 0; padding-bottom: 12px; }
+.aabl-fc-logo { grid-area: logo; display: flex; align-items: center; justify-content: center; min-width: 0; padding-bottom: 12px; }
+.aabl-fc-nm { grid-area: nm; padding-right: 44px; font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; letter-spacing: .5px; text-transform: uppercase; overflow-wrap: anywhere; }
+.aabl-fc-meta { font-family: var(--mono); font-size: 13px; color: #C9D3DF; margin: 0 0 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .aabl-fc-meta img { width: 22px; height: 22px; }
 .aabl-fc-sub { font-family: var(--mono); font-size: 12px; color: var(--dim); margin-bottom: 4px; }
 .aabl-fc-role { display: inline-block; margin-top: 4px; padding: 2px 6px; background: #4A1A22; color: #FF9EA2; font-family: var(--mono); font-size: 11px; font-weight: 700; }
-.aabl-fc-hs { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 160px; z-index: 0; }
-.aabl-fc-hs img { width: 160px; display: block; }
+.aabl-fc-hs { grid-area: hs; align-self: end; display: flex; justify-content: center; margin-top: 10px; }
+.aabl-fc-hs img { width: 170px; height: 170px; object-fit: contain; object-position: center bottom; display: block; }
 .aabl-fc-hs img.faded { -webkit-mask-image: radial-gradient(ellipse 70% 75% at 50% 45%, #000 60%, transparent 100%); mask-image: radial-gradient(ellipse 70% 75% at 50% 45%, #000 60%, transparent 100%); }
 .aabl-fc-pool { display: flex; justify-content: space-between; align-items: baseline; margin: 0 12px 8px; padding: 10px 14px; border: 1px solid var(--red-text); border-radius: 12px; background: color-mix(in srgb, var(--tc, #132E52) 14%, var(--bg)); position: relative; transform: translateZ(16px); }
 .aabl-fc-pool small, .aabl-fc-strip small { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .5px; }
@@ -33,7 +35,9 @@
 .aabl-fc-break .neg { color: #FF9EA2; }
 .aabl-fc-break tfoot td { font-weight: 700; color: var(--red-text); }
 @media (max-width: 520px) {
-  .aabl-fc-hs, .aabl-fc-hs img { width: 120px; }
+  .aabl-fc-top { grid-template-columns: minmax(0, 1fr) 112px minmax(0, .7fr); padding: 16px 12px 0 16px; }
+  .aabl-fc-hs img { width: 112px; height: 112px; }
+  .aabl-fc-wm { max-width: 84px; }
   .aabl-fc-nm { font-size: 25px; }
   .aabl-fc-strip b { font-size: 17px; }
 }
