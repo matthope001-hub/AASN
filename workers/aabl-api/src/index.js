@@ -490,7 +490,7 @@ async function deathPool(request, env, ctx) {
 // paid status). Cached 10 minutes at the edge.
 async function deathPoolData(request, env, ctx) {
   const cache = caches.default;
-  const key = new Request('https://aasn-cache.internal/deathpool-data-v2');
+  const key = new Request('https://aasn-cache.internal/deathpool-data-v3');
   // ?only=a,b returns just those keys (handy for checking one section).
   const only = new URL(request.url).searchParams.get('only');
   const pickKeys = o => only ? Object.fromEntries(Object.entries(o).filter(([k]) => k === 'success' || only.split(',').includes(k))) : o;
@@ -586,8 +586,8 @@ async function deathPoolData(request, env, ctx) {
 
   // Birthdays
   h = headerRow(bdays, 'Celeb');
-  out.birthdays = h < 0 ? [] : bdays.slice(h + 1).map(r => ({ name: c(r[col(bdays[h], 'Celeb')]), born: c(r[col(bdays[h], 'Birthday')]) }))
-    .filter(x => x.name && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(x.born));
+  out.birthdays = h < 0 ? [] : bdays.slice(h + 1).map(r => ({ name: c(r[col(bdays[h], 'Celeb')]), born: c(r[col(bdays[h], 'Birthday')]), md: c(r[col(bdays[h], 'Helper')]) }))
+    .filter(x => x.name && (x.born || x.md));
 
   // Pick boxes: key, display name, celebs
   out.boxes = boxes.map(r => r.map(c)).filter(r => r[0] && r[1] && /^[a-z0-9_]+$/.test(r[0]))
