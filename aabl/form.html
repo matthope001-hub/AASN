@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paper Entry Form — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<style>
+.paper { max-width: 960px; background: #fff; color: #111; padding: 22px 26px; margin: 0 auto 24px; font-family: 'Barlow Condensed', sans-serif; }
+.paper h1 { font-family: var(--display); font-weight: 400; font-size: 30px; color: #0C2340; display: flex; align-items: center; gap: 12px; }
+.paper h1 img { width: 48px; height: 48px; }
+.paper .sub { font-size: 15px; color: #333; margin: 4px 0 12px; }
+.who { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-bottom: 12px; }
+.who div { border-bottom: 1px solid #111; padding-top: 14px; font-size: 13px; font-weight: 700; color: #0C2340; }
+.paper h2 { font-family: var(--display); font-weight: 400; font-size: 18px; color: #fff; background: #0C2340; padding: 3px 8px; margin: 10px 0 6px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.box { border: 1px solid #0C2340; padding: 4px 6px 5px; break-inside: avoid; }
+.box b { display: block; font-size: 13px; color: #BD3039; border-bottom: 1px solid #ccc; margin-bottom: 2px; }
+.box label { display: flex; align-items: center; gap: 6px; font-size: 13.5px; line-height: 1.35; }
+.sq { width: 11px; height: 11px; border: 1.5px solid #111; flex: none; }
+.box small { color: #555; font-size: 11px; margin-left: auto; }
+.note { font-size: 13px; color: #333; margin-top: 10px; }
+.actions { max-width: 960px; margin: 0 auto 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.actions button { min-height: 44px; padding: 0 20px; background: var(--red); border: 0; color: #fff; font-family: var(--cond); font-weight: 700; font-size: 16px; cursor: pointer; }
+@media (max-width: 700px) { .grid { grid-template-columns: 1fr 1fr; } .who { grid-template-columns: 1fr; } }
+@media print {
+  @page { size: letter; margin: 0.4in; }
+  body { background: #fff !important; }
+  header, footer, .actions, #aabl-install { display: none !important; }
+  main.wrap { padding: 0 !important; max-width: none !important; }
+  .paper { padding: 0; margin: 0; max-width: none; }
+  .grid { grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .box label { font-size: 12px; line-height: 1.25; }
+  .paper h2, .sq { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="signup"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1 class="title">PAPER ENTRY FORM</h1>
+  <div class="actions"><button type="button" onclick="window.print()">PRINT FORM</button><span class="status" style="padding:0">Prefer online? <a href="signup.html" style="color: var(--red-text)">Sign up here</a>.</span></div>
+
+  <div class="paper">
+    <h1><img src="assets/aabl-badge.png" alt="">ANGRY ALPACA BASEBALL LEAGUE — 2027 ENTRY</h1>
+    <p class="sub">Check <b>one player in each of the 21 boxes</b> and <b>one winner in each of the 6 divisions</b>. $<span id="fee">10</span> per entry. Picks lock at the first pitch of Opening Day<span id="deadline"></span>.</p>
+    <div class="who"><div>TEAM NAME</div><div>MANAGER NAME</div><div>EMAIL</div><div>PHONE</div></div>
+    <div id="boxes"><p>Loading boxes…</p></div>
+    <h2>DIVISION WINNERS (+25 EACH)</h2>
+    <div class="grid" id="divs"></div>
+    <p class="note">Hand this form and your entry fee to the commissioner. Your entry is added online and you'll get an email with a private link to your team.</p>
+  </div>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script>
+(async function () {
+  const BOX_SEASON = 2027;
+  const DIVISIONS = {
+    'AL East': ['BAL', 'BOS', 'NYY', 'TB', 'TOR'], 'AL Central': ['CLE', 'CWS', 'DET', 'KC', 'MIN'], 'AL West': ['ATH', 'HOU', 'LAA', 'SEA', 'TEX'],
+    'NL East': ['ATL', 'MIA', 'NYM', 'PHI', 'WSH'], 'NL Central': ['CHC', 'CIN', 'MIL', 'PIT', 'STL'], 'NL West': ['AZ', 'COL', 'LAD', 'SD', 'SF']
+  };
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const sq = '<span class="sq"></span>';
+  document.getElementById('divs').innerHTML = Object.entries(DIVISIONS).map(([d, t]) =>
+    `<div class="box"><b>${d.toUpperCase()}</b>${t.map(x => `<label>${sq}${x}</label>`).join('')}</div>`).join('');
+  try {
+    const [cfg, boxes, opts] = await Promise.all([
+      aasnSelect('config', 'select=entry_fee,opening_day&order=season.desc&limit=1', 'aabl'),
+      aasnSelect('boxes', `select=box_id,name,section&season=eq.${BOX_SEASON}&order=box_id`, 'aabl'),
+      aasnSelect('box_options', `select=box_id,role,sort_order,player:players(full_name,team_abbr)&season=eq.${BOX_SEASON}&order=box_id,sort_order`, 'aabl')
+    ]);
+    const c = cfg[0] || {};
+    if (c.entry_fee != null) document.getElementById('fee').textContent = Number(c.entry_fee);
+    if (c.opening_day) document.getElementById('deadline').textContent = ' (' + new Date(c.opening_day).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' }) + ' ET)';
+    if (!boxes.length) { document.getElementById('boxes').innerHTML = '<p>The boxes for this season aren\'t set yet.</p>'; return; }
+    const two = new Map();
+    opts.forEach(o => two.set(o.player.full_name, (two.get(o.player.full_name) || 0) + 1));
+    const sections = [...new Set(boxes.map(b => b.section))];
+    document.getElementById('boxes').innerHTML = sections.map(sec => `<h2>${esc(String(sec).toUpperCase())}</h2><div class="grid">${
+      boxes.filter(b => b.section === sec).map(b => `<div class="box"><b>BOX ${b.box_id} · ${esc(b.name)}</b>${
+        opts.filter(o => o.box_id === b.box_id).map(o => `<label>${sq}${esc(o.player.full_name)}${two.get(o.player.full_name) > 1 ? ` (${o.role === 'pitcher' ? 'P' : 'H'})` : ''}<small>${esc(o.player.team_abbr || '')}</small></label>`).join('')
+      }</div>`).join('')}</div>`).join('');
+  } catch (e) {
+    console.error(e);
+    document.getElementById('boxes').innerHTML = '<p>Boxes unavailable right now. Try again shortly.</p>';
+  }
+})();
+</script>
+<script src="../shared/auth.js"></script>
+<script src="nav.js"></script>
+</body>
+</html>

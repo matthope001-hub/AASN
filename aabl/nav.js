@@ -21,6 +21,7 @@
     ['rules', 'Rules', 'rules.html'],
     ['signup', 'Sign Up', 'signup.html'],
     ['whatsnew', "What's New", 'whatsnew.html'],
+    ['privacy', 'Privacy', 'privacy.html'],
     ['admin', '⚙️ Admin', 'admin.html']
   ];
 
@@ -76,4 +77,53 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
   else build();
+
+  // ---- Stat tooltips: hover (or tap-focus) a stat abbreviation to see what it means.
+  const STAT_NAMES = {
+    PTS: 'Pool points', G: 'Games', GP: 'Games played', AB: 'At-bats', H: 'Hits', '1B': 'Singles', '2B': 'Doubles', '3B': 'Triples',
+    HR: 'Home runs', RBI: 'Runs batted in', R: 'Runs scored', BB: 'Walks', HBP: 'Hit by pitch', SB: 'Stolen bases',
+    CS: 'Caught stealing', SO: 'Strikeouts (batting)', AVG: 'Batting average', OPS: 'On-base + slugging',
+    IP: 'Innings pitched', K: 'Strikeouts (pitching)', W: 'Wins', L: 'Losses', QS: 'Quality starts (6+ IP, 3 or fewer ER)',
+    SV: 'Saves', HLD: 'Holds', ER: 'Earned runs', ERA: 'Earned run average', WHIP: 'Walks + hits per inning',
+    GS: 'Games started', BBA: 'Walks allowed', HA: 'Hits allowed', RK: 'Rank', MOVES: 'Trades used', PROJ: 'Projected total'
+  };
+  function tip(e) {
+    const el = e.target.closest && e.target.closest('th, .cols > span, .aabl-fc-strip *');
+    if (!el || el.title) return;
+    const key = el.textContent.replace(/[▲▼↑↓\s]/g, '').toUpperCase();
+    if (STAT_NAMES[key]) el.title = STAT_NAMES[key];
+  }
+  document.addEventListener('mouseover', tip);
+  document.addEventListener('focusin', tip);
+
+  // ---- Installable app: service worker + a one-time "add to home screen" banner.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  const DISMISS = 'aabl_install_dismissed';
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  let dismissed = false; try { dismissed = !!localStorage.getItem(DISMISS); } catch (e) { /* ignore */ }
+  function banner(text, onInstall) {
+    if (document.getElementById('aabl-install')) return;
+    const b = document.createElement('div');
+    b.id = 'aabl-install';
+    b.setAttribute('role', 'dialog'); b.setAttribute('aria-label', 'Install the AABL app');
+    b.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9998;display:flex;gap:10px;align-items:center;max-width:520px;margin:0 auto;padding:12px 14px;background:#0C2340;border:1px solid #BD3039;color:#fff;font-family:"Barlow Condensed",sans-serif;font-size:17px;box-shadow:0 6px 24px rgba(0,0,0,.4)';
+    b.innerHTML = `<img src="assets/icon-192.png" alt="" style="width:40px;height:40px"><span style="flex:1">${text}</span>` +
+      (onInstall ? '<button type="button" data-i="go" style="min-height:40px;padding:0 14px;background:#BD3039;border:0;color:#fff;font:inherit;font-weight:700;cursor:pointer">INSTALL</button>' : '') +
+      '<button type="button" data-i="x" aria-label="Dismiss" style="min-width:40px;min-height:40px;background:none;border:0;color:#fff;font-size:22px;cursor:pointer">×</button>';
+    b.addEventListener('click', ev => {
+      const a = ev.target.dataset.i; if (!a) return;
+      if (a === 'go' && onInstall) onInstall();
+      try { localStorage.setItem(DISMISS, '1'); } catch (e) { /* ignore */ }
+      b.remove();
+    });
+    document.body.appendChild(b);
+  }
+  if (!standalone && !dismissed && document.body && !/admin\.html$/.test(location.pathname)) {
+    window.addEventListener('beforeinstallprompt', ev => {
+      ev.preventDefault();
+      banner('Get the AABL on your home screen.', () => ev.prompt());
+    });
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && /safari/i.test(navigator.userAgent) && !/crios|fxios/i.test(navigator.userAgent);
+    if (ios) setTimeout(() => banner('Install the AABL: tap <b>Share</b>, then <b>Add to Home Screen</b>.'), 2500);
+  }
 })();

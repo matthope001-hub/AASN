@@ -7,6 +7,8 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0C2340">
 <link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="cards.css">
@@ -111,7 +113,7 @@ footer a { color: var(--dim); text-decoration: none; }
     const tag = o.isTwoWay ? `<span class="tag">${o.role === 'pitcher' ? 'P' : 'H'}</span>` : '';
     return `<div class="player" data-key="${esc(key)}" role="button" tabindex="0" aria-label="${esc(p.full_name)} player card">
       <img src="${esc(p.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-      <div><div class="pname">${esc(p.full_name)}${tag}</div><div class="pmeta">${esc(p.team_abbr || '—')} · ${esc(p.position || '')}</div></div>
+      <div><div class="pname">${esc(p.full_name)}${tag}</div><div class="pmeta">${esc(p.team_abbr || '—')} · ${esc(p.position || '')}${o.picked ? ` · <span title="Teams that picked him">Picked by ${o.picked}</span>` : ''}</div></div>
       ${COLS[o.role].map(([, k]) => `<span class="n">${fmt(s[k])}</span>`).join('')}
       <span class="pts">${fmt(s.points)}</span>
     </div>`;
@@ -144,8 +146,9 @@ footer a { color: var(--dim); text-decoration: none; }
     document.getElementById('stats-season').textContent = STATS_SEASON;
     const [boxRows, optRows] = await Promise.all([
       aasnSelect('boxes', `select=box_id,name,section,role&season=eq.${BOX_SEASON}&order=box_id`, 'aabl'),
-      aasnSelect('box_options', `select=box_id,mlb_id,role,sort_order,player:players(full_name,team_abbr,position,headshot_url)&season=eq.${BOX_SEASON}`, 'aabl')
+      aasnSelect('box_options', `select=option_id,box_id,mlb_id,role,sort_order,player:players(full_name,team_abbr,position,headshot_url)&season=eq.${BOX_SEASON}`, 'aabl')
     ]);
+    const counts = new Map((await aasnSelect('pick_counts', `select=option_id,picks&season=eq.${BOX_SEASON}`, 'aabl').catch(() => [])).map(c => [c.option_id, c.picks]));
     const ids = [...new Set(optRows.map(o => o.mlb_id))];
     const statRows = ids.length
       ? await aasnSelect('stats_season', `select=*&season=eq.${STATS_SEASON}&mlb_id=in.(${ids.join(',')})`, 'aabl')
@@ -157,7 +160,7 @@ footer a { color: var(--dim); text-decoration: none; }
     boxes = boxRows.map(b => ({
       ...b,
       options: optRows.filter(o => o.box_id === b.box_id)
-        .map(o => ({ ...o, stats: stats.get(o.mlb_id + '|' + o.role), isTwoWay: roles.get(o.mlb_id).size > 1 }))
+        .map(o => ({ ...o, picked: counts.get(o.option_id), stats: stats.get(o.mlb_id + '|' + o.role), isTwoWay: roles.get(o.mlb_id).size > 1 }))
         .sort((a, b2) => num(b2.stats && b2.stats.points) - num(a.stats && a.stats.points))
     }));
     boxes.forEach(b => b.options.forEach((o, i) => Object.assign(o, { box: b, rank: i + 1, boxSize: b.options.length, statsSeason: STATS_SEASON })));

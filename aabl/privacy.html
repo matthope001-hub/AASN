@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy — AABL 2027</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" type="image/png" href="assets/aabl-badge.png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<style>
+.rules { max-width: 820px; }
+.rules section { background: var(--panel); border: 1px solid var(--border); padding: 16px 18px; margin-bottom: 14px; }
+.rules h2 { font-family: var(--display); font-weight: 400; font-size: 22px; margin-bottom: 8px; color: var(--red-text); }
+.rules p, .rules li { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; line-height: 1.45; color: var(--text); }
+.rules ul { padding-left: 20px; }
+.rules li { margin: 4px 0; }
+.rules b { color: #fff; }
+.pts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 6px; }
+.pts table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 14px; }
+.pts th { text-align: left; color: var(--dim); font-size: 11px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.pts td { padding: 5px 0; border-bottom: 1px solid var(--row); }
+.pts td:last-child { text-align: right; font-weight: 700; }
+.neg { color: #FF8A7A; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hdr">
+    <a href="./" class="brand"><img src="assets/aabl-badge.png" alt="">AABL <span>20<em>/</em>27</span></a>
+    <nav id="aabl-nav" aria-label="AABL" data-active="privacy"></nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap rules">
+  <h1 class="title">PRIVACY</h1>
+  <section>
+    <h2>WHAT WE COLLECT</h2>
+    <ul>
+      <li>For each entry: <b>your name, team name, email address and picks</b>.</li>
+      <li>If you sign in with Google, Microsoft, Yahoo or an email link, we also keep the <b>email address of that account</b> so your teams show up when you sign in. We never see your password.</li>
+      <li>Whether your entry fee has been paid.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>WHAT'S PUBLIC</h2>
+    <ul>
+      <li>Your <b>team name and manager name</b> appear in the standings.</li>
+      <li>Your <b>picks and trades</b> are hidden until picks lock on Opening Day, then everyone can see them.</li>
+      <li>Your <b>email address is never shown</b> on the site.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>HOW IT'S USED</h2>
+    <ul>
+      <li>Email is only used for pool business: your entry confirmation, trade confirmations and a new team link if you ask for one. No newsletters, no ads.</li>
+      <li>Your information is <b>never sold or shared</b>. It's stored with our database provider (Supabase) and emails go out through Gmail.</li>
+      <li>The site doesn't use ad trackers. Your browser stores a few small settings (like whether you're signed in, or a draft of your entry) on your own device.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>REMOVING YOUR INFO</h2>
+    <ul>
+      <li>Ask the commissioner to have your information removed.</li>
+    </ul>
+  </section>
+</main>
+
+<footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/auth.js"></script>
+<script src="nav.js"></script>
+</body>
+</html>

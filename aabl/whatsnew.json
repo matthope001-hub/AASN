@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-10-21",
+    "title": "Install the app, paper entries and more",
+    "items": [
+      "Add the AABL to your phone's home screen like an app — look for the install banner.",
+      "New printable paper entry form (link on the Sign Up page).",
+      "Once picks lock, the Boxes page shows how many teams picked each player.",
+      "Hover or tap a stat abbreviation (HR, QS, HLD…) to see what it means.",
+      "Loading bar at the top while data loads.",
+      "New Privacy page under More."
+    ]
+  },
+  {
+    "date": "2026-10-21",
     "title": "Optional sign-in",
     "items": [
       "Sign in with Google, Hotmail/Outlook, Yahoo or an emailed link — the same account works for the AAHL.",

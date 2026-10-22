@@ -1,0 +1,45 @@
+name: AABL backup
+
+# Nightly encrypted backup of the AABL data, kept 30 days as a workflow artifact.
+# Needs repo secrets SUPABASE_SERVICE_KEY and BACKUP_PASSPHRASE.
+# To restore: download the artifact, then
+#   openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in aabl-backup.json.gz.enc -out aabl-backup.json.gz -pass pass:YOUR_PASSPHRASE
+#   gunzip aabl-backup.json.gz
+
+on:
+  schedule:
+    - cron: '47 9 * * *'   # after the nightly update
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check passphrase
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$BACKUP_PASSPHRASE" ]; then echo "::error::Add the BACKUP_PASSPHRASE repo secret first."; exit 1; fi
+      - name: Dump tables
+        env:
+          SUPABASE_URL: https://tetgrmgurobacdohhiby.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OUT: aabl-backup.json
+        run: node scripts/backup.mjs
+      - name: Compress and encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          gzip -9 aabl-backup.json
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in aabl-backup.json.gz -out aabl-backup.json.gz.enc -pass env:BACKUP_PASSPHRASE
+          rm aabl-backup.json.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aabl-backup-${{ github.run_number }}
+          path: aabl-backup.json.gz.enc
+          retention-days: 30
