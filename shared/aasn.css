@@ -135,6 +135,8 @@ a { color: var(--ice); }
 @media (max-width: 899px) {
   .pools { grid-template-columns: 1fr; }
   .hero { align-items: flex-start; }
+  /* Phones: active pools first — Death Pool moves above the AABL (2nd card). */
+  .pools > :nth-child(2) { order: 3; }
 }
 @media (max-width: 520px) {
   .champ-places { grid-template-columns: 1fr; }
