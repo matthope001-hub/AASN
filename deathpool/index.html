@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Death Pool 2026 — AASN</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07110A">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10.5' fill='%2307110A' stroke='%238BE37A' stroke-width='1.5'/%3E%3Cpath d='M3.5 12.5h4l1.6-3.2 2.4 6.4 2-8 1.8 4.8h5.2' fill='none' stroke='%238BE37A' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="dp.css">
+<script src="../shared/switcher.js" data-pool="dp" defer></script>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a href="#home" class="brand" aria-label="Death Pool 2026 home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#07110A" stroke="#8BE37A" stroke-width="1.5"/><path d="M3.5 12.5h4l1.6-3.2 2.4 6.4 2-8 1.8 4.8h5.2" fill="none" stroke="#8BE37A" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <div><b>DEATH POOL 2026</b><span>AN AASN POOL</span></div>
+    </a>
+    <nav class="tabs" aria-label="Death Pool">
+      <a href="#home">Home</a>
+      <a href="#standings">Standings</a>
+      <a href="#graveyard">Graveyard</a>
+      <a href="#deathrow">Death Row</a>
+      <a href="#birthdays">Birthdays</a>
+      <a href="#boxes">Pick Boxes</a>
+      <a href="#rules">Rules</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="loading" class="status">Checking for a pulse…</div>
+
+  <!-- HOME -->
+  <section class="view" id="v-home" hidden>
+    <div class="hero">
+      <div class="monitor-card">
+        <div class="mc-top">
+          <div><h1>DEATH POOL</h1><p>2026 · WHO'S NEXT?</p></div>
+          <div class="bpm" aria-hidden="true">BPM<br><b>72</b></div>
+        </div>
+        <div class="ekg" aria-hidden="true"><svg viewBox="0 0 360 90" preserveAspectRatio="none"><path d="M0 50 H70 L82 50 L90 20 L100 78 L110 8 L120 62 L128 50 H200 L212 50 L220 20 L230 78 L240 8 L250 62 L258 50 H360"/></svg></div>
+        <div class="kpis">
+          <div class="kpi"><span>GRAVEYARD</span><b id="k-grave">—</b></div>
+          <div class="kpi"><span>DEATH ROW</span><b id="k-row">—</b></div>
+          <div class="kpi"><span>CEMETERIES</span><b id="k-cem">—</b></div>
+          <div class="kpi"><span>LEADER</span><b id="k-lead">—</b></div>
+        </div>
+      </div>
+      <div class="side">
+        <div class="panel"><h2>☠ LATEST ARRIVALS</h2><ul class="latest" id="h-latest"></ul></div>
+        <div class="panel"><h2>🎂 BIRTHDAYS <small id="h-bday-sub">NEXT 14 DAYS</small></h2><div class="chips" id="h-bdays"></div></div>
+      </div>
+    </div>
+    <div class="sec-title">TOP 10 <small>TAP A CEMETERY TO SEE ITS PICKS · <a href="#standings">FULL STANDINGS →</a></small></div>
+    <div class="tbl-wrap"><table><thead><tr><th>RK</th><th>CEMETERY</th><th class="num">POINTS</th><th class="hide-sm">VS LEADER</th></tr></thead><tbody id="h-top"></tbody></table></div>
+  </section>
+
+  <!-- STANDINGS -->
+  <section class="view" id="v-standings" hidden>
+    <div class="sec-head"><div class="sec-title">STANDINGS <small>TAP A CEMETERY TO SEE ITS PICKS</small></div>
+      <input class="search" id="s-search" type="search" placeholder="Find a cemetery…" aria-label="Find a cemetery"></div>
+    <div class="tbl-wrap"><table><thead><tr><th>RK</th><th>CEMETERY</th><th class="num">POINTS</th><th class="num hide-sm">DEAD PICKS</th><th class="hide-sm">VS LEADER</th></tr></thead><tbody id="s-body"></tbody></table></div>
+  </section>
+
+  <!-- GRAVEYARD -->
+  <section class="view" id="v-graveyard" hidden>
+    <div class="sec-head"><div class="sec-title">THE GRAVEYARD <small id="g-sub"></small></div>
+      <input class="search" id="g-search" type="search" placeholder="Find a celeb or cemetery…" aria-label="Find a celeb or cemetery"></div>
+    <div class="tbl-wrap"><table><thead><tr><th>#</th><th>HEADSTONE</th><th>DIED</th><th class="num">BASE</th><th>BONUSES</th><th class="num">TOTAL</th><th class="num hide-sm">PICKED</th><th class="hide-sm">CEMETERIES</th></tr></thead><tbody id="g-body"></tbody></table></div>
+  </section>
+
+  <!-- DEATH ROW -->
+  <section class="view" id="v-deathrow" hidden>
+    <div class="sec-head"><div class="sec-title">DEATH ROW <small>NO GUARANTEES THEY'LL BE PUT DOWN</small></div></div>
+    <div class="tbl-wrap"><table><thead><tr><th>INMATE</th><th>STATE</th><th>SCHEDULED</th><th>STATUS</th><th class="hide-sm">BORN</th></tr></thead><tbody id="d-body"></tbody></table></div>
+  </section>
+
+  <!-- BIRTHDAYS -->
+  <section class="view" id="v-birthdays" hidden>
+    <div class="sec-head"><div class="sec-title">BIRTHDAYS <small>STILL BREATHING · NEXT 60 DAYS</small></div>
+      <input class="search" id="b-search" type="search" placeholder="Find a celeb…" aria-label="Find a celeb"></div>
+    <div class="tbl-wrap"><table><thead><tr><th>CELEB</th><th>BIRTHDAY</th><th class="num">TURNING</th><th class="num">IN</th></tr></thead><tbody id="b-body"></tbody></table></div>
+  </section>
+
+  <!-- PICK BOXES -->
+  <section class="view" id="v-boxes" hidden>
+    <div class="sec-head"><div class="sec-title">PICK BOXES <small>NUMBER = TIMES PICKED · CROSSED OUT = IN THE GRAVEYARD</small></div>
+      <input class="search" id="x-search" type="search" placeholder="Find a celeb or category…" aria-label="Find a celeb or category"></div>
+    <div class="grid-cards" id="x-body"></div>
+  </section>
+
+  <!-- RULES -->
+  <section class="view" id="v-rules" hidden>
+    <div class="sec-title">RULES &amp; BONUSES</div>
+    <div class="rules">
+      <div class="panel">
+        <h2>HOW IT WORKS</h2>
+        <ul>
+          <li>Pick one celebrity from each category's box (two from Death Row).</li>
+          <li>When one of your picks dies, your cemetery scores that celeb's points, plus any bonuses below.</li>
+          <li><b>Mummy's Curse</b> is the opposite: pick someone you do <b>not</b> want to die. If they die, you lose 10 points (B16).</li>
+          <li><b>Death Row</b>: remember there are no guarantees they'll be put down.</li>
+          <li>Standings, deaths and points on this site come straight from the official pool sheet.</li>
+        </ul>
+      </div>
+      <div class="panel"><h2>BONUS POINTS</h2><ul class="bonus-list" id="r-bonuses"></ul></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg" aria-labelledby="dlg-title">
+  <div class="dlg-head"><div><h3 id="dlg-title"></h3><p id="dlg-sub"></p></div><button type="button" class="x" id="dlg-x" aria-label="Close">×</button></div>
+  <div class="dlg-body"><table><thead><tr><th>CATEGORY</th><th>PICK</th><th class="num">PTS</th></tr></thead><tbody id="dlg-body"></tbody></table></div>
+</dialog>
+
+<footer class="wrap ftr"><span>DEATH POOL 2026 · AN AASN POOL</span><span id="stamp"></span></footer>
+
+<script src="../shared/config.js"></script>
+<script src="dp.js"></script>
+</body>
+</html>

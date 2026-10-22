@@ -490,7 +490,7 @@ async function deathPool(request, env, ctx) {
 // paid status). Cached 10 minutes at the edge.
 async function deathPoolData(request, env, ctx) {
   const cache = caches.default;
-  const key = new Request('https://aasn-cache.internal/deathpool-data-v1');
+  const key = new Request('https://aasn-cache.internal/deathpool-data-v2');
   // ?only=a,b returns just those keys (handy for checking one section).
   const only = new URL(request.url).searchParams.get('only');
   const pickKeys = o => only ? Object.fromEntries(Object.entries(o).filter(([k]) => k === 'success' || only.split(',').includes(k))) : o;
@@ -552,15 +552,23 @@ async function deathPoolData(request, env, ctx) {
     const nm = H.findIndex(x => /Head Stone/.test(x));
     const bcols = H.map((x, i) => [x, i]).filter(([x]) => /\bB(\d{1,2})$/.test(x)).map(([x, i]) => ({ code: 'B' + x.match(/B(\d{1,2})$/)[1], i }));
     const ix = l => H.findIndex(x => x === l);
-    const legendCode = H.findIndex(x => x === 'Bonus Points');
+    const legendCode = H.findIndex(x => /^bonus points$/i.test(x));
     out.graveyard = grave.slice(h + 1).filter(r => c(r[nm]) && /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(c(r[nm + 1]))).map(r => ({
       name: c(r[nm]), died: c(r[nm + 1]),
       bonuses: bcols.filter(b => /^(✓|✔|TRUE|x|yes)$/i.test(c(r[b.i]))).map(b => b.code),
       bonus: num(r[ix('Total Bonus')]), base: num(r[ix('Allocated Points')]), points: num(r[ix('Total Points')]),
       picked: num(r[ix('Times Picked')]), cemeteries: c(r[ix('Cemeteries')]).split(/\s+-\s+/).map(c).filter(Boolean)
     }));
-    if (legendCode >= 0) {
-      out.bonuses = grave.map(r => [c(r[legendCode]), c(r[legendCode + 1])]).filter(([k, d]) => /^B\d{1,2}$/.test(k) && d).map(([code, text]) => ({ code, text }));
+    // Legend: the column whose cells read B1, B2… with the description beside it.
+    const width = Math.max(...grave.map(r => r.length));
+    let lc = legendCode;
+    if (lc < 0 || grave.filter(r => /^B\d{1,2}$/.test(c(r[lc]))).length < 3) {
+      lc = -1;
+      for (let i = 0; i < width - 1 && lc < 0; i++) if (grave.filter(r => /^B\d{1,2}$/.test(c(r[i])) && c(r[i + 1]).length > 3).length >= 5) lc = i;
+    }
+    if (lc >= 0) {
+      const seen = new Set();
+      out.bonuses = grave.map(r => [c(r[lc]), c(r[lc + 1])]).filter(([k, d]) => /^B\d{1,2}$/.test(k) && d && !seen.has(k) && seen.add(k)).map(([code, text]) => ({ code, text }));
     }
   }
 
