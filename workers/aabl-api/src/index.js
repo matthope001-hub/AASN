@@ -491,8 +491,11 @@ async function deathPool(request, env, ctx) {
 async function deathPoolData(request, env, ctx) {
   const cache = caches.default;
   const key = new Request('https://aasn-cache.internal/deathpool-data-v1');
+  // ?only=a,b returns just those keys (handy for checking one section).
+  const only = new URL(request.url).searchParams.get('only');
+  const pickKeys = o => only ? Object.fromEntries(Object.entries(o).filter(([k]) => k === 'success' || only.split(',').includes(k))) : o;
   const hit = await cache.match(key);
-  if (hit) return json(request, env, await hit.json());
+  if (hit) return json(request, env, pickKeys(await hit.json()));
 
   const [cfg] = await sb(env, 'aasn_private?select=value&key=eq.deathpool_sheet_id', { headers: { 'Accept-Profile': 'public' } });
   if (!cfg) return json(request, env, { success: false }, 404);
@@ -583,7 +586,7 @@ async function deathPoolData(request, env, ctx) {
     .map(r => ({ name: r[1], celebs: r.slice(2).filter(Boolean) }));
 
   ctx.waitUntil(cache.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } })));
-  return json(request, env, out);
+  return json(request, env, pickKeys(out));
 }
 
 // ---------------------------------------------------------- live points
