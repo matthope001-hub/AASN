@@ -57,6 +57,10 @@ export default {
         email: !!(env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM)
       });
     }
+    if (url.pathname === '/deathpool/data') {
+      try { return await deathPoolData(request, env, ctx); }
+      catch (err) { console.log('Death Pool data failed: ' + (err && err.stack || err)); return json(request, env, { success: false }, 502); }
+    }
     if (url.pathname === '/deathpool') {
       try { return await deathPool(request, env, ctx); }
       catch (err) { console.log('Death Pool failed: ' + (err && err.stack || err)); return json(request, env, { success: false }, 502); }
@@ -478,6 +482,107 @@ async function deathPool(request, env, ctx) {
   }
 
   ctx.waitUntil(cache.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=1800' } })));
+  return json(request, env, out);
+}
+
+// GET /deathpool/data -> everything the Death Pool site shows, read from the
+// sheet and reduced to public fields only (no emails, phones, real names or
+// paid status). Cached 10 minutes at the edge.
+async function deathPoolData(request, env, ctx) {
+  const cache = caches.default;
+  const key = new Request('https://aasn-cache.internal/deathpool-data-v1');
+  const hit = await cache.match(key);
+  if (hit) return json(request, env, await hit.json());
+
+  const [cfg] = await sb(env, 'aasn_private?select=value&key=eq.deathpool_sheet_id', { headers: { 'Accept-Profile': 'public' } });
+  if (!cfg) return json(request, env, { success: false }, 404);
+  const tab = async (name, extra = '') => {
+    const res = await fetch(`https://docs.google.com/spreadsheets/d/${cfg.value}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}${extra}`);
+    if (!res.ok) throw new Error(`sheet ${name}: ${res.status}`);
+    return parseCsv(await res.text());
+  };
+  const [standings, picksTab, grave, deathRow, bdays, boxes] = await Promise.all([
+    tab('Standings'), tab('Form Responses 1'), tab('GraveYard'), tab('Death Row'), tab('Birthdays'), tab('Pick Boxes', '&headers=0')
+  ]);
+  const c = v => String(v ?? '').trim();
+  const num = v => { const x = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return Number.isFinite(x) ? x : null; };
+  const headerRow = (rows, label) => rows.findIndex(r => r.some(x => c(x) === label));
+  const col = (row, label) => row.findIndex(x => c(x) === label);
+  const out = { success: true, updatedAt: new Date().toISOString() };
+
+  // Standings
+  let h = headerRow(standings, 'Cemetery Name');
+  out.standings = h < 0 ? [] : standings.slice(h + 1).map(r => ({
+    rank: num(r[col(standings[h], 'Ranking')]), name: c(r[col(standings[h], 'Cemetery Name')]), points: num(r[col(standings[h], 'Total Points')])
+  })).filter(x => x.name && x.points != null);
+
+  // Each cemetery's picks (category -> celeb, points). Contact columns are never read.
+  h = picksTab.findIndex(r => r.some(x => /^Cemetery Name/i.test(c(x))));
+  out.cemeteries = [];
+  if (h >= 0) {
+    const H = picksTab[h].map(c);
+    const cem = H.findIndex(x => /^Cemetery Name/i.test(x));
+    const total = H.lastIndexOf('Total Points');
+    const cats = [];
+    for (let i = cem + 1; i < (total > 0 ? total : H.length); i++) {
+      if (!H[i] || H[i] === 'Points') continue;
+      let name = H[i];
+      if (/^Death Row\s*\(PICK 2/i.test(name)) name = 'Death Row (Pick 1)';
+      else if (/^Death Row PICK 2/i.test(name)) name = 'Death Row (Pick 2)';
+      else if (name.includes(' - ')) name = name.split(' - ')[0];
+      cats.push({ i, name, pts: H[i + 1] === 'Points' ? i + 1 : -1 });
+    }
+    out.categories = cats.map(x => x.name);
+    out.cemeteries = picksTab.slice(h + 1).filter(r => c(r[cem])).map(r => ({
+      name: c(r[cem]),
+      total: total >= 0 ? num(r[total]) : null,
+      picks: cats.map(x => ({ category: x.name, celeb: c(r[x.i]), points: x.pts >= 0 ? num(r[x.pts]) : null })).filter(p => p.celeb)
+    }));
+  }
+
+  // Graveyard + bonus legend
+  h = headerRow(grave, 'Head Stone');
+  out.graveyard = []; out.bonuses = [];
+  if (h < 0) h = grave.findIndex(r => r.some(x => /Head Stone/.test(c(x))));
+  if (h >= 0) {
+    const H = grave[h].map(c);
+    const nm = H.findIndex(x => /Head Stone/.test(x));
+    const bcols = H.map((x, i) => [x, i]).filter(([x]) => /\bB(\d{1,2})$/.test(x)).map(([x, i]) => ({ code: 'B' + x.match(/B(\d{1,2})$/)[1], i }));
+    const ix = l => H.findIndex(x => x === l);
+    const legendCode = H.findIndex(x => x === 'Bonus Points');
+    out.graveyard = grave.slice(h + 1).filter(r => c(r[nm]) && /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(c(r[nm + 1]))).map(r => ({
+      name: c(r[nm]), died: c(r[nm + 1]),
+      bonuses: bcols.filter(b => /^(✓|✔|TRUE|x|yes)$/i.test(c(r[b.i]))).map(b => b.code),
+      bonus: num(r[ix('Total Bonus')]), base: num(r[ix('Allocated Points')]), points: num(r[ix('Total Points')]),
+      picked: num(r[ix('Times Picked')]), cemeteries: c(r[ix('Cemeteries')]).split(/\s+-\s+/).map(c).filter(Boolean)
+    }));
+    if (legendCode >= 0) {
+      out.bonuses = grave.map(r => [c(r[legendCode]), c(r[legendCode + 1])]).filter(([k, d]) => /^B\d{1,2}$/.test(k) && d).map(([code, text]) => ({ code, text }));
+    }
+  }
+
+  // Death Row
+  h = headerRow(deathRow, 'Death Row');
+  out.deathRow = [];
+  if (h >= 0) {
+    const H = deathRow[h].map(c), ix = l => H.findIndex(x => x.toLowerCase() === l.toLowerCase());
+    out.deathRow = deathRow.slice(h + 1).filter(r => c(r[ix('Death Row')])).map(r => ({
+      name: c(r[ix('Death Row')]), delayed: c(r[ix('delayed execution')]), born: c(r[ix('D.o.B.')]), died: c(r[ix('D.o.D.')]),
+      age: c(r[ix('Age at time of death')]), scheduled: c(r[ix('Expected Execution Date')]), rescheduled: c(r[ix('New Execution DAte')]),
+      state: c(r[ix('State')])
+    }));
+  }
+
+  // Birthdays
+  h = headerRow(bdays, 'Celeb');
+  out.birthdays = h < 0 ? [] : bdays.slice(h + 1).map(r => ({ name: c(r[col(bdays[h], 'Celeb')]), born: c(r[col(bdays[h], 'Birthday')]) }))
+    .filter(x => x.name && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(x.born));
+
+  // Pick boxes: key, display name, celebs
+  out.boxes = boxes.map(r => r.map(c)).filter(r => r[0] && r[1] && /^[a-z0-9_]+$/.test(r[0]))
+    .map(r => ({ name: r[1], celebs: r.slice(2).filter(Boolean) }));
+
+  ctx.waitUntil(cache.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } })));
   return json(request, env, out);
 }
 
