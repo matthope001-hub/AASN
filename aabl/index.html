@@ -211,14 +211,26 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 
     // Today's games (Eastern)
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-    const games = await aasnSelect('schedule', `select=away_abbr,home_abbr,start_time,status,away_score,home_score&game_date=eq.${today}&order=start_time`, 'aabl');
-    if (games.length) {
-      document.getElementById('today-wrap').hidden = false;
+    const games = await aasnSelect('schedule', `select=game_pk,away_abbr,home_abbr,start_time,status,away_score,home_score&game_date=eq.${today}&order=start_time`, 'aabl');
+    async function drawGames() {
+      const lv = window.aablLive ? await aablLive.get() : null;
+      const liveMap = new Map(((lv && lv.game_date === today && lv.games) || []).map(g => [g.pk, g]));
       document.getElementById('today-games').innerHTML = games.map(g => {
         const t = new Date(g.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' });
-        const live = g.away_score != null ? `${g.away_score}–${g.home_score} · ${esc2(g.status || '')}` : (t === '3:33 AM' ? 'TBD' : t);
-        return `<span style="background: #132E52; border: 1px solid #25446E; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px">${esc2(g.away_abbr)} @ ${esc2(g.home_abbr)} <span style="color: #A9B8CC">${live}</span></span>`;
+        const placeholder = /^[3-6]:33 AM$/.test(t);
+        const L = liveMap.get(g.game_pk);
+        let txt;
+        if (L && L.state === 'Live') txt = `<span class="st-live">●</span> ${L.as ?? 0}–${L.hs ?? 0} · ${esc2(((L.half || '').slice(0, 3) + ' ' + (L.inning || '')).trim() || L.detail)}`;
+        else if (L && L.state === 'Final') txt = `${L.as}–${L.hs} · ${esc2(L.detail || 'Final')}`;
+        else if (L && /postpon|suspend|delay|cancel/i.test(L.detail)) txt = esc2(L.detail);
+        else txt = g.away_score != null ? `${g.away_score}–${g.home_score} · ${esc2(g.status || '')}` : (placeholder ? 'TBD' : t);
+        return `<span style="background: #132E52; border: 1px solid #25446E; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px">${esc2(g.away_abbr)} @ ${esc2(g.home_abbr)} <span style="color: #A9B8CC">${txt}</span></span>`;
       }).join('');
+    }
+    if (games.length) {
+      document.getElementById('today-wrap').hidden = false;
+      await drawGames();
+      setInterval(() => { if (!document.hidden) drawGames().catch(() => {}); }, 60000);
     }
 
     const last = await N.latestDate();
@@ -257,6 +269,7 @@ AABL <span style="color: #A9B8CC">20<span style="color: #F06A70">/</span>27</spa
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
 <script src="cards.js"></script>
+<script src="live.js"></script>
 <script src="teams.js"></script>
 <script src="standings-table.js"></script>
 <script src="nights.js"></script>

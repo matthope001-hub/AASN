@@ -6,9 +6,10 @@ main = "src/index.js"
 compatibility_date = "2026-10-01"
 keep_vars = true
 
-# Monday 12:13 UTC (8:13am Eastern in summer): weekly digest to the commissioner.
+# 1) Monday 12:13 UTC (8:13am Eastern in summer): weekly digest to the commissioner.
+# 2) Every minute 16:00-07:59 UTC (noon-3:59am Eastern): live "Tonight" points.
 [triggers]
-crons = ["13 12 * * 1"]
+crons = ["13 12 * * 1", "* 16-23,0-7 * * *"]
 
 [observability]
 enabled = true

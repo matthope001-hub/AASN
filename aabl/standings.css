@@ -19,3 +19,4 @@
 .st-foot { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 10px; }
 .st-empty { font-family: var(--mono); color: var(--dim); padding: 12px 0; }
 @media (max-width: 640px) { .st-wrap .col-hide-sm { display: none; } }
+.st-live { color: #F06A70; animation: stLive 1.6s ease-in-out infinite; } @keyframes stLive { 50% { opacity: .35; } } @media (prefers-reduced-motion: reduce) { .st-live { animation: none; } }

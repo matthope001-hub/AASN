@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-10-21",
+    "title": "Live Tonight points",
+    "items": [
+      "During games, the standings get a ● TONIGHT column with live points, updated every minute.",
+      "Ranks, totals and payouts include tonight's points while games are on (▲/▼ shows spots gained or lost tonight). The official points still come in the 4am update.",
+      "Team rosters show each player's live points tonight.",
+      "Today's games on the home page show live scores and innings.",
+      "The pick deadline is set automatically to the first pitch of Opening Day once MLB posts the start times, and picks lock on their own at that moment."
+    ]
+  },
+  {
+    "date": "2026-10-21",
     "title": "Install the app, paper entries and more",
     "items": [
       "Payouts are live on the Standings page: the whole pot goes to the players (see Rules for the split).",

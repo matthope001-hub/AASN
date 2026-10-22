@@ -32,6 +32,7 @@
     if (!dates.length) return data;
 
     data.latest = dates[0].snapshot_date;
+    if (window.aablLive) { const lv = await aablLive.get(); data.live = aablLive.active(lv, data.latest) && Object.keys(lv.entries || {}).length ? lv : null; }
     data.snaps = await aasnSelect('standings', `select=entry_id,snapshot_date,points,players_points,division_bonus,rank&season=eq.${season}&order=snapshot_date.asc`, 'aabl');
     const allDates = [...new Set(data.snaps.map(s => s.snapshot_date))].sort();
     const prevDate = allDates.length > 1 ? allDates[allDates.length - 2] : null;
@@ -59,14 +60,15 @@
     return split[rank - 1] != null ? pot * split[rank - 1] : null;
   }
 
-  const SORTS = { rank: r => r.rank, players: r => num(r.players_points), div: r => num(r.division_bonus), total: r => num(r.points) };
+  const SORTS = { tonight: r => num(r.tonight), rank: r => r.rank, players: r => num(r.players_points), div: r => num(r.division_bonus), total: r => num(r.points) };
 
   function render(el, data, opts = {}) {
-    const lastRank = Math.max(...data.rows.map(r => r.rank || 0));
+    const lastRank = () => Math.max(...rowsForLast.map(r => r.rank || 0));
+    let rowsForLast = data.rows;
     const payCell = r => {
       const amt = payout(r.rank, data.pot);
       if (amt != null) return `<span style="color:#E5B53A;font-weight:700">$${amt.toFixed(2)}</span>`;
-      if (data.rows.length > 1 && r.rank === lastRank) return '<span style="color:var(--dim);font-size:12px">🎟️ Free entry</span>';
+      if (data.rows.length > 1 && r.rank === lastRank()) return '<span style="color:var(--dim);font-size:12px">🎟️ Free entry</span>';
       return '<span style="color:var(--dim)">—</span>';
     };
     const state = el._stSort || { key: 'rank', dir: 'asc' };
@@ -74,9 +76,20 @@
     const deltaLabel = opts.deltaLabel || '±PTS (24H)';
     if (!data.rows.length) { el.innerHTML = '<p class="st-empty">No standings yet. They start after Opening Day.</p>'; return; }
 
+    // Tonight: live points are added to the totals and teams re-ranked (an estimate until the 4am update).
+    const L = data.live;
+    let base = data.rows;
+    if (L) {
+      base = data.rows.map(r => {
+        const t = (L.entries[r.entry_id] || {});
+        return { ...r, tonight: num(t.pts), tonightN: t.n || 0, officialRank: r.rank, players_points: num(r.players_points) + num(t.pts), points: num(r.points) + num(t.pts) };
+      });
+      base.forEach(r => { r.rank = 1 + base.filter(x => x.points > r.points).length; r.liveMove = r.officialRank - r.rank; });
+    } else if (state.key === 'tonight') { state.key = 'rank'; state.dir = 'asc'; }
     const dir = state.dir === 'asc' ? 1 : -1;
     const f = SORTS[state.key];
-    const rows = [...data.rows].sort((a, b) => (f(a) - f(b)) * dir || a.rank - b.rank);
+    rowsForLast = base;
+    const rows = [...base].sort((a, b) => (f(a) - f(b)) * dir || a.rank - b.rank);
     const head = (key, label, cls, title) => {
       const on = state.key === key;
       const arrow = on && key !== 'rank' ? (state.dir === 'desc' ? ' ▼' : ' ▲') : '';
@@ -106,15 +119,17 @@
       <thead><tr>
         ${head('rank', 'RANK', '', 'Back to the normal ranking')}<th><span>TEAM</span></th>
         ${head('players', 'PLAYERS', 'num', 'Points earned by players - click to sort')}
+        ${L ? head('tonight', '<span class="st-live">●</span> TONIGHT', 'num', "Live points from tonight's games, already included in the totals (estimate until the 4am update) - click to sort") : ''}
         ${head('div', 'DIV' + (data.finalBonus ? '' : '*'), '', 'Division picks leading now, +25 each - click to sort')}
         ${head('total', data.finalBonus ? 'TOTAL' : 'PROJECTED*', 'num col-hide-sm', 'Players plus the division bonus - click to sort')}
         <th class="num col-hide-sm"><span>${esc(deltaLabel)}</span></th><th class="col-hide-sm"><span>MOVE</span></th>
         <th class="num" title="In-season trades used out of the season limit"><span>TRADES</span></th><th class="col-hide-sm"><span>PAYOUT</span></th>
       </tr></thead>
       <tbody>${rows.map(r => `<tr>
-        <td class="${r.rank === 1 ? 'rank1' : ''}">${r.rank}</td>
+        <td class="${r.rank === 1 ? 'rank1' : ''}">${r.rank}${L && r.liveMove ? ` <span class="${r.liveMove > 0 ? 'up' : 'down'}" style="font-size:10px" title="${r.liveMove > 0 ? 'Up' : 'Down'} ${Math.abs(r.liveMove)} tonight">${r.liveMove > 0 ? '▲' : '▼'}${Math.abs(r.liveMove)}</span>` : ''}</td>
         <td><button type="button" class="team-link" data-entry="${esc(r.entry_id)}" data-name="${esc(r.team_name)}" data-rank="${r.rank}" data-points="${r.points}">${esc(r.team_name)}</button></td>
         <td class="num pts">${fmt(r.players_points)}</td>
+        ${L ? `<td class="num" style="color:${r.tonight ? '#5BD08A' : 'var(--dim)'}">${r.tonight ? '+' + fmt(r.tonight) : '—'}${r.tonightN ? ` <span style="color:var(--dim);font-size:11px">(${r.tonightN})</span>` : ''}</td>` : ''}
         <td>${div(r)}</td>
         <td class="num col-hide-sm" style="color:${data.finalBonus ? 'var(--red-text)' : 'var(--dim)'}">${fmt(r.points)}</td>
         <td class="num col-hide-sm">${delta(r)}</td>
@@ -123,7 +138,17 @@
         <td class="col-hide-sm">${payCell(r)}</td></tr>`).join('')}</tbody>
     </table></div>
     <p class="st-foot">Trades = in-season trades used out of ${data.seasonMoves}.</p>
+    ${L ? `<p class="st-foot"><span class="st-live">●</span> Tonight = live points from tonight's games so far (players who've played in brackets). While games are on, Rank, Points and Payout include tonight's points and update every minute or two (▲/▼ = spots gained or lost tonight). An estimate; the official points come in the 4am update.</p>` : ''}
     ${data.finalBonus ? '' : '<p class="st-foot">* <span class="st-dot on"></span> = a division pick that is leading now. Projected = players + 25 for each leading pick. The bonus is paid once, at the end of the regular season.</p>'}`;
+
+    if (!el._stLiveTimer && window.aablLive && data.latest) {
+      el._stLiveTimer = setInterval(async () => {
+        if (document.hidden) return;
+        const lv = await aablLive.get();
+        const next = aablLive.active(lv, data.latest) && Object.keys(lv.entries || {}).length ? lv : null;
+        if ((next && next.updated_at) !== (data.live && data.live.updated_at)) { data.live = next; render(el, data, opts); }
+      }, 60000);
+    }
 
     if (!el._stWired) {
       el._stWired = true;

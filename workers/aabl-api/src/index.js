@@ -82,7 +82,12 @@ export default {
 
   // Cron (wrangler.toml [triggers]): Monday-morning digest, emailed to the commissioner.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(sendWeeklyDigest(env).catch(err => console.log('Digest failed: ' + (err && err.stack || err))));
+    if (event.cron === DIGEST_CRON) {
+      ctx.waitUntil(sendWeeklyDigest(env).catch(err => console.log('Digest failed: ' + (err && err.stack || err))));
+      return;
+    }
+    if (env.LIVE_POINTS === 'off') return;
+    ctx.waitUntil(runLivePoints(env).catch(err => console.log('Live points failed: ' + (err && err.stack || err))));
   }
 };
 
@@ -398,6 +403,111 @@ async function admin(env, ctx, body) {
 
     default: return { success: false, error: 'Unknown admin action.' };
   }
+}
+
+// ---------------------------------------------------------- live points
+// Every minute during game hours: tonight's pool points from MLB live
+// boxscores, saved to aabl.live for the site's "Tonight" column. An estimate;
+// the 4am nightly run stays the official count. Off: variable LIVE_POINTS = off.
+
+const DIGEST_CRON = '13 12 * * 1';
+const MLB_API = 'https://statsapi.mlb.com/api/v1';
+const BOX_FIELDS = 'teams,away,home,players,person,id,stats,batting,pitching,hits,doubles,triples,homeRuns,rbi,runs,baseOnBalls,' +
+  'hitByPitch,stolenBases,strikeOuts,caughtStealing,plateAppearances,atBats,outs,wins,saves,holds,earnedRuns,losses,gamesStarted,battersFaced';
+const nz = v => Number(v) || 0;
+
+function liveLines(box) {
+  const out = {};
+  for (const side of ['away', 'home']) {
+    for (const p of Object.values((box.teams && box.teams[side] && box.teams[side].players) || {})) {
+      const id = p.person && p.person.id; if (!id) continue;
+      const b = p.stats && p.stats.batting, q = p.stats && p.stats.pitching;
+      if (b && (nz(b.plateAppearances) || nz(b.atBats) || nz(b.runs) || nz(b.stolenBases) || nz(b.caughtStealing))) {
+        const h = nz(b.hits), d = nz(b.doubles), t = nz(b.triples), hr = nz(b.homeRuns);
+        out[id + '|hitter'] = { singles: Math.max(0, h - d - t - hr), doubles: d, triples: t, hr, rbi: nz(b.rbi), runs: nz(b.runs),
+          bb: nz(b.baseOnBalls), hbp: nz(b.hitByPitch), sb: nz(b.stolenBases), so: nz(b.strikeOuts), cs: nz(b.caughtStealing) };
+      }
+      if (q && (nz(q.outs) || nz(q.battersFaced))) {
+        const outs = nz(q.outs), er = nz(q.earnedRuns);
+        out[id + '|pitcher'] = { outs, k: nz(q.strikeOuts), w: nz(q.wins), sv: nz(q.saves), hld: nz(q.holds), er, l: nz(q.losses),
+          bb_allowed: nz(q.baseOnBalls), h_allowed: nz(q.hits), qs: nz(q.gamesStarted) > 0 && outs >= 18 && er <= 3 ? 1 : 0 };
+      }
+    }
+  }
+  return out;
+}
+
+function baseballDayET() {
+  // Before 6am Eastern still counts as the previous night's games.
+  const d = new Date(Date.now() - 6 * 3600000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+
+async function runLivePoints(env) {
+  const day = baseballDayET();
+  const sched = await (await fetch(`${MLB_API}/schedule?sportId=1&gameType=R&date=${day}&hydrate=linescore`)).json();
+  const games = (sched.dates || []).flatMap(d => d.games || []);
+  if (!games.length) return;
+  const state = g => (g.status && g.status.abstractGameState) || 'Preview';   // Preview | Live | Final
+  if (!games.some(g => state(g) !== 'Preview')) return;                       // nothing started yet
+
+  const [cur] = await sb(env, 'live?select=game_date,finals,games,players&id=eq.1');
+  const finals = cur && cur.game_date === day ? (cur.finals || {}) : {};
+  const prevGames = new Map(((cur && cur.game_date === day && cur.games) || []).map(g => [g.pk, g]));
+
+  const gameList = games.map(g => {
+    const ls = g.linescore || {};
+    return { pk: g.gamePk, away: g.teams.away.team.id, home: g.teams.home.team.id,
+      as: g.teams.away.score ?? null, hs: g.teams.home.score ?? null, state: state(g),
+      detail: (g.status && g.status.detailedState) || '', inning: ls.currentInningOrdinal || null, half: ls.inningHalf || null,
+      start: g.gameDate || null };
+  });
+  // Only re-fetch boxscores for games in progress, or finals not cached yet.
+  const toFetch = gameList.filter(g => g.state === 'Live' || (g.state === 'Final' && !finals[g.pk]));
+  const changed = toFetch.filter(g => {
+    const p = prevGames.get(g.pk);
+    return !p || p.state !== g.state || p.as !== g.as || p.hs !== g.hs || p.inning !== g.inning || p.half !== g.half || g.state === 'Live';
+  });
+  const boxes = await Promise.all(changed.map(g => fetch(`${MLB_API}/game/${g.pk}/boxscore?fields=${BOX_FIELDS}`).then(r => r.ok ? r.json() : null).catch(() => null)));
+  const lines = {};                                   // key -> line, for every started game
+  const prevPlayers = new Map();
+  changed.forEach((g, i) => { if (boxes[i]) { const l = liveLines(boxes[i]); if (g.state === 'Final') finals[g.pk] = l; Object.assign(lines, l); } });
+  Object.values(finals).forEach(l => Object.assign(lines, l));
+  // Anything not re-fetched this minute keeps its last known line.
+  if (cur && cur.game_date === day) Object.entries(cur.players || {}).forEach(([k, v]) => prevPlayers.set(k, v));
+
+  const [scoring, cfg] = await Promise.all([sb(env, 'scoring?select=player_type,stat,points'), currentSeason(env)]);
+  const w = { hitter: {}, pitcher: {} };
+  scoring.forEach(r => { w[r.player_type][r.stat] = Number(r.points); });
+  const pts = (line, role) => Math.round(Object.entries(w[role]).reduce((t, [k, p]) => t + nz(line[k]) * p, 0) * 10) / 10;
+
+  const opts = await sb(env, `box_options?select=option_id,mlb_id,role&season=eq.${cfg.season}`);
+  const players = {};
+  for (const o of opts) {
+    const key = o.mlb_id + '|' + o.role;
+    if (lines[key]) players[key] = { pts: pts(lines[key], o.role), line: lines[key] };
+    else if (prevPlayers.has(key)) players[key] = prevPlayers.get(key);
+  }
+
+  // Team totals, only once picks are locked (picks are private before that).
+  const entries = {};
+  const locked = cfg.picks_locked || (cfg.opening_day && Date.now() >= new Date(cfg.opening_day).getTime());
+  if (locked) {
+    const optKey = new Map(opts.map(o => [o.option_id, o.mlb_id + '|' + o.role]));
+    for (let off = 0; ; off += 1000) {
+      const picks = await sb(env, `picks?select=entry_id,option_id&season=eq.${cfg.season}&limit=1000&offset=${off}`);
+      for (const p of picks) {
+        const pl = players[optKey.get(p.option_id)];
+        if (!pl) continue;
+        const e = entries[p.entry_id] || (entries[p.entry_id] = { pts: 0, n: 0 });
+        e.pts = Math.round((e.pts + pl.pts) * 10) / 10; e.n++;
+      }
+      if (picks.length < 1000) break;
+    }
+  }
+
+  await sb(env, 'live?id=eq.1', { method: 'PATCH', headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ game_date: day, players, entries, games: gameList, finals, updated_at: new Date().toISOString() }) });
 }
 
 // --------------------------------------------------------- weekly digest

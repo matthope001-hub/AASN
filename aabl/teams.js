@@ -81,10 +81,18 @@
       }
       const season = picks[0].season;
       const ids = [...new Set(picks.map(p => p.option.mlb_id))];
-      const [stats, boxes] = await Promise.all([
+      const [stats, boxes, lv, snap] = await Promise.all([
         aasnSelect('stats_season', `select=*&season=eq.${STATS_SEASON}&mlb_id=in.(${ids.join(',')})`, 'aabl'),
-        aasnSelect('boxes', `select=box_id,name&season=eq.${season}`, 'aabl')
+        aasnSelect('boxes', `select=box_id,name&season=eq.${season}`, 'aabl'),
+        window.aablLive ? aablLive.get() : Promise.resolve(null),
+        aasnSelect('standings', `select=snapshot_date&season=eq.${season}&order=snapshot_date.desc&limit=1`, 'aabl').catch(() => [])
       ]);
+      const live = window.aablLive && aablLive.active(lv, snap[0] && snap[0].snapshot_date) ? lv : null;
+      const tonightTag = o => {
+        const p = live && live.players[o.mlb_id + '|' + o.role];
+        if (!p) return '';
+        return ` <span style="color:#5BD08A;font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap" title="Tonight's live points (estimate until the 4am update)">● ${p.pts > 0 ? '+' : ''}${(Math.round(p.pts * 10) / 10)}</span>`;
+      };
       const sMap = new Map(stats.map(s => [s.mlb_id + '|' + s.role, s]));
       const bMap = new Map(boxes.map(b => [b.box_id, b]));
       const latest = winners.length ? winners[0].season : null;
@@ -97,7 +105,7 @@
         return `<div class="aabl-tm-row" data-key="${esc(key)}" role="button" tabindex="0" aria-label="${esc(o.player.full_name)} player card">
           <span class="bx">BOX ${pk.box_id}</span>
           <img src="${esc(o.player.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-          <span class="nm">${esc(o.player.full_name)}<small>${esc(o.player.team_abbr || '—')} · ${esc(o.player.position || '')}${o.role === 'pitcher' ? ' · P' : ''}</small></span>
+          <span class="nm">${esc(o.player.full_name)}<small>${esc(o.player.team_abbr || '—')} · ${esc(o.player.position || '')}${o.role === 'pitcher' ? ' · P' : ''}${tonightTag(o)}</small></span>
           <span class="ln">${esc(line(o.role, s))}</span>
           <span class="pt">${fmt(s && s.points)}</span></div>`;
       }).join('');
