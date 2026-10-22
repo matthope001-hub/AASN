@@ -86,8 +86,12 @@ async function setDeadline(rows) {
   const firstDate = rows.map(r => r.game_date).sort()[0];
   const first = rows.filter(r => r.game_date === firstDate && r.start_time).sort((a, b) => a.start_time.localeCompare(b.start_time))[0];
   if (!first) return 'Deadline: no start time listed yet.';
-  const et = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', hour12: false }).format(new Date(first.start_time));
-  if (first._tbd || et === '03:33') return `Deadline: first game (${firstDate}) has no real start time yet — not set.`;
+  const etTime = t => new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(t));
+  // Placeholder = 3:33am local at the ballpark (03:33–06:33 ET) or flagged TBD.
+  const placeholder = r => r._tbd || !r.start_time || /^0[3-7]:33$/.test(etTime(r.start_time));
+  const pending = rows.filter(r => r.game_date === firstDate && placeholder(r)).length;
+  if (pending) return `Deadline: ${pending} Opening Day game(s) (${firstDate}) still have no real start time — not set.`;
+  const et = etTime(first.start_time);
   const res = await fetch(`${SUPABASE_URL}/rest/v1/config?select=opening_day,picks_locked&season=eq.${SEASON}`, { headers: sbHeaders({ 'Accept-Profile': 'aabl' }) });
   if (!res.ok) throw new Error(`config read: ${res.status} ${await res.text()}`);
   const [cfg] = await res.json();
