@@ -26,4 +26,4 @@ enabled = true
 [vars]
 SUPABASE_URL = "https://tetgrmgurobacdohhiby.supabase.co"
 SITE_URL = "https://matthope001-hub.github.io/AASN"
-ALLOWED_ORIGINS = "https://matthope001-hub.github.io"
+ALLOWED_ORIGINS = "https://matthope001-hub.github.io,https://theaahl.ca,https://www.theaahl.ca"

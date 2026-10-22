@@ -14,8 +14,12 @@
   const LINKS = {
     hub: BASE,
     aahl: 'https://theaahl.ca/',
-    aabl: BASE + 'aabl/'
+    aabl: BASE + 'aabl/',
+    dp: 'https://sites.google.com/view/deathpool2026/home'   // update yearly
   };
+  const API = 'https://aasn-api.matt-hope001.workers.dev';
+  // Death Pool icon: a heartbeat line in a ring (inline, no image file needed).
+  const DP_ICON = '<svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#07110A" stroke="#8BE37A" stroke-width="1.5"/><path d="M3.5 12.5h4l1.6-3.2 2.4 6.4 2-8 1.8 4.8h5.2" fill="none" stroke="#8BE37A" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
   // Pools not open to the public yet: shown in the bar but not clickable
   // (except on that pool's own pages). Remove an id here to switch its link on.
   const LOCKED = ['aabl'];
@@ -31,7 +35,8 @@
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldGdybWd1cm9iYWNkb2hoaWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5Njc4MTYsImV4cCI6MjEwNDU0MzgxNn0.Jn0MdAdYslGv7znS0DFiSUjlZ6rpw0qsvQwiNq63vWk';
   const POOLS = [
     { id: 'aahl', name: 'AAHL', year: '26/27', accent: '#00D4FF', logo: LINKS.aahl + 'aahl-logo.png', round: false },
-    { id: 'aabl', name: 'AABL', year: '2027', accent: '#F06A70', logo: BASE + 'aabl/assets/aabl-badge.png', round: true }
+    { id: 'aabl', name: 'AABL', year: '2027', accent: '#F06A70', logo: BASE + 'aabl/assets/aabl-badge.png', round: true },
+    { id: 'dp', name: 'DEATH POOL', short: 'D.POOL', year: '2026', accent: '#8BE37A', icon: DP_ICON, external: true }
   ];
 
   const css = `
@@ -51,6 +56,8 @@
   #aasn-bar .ab-pill[aria-current="page"] { background: #12161B; border-color: #2E353D; border-top-color: var(--ab-accent); color: #E8ECF0; }
   #aasn-bar .ab-pill img { width: 24px; height: 24px; object-fit: contain; flex: none; }
   #aasn-bar .ab-pill img.round { object-fit: cover; border-radius: 50%; }
+  #aasn-bar .ab-ico { width: 24px; height: 24px; flex: none; }
+  #aasn-bar .ab-short { display: none; }
   #aasn-bar .ab-txt { display: flex; flex-direction: column; line-height: 1.05; }
   #aasn-bar .ab-nm { font-weight: 700; font-size: 15px; letter-spacing: .5px; }
   #aasn-bar .ab-nm em { font-style: normal; color: var(--ab-accent); }
@@ -67,6 +74,13 @@
     #aasn-bar nav { flex: 1; }
     #aasn-bar .ab-pill { flex: 1; min-height: 44px; padding: 0 8px 0 6px; }
     #aasn-bar .ab-nm em { display: none; }
+    #aasn-bar nav { gap: 4px; }
+    #aasn-bar .ab-pill { padding: 0 6px 0 5px; gap: 6px; min-width: 0; }
+    #aasn-bar .ab-pill img, #aasn-bar .ab-ico { width: 20px; height: 20px; }
+    #aasn-bar .ab-long { display: none; }
+    #aasn-bar .ab-short { display: inline; }
+    #aasn-bar .ab-st { font-size: 9px; overflow: hidden; text-overflow: ellipsis; }
+    #aasn-bar .ab-txt { min-width: 0; }
   }
   @media print { #aasn-bar { display: none; } }`;
 
@@ -94,12 +108,14 @@
     return `<div class="ab-in">
       <a class="ab-hub" href="${LINKS.hub}" aria-label="AASN home — Angry Alpaca Sports Network"><b>AASN</b><span>ANGRY ALPACA SPORTS NETWORK</span></a>
       <nav aria-label="Pools">${POOLS.map(p => {
-        const inner = `<img src="${p.logo}" alt=""${p.round ? ' class="round"' : ''} onerror="this.style.visibility='hidden'">
-          <span class="ab-txt"><span class="ab-nm">${p.name} <em>${p.year}</em></span><span class="ab-st" data-st="${p.id}"></span></span>`;
+        const pic = p.icon || `<img src="${p.logo}" alt=""${p.round ? ' class="round"' : ''} onerror="this.style.visibility='hidden'">`;
+        const nm = p.short ? `<span class="ab-long">${p.name}</span><span class="ab-short">${p.short}</span>` : p.name;
+        const inner = `${pic}
+          <span class="ab-txt"><span class="ab-nm">${nm} <em>${p.year}</em></span><span class="ab-st" data-st="${p.id}"></span></span>`;
         if (isLocked(p.id)) return `
         <span class="ab-pill ab-lock" style="--ab-accent:${p.accent}" aria-disabled="true" title="${p.name} — coming soon">${inner}</span>`;
         return `
-        <a class="ab-pill" href="${LINKS[p.id]}" style="--ab-accent:${p.accent}"${p.id === current ? ' aria-current="page"' : ''}>${inner}</a>`;
+        <a class="ab-pill" href="${LINKS[p.id]}" style="--ab-accent:${p.accent}"${p.id === current ? ' aria-current="page"' : ''}${p.external ? ' target="_blank" rel="noopener"' : ''}>${inner}</a>`;
       }).join('')}
       </nav></div>`;
   }
@@ -176,7 +192,19 @@
     return ['MLB'];
   }
 
+  async function dpStatus() {
+    const res = await fetch(API + '/deathpool');
+    const d = await res.json();
+    if (d && d.success && d.graveyard != null) return [d.graveyard + ' IN THE GRAVEYARD', d.graveyard];
+    return ["WHO'S NEXT?"];
+  }
+
   function refresh() {
+    dpStatus().then(([t, n]) => {
+      set('dp', t);
+      const el = document.querySelector('#aasn-bar [data-st="dp"]');
+      if (el && n != null) el.innerHTML = `<span class="ab-long">${esc(t)}</span><span class="ab-short">${esc(n)} GONE</span>`;
+    }).catch(() => set('dp', "WHO'S NEXT?"));
     if (isLocked('aahl')) set('aahl', 'COMING SOON');
     else aahlStatus().then(([t, l]) => set('aahl', t, l)).catch(() => set('aahl', 'NHL'));
     if (isLocked('aabl')) set('aabl', 'COMING SOON');
