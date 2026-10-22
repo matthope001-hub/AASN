@@ -72,6 +72,12 @@
       <svg class="dp-ekg dp-alive" viewBox="0 0 360 90" preserveAspectRatio="none"><path d="M0 50 H70 L82 50 L90 20 L100 78 L110 8 L120 62 L128 50 H200 L212 50 L220 20 L230 78 L240 8 L250 62 L258 50 H360"/></svg>
       <svg class="dp-dead" viewBox="0 0 360 90" preserveAspectRatio="none"><path d="M0 50 H360"/></svg>
     </div>
+    <div class="dp-stats" id="dp-stats" hidden>
+      <div><span class="mono dim">GRAVEYARD</span><b class="mono" id="dp-grave">—</b></div>
+      <div><span class="mono dim">DEATH ROW</span><b class="mono" id="dp-row">—</b></div>
+      <div><span class="mono dim">ENTRIES</span><b class="mono" id="dp-entries">—</b></div>
+    </div>
+    <div class="dp-lead mono" id="dp-lead" hidden></div>
     <span class="dp-btn">ENTER THE DEATH POOL →</span>
   </a>
 </section>
@@ -134,6 +140,24 @@
   aasnSelect('champions', 'select=league,season_label,place,team_name&order=season_label.desc')
     .then(r => { rows = r; render(); })
     .catch(() => { document.getElementById('champions').innerHTML = '<p class="mono dim">Champions unavailable right now.</p>'; });
+})();
+</script>
+<script>
+(async function () {
+  try {
+    const res = await fetch(AASN_API_URL + '/deathpool');
+    const d = await res.json();
+    if (!d || !d.success) return;
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = v; };
+    if (d.graveyard != null || d.deathRow != null || d.entries != null) {
+      set('dp-grave', d.graveyard); set('dp-row', d.deathRow); set('dp-entries', d.entries);
+      document.getElementById('dp-stats').hidden = false;
+    }
+    const lines = [];
+    if (d.leader) lines.push('👑 LEADING: ' + d.leader + (d.leaderPts != null ? ' · ' + Number(d.leaderPts).toFixed(1) + ' PTS' : ''));
+    if (d.birthdays) lines.push('🎂 BIRTHDAYS TODAY: ' + d.birthdays);
+    if (lines.length) { const el = document.getElementById('dp-lead'); el.textContent = lines.join('  ·  '); el.hidden = false; }
+  } catch (e) { /* badges stay hidden */ }
 })();
 </script>
 </body>

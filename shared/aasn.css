@@ -107,3 +107,9 @@ a { color: var(--ice); }
 .dp-btn { min-height: 48px; display: flex; align-items: center; justify-content: center; background: var(--dp); color: #07110A; border-radius: 4px; font-family: var(--font-display); font-weight: 800; font-size: 19px; letter-spacing: 1.5px; }
 @media (max-width: 520px) { .dp-title { font-size: 40px; } .dp-flat { padding: 18px; } }
 @media (prefers-reduced-motion: reduce) { .dp-alive path { animation: none; stroke-dasharray: none; } }
+.dp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dp-stats[hidden], .dp-lead[hidden] { display: none; }
+.dp-stats div { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+.dp-stats span { font-size: 10px; letter-spacing: .5px; }
+.dp-stats b { font-size: 20px; color: var(--text); }
+.dp-lead { font-size: 12px; color: var(--text-2); line-height: 1.5; }

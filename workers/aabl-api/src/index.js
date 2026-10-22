@@ -57,6 +57,10 @@ export default {
         email: !!(env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM)
       });
     }
+    if (url.pathname === '/deathpool') {
+      try { return await deathPool(request, env, ctx); }
+      catch (err) { console.log('Death Pool failed: ' + (err && err.stack || err)); return json(request, env, { success: false }, 502); }
+    }
     if (url.pathname !== '/aabl') return new Response('Not found', { status: 404 });
     if (request.method !== 'POST') return json(request, env, { success: false, error: 'Method not allowed' }, 405);
 
@@ -403,6 +407,78 @@ async function admin(env, ctx, body) {
 
     default: return { success: false, error: 'Unknown admin action.' };
   }
+}
+
+// ----------------------------------------------------------- death pool
+// GET /deathpool -> small public summary of the Death Pool sheet for the AASN
+// home page (graveyard count, death row, entries, leader, today's birthdays).
+// The sheet id lives in public.aasn_private (service-role only), never in the
+// public repo, because the sheet itself also holds entrants' contact details.
+// Cached at the edge for 30 minutes.
+
+function parseCsv(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else if (c !== '\r') cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+async function deathPool(request, env, ctx) {
+  const cache = caches.default;
+  const key = new Request('https://aasn-cache.internal/deathpool-v1');
+  const hit = await cache.match(key);
+  if (hit) return json(request, env, await hit.json());
+
+  const [row] = await sb(env, 'aasn_private?select=value&key=eq.deathpool_sheet_id', { headers: { 'Accept-Profile': 'public' } });
+  if (!row) return json(request, env, { success: false }, 404);
+  const tab = async name => {
+    const res = await fetch(`https://docs.google.com/spreadsheets/d/${row.value}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}`);
+    if (!res.ok) throw new Error(`sheet ${name}: ${res.status}`);
+    return parseCsv(await res.text());
+  };
+  const [standings, grave, deathRow] = await Promise.all([tab('Standings'), tab('GraveYard'), tab('Death Row')]);
+  const clean = v => String(v || '').trim();
+  const isDate = v => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(clean(v));
+  const out = { success: true, updatedAt: new Date().toISOString() };
+
+  // Standings: find the "Cemetery Name" column; rows with a name and numeric points are entries.
+  const sHead = standings.findIndex(r => r.some(c => clean(c) === 'Cemetery Name'));
+  if (sHead >= 0) {
+    const nameCol = standings[sHead].findIndex(c => clean(c) === 'Cemetery Name');
+    const ptsCol = standings[sHead].findIndex(c => clean(c) === 'Total Points');
+    const list = standings.slice(sHead + 1)
+      .map(r => ({ name: clean(r[nameCol]), pts: parseFloat(r[ptsCol]) }))
+      .filter(x => x.name && Number.isFinite(x.pts));
+    out.entries = list.length;
+    if (list.length) { const top = list.reduce((a, b) => (b.pts > a.pts ? b : a)); out.leader = top.name; out.leaderPts = top.pts; }
+    const bday = standings.flat().map(clean).find(c => /^Today's Birthdays:/i.test(c));
+    if (bday) out.birthdays = bday.replace(/^Today's Birthdays:\s*/i, '');
+  }
+  // GraveYard: rows under the "Head Stone" header with a name and a date of death.
+  const gHead = grave.findIndex(r => r.some(c => clean(c) === 'Head Stone'));
+  if (gHead >= 0) {
+    const nc = grave[gHead].findIndex(c => clean(c) === 'Head Stone');
+    out.graveyard = grave.slice(gHead + 1).filter(r => clean(r[nc]) && isDate(r[nc + 1])).length;
+  }
+  // Death Row: names under the "Death Row" header that don't have a D.o.D. yet.
+  const dHead = deathRow.findIndex(r => r.some(c => clean(c) === 'Death Row'));
+  if (dHead >= 0) {
+    const nc = deathRow[dHead].findIndex(c => clean(c) === 'Death Row');
+    const dod = deathRow[dHead].findIndex(c => clean(c) === 'D.o.D.');
+    out.deathRow = deathRow.slice(dHead + 1).filter(r => clean(r[nc]) && (dod < 0 || !clean(r[dod]))).length;
+  }
+
+  ctx.waitUntil(cache.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=1800' } })));
+  return json(request, env, out);
 }
 
 // ---------------------------------------------------------- live points
