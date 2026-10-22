@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-10-22",
+    "title": "Switch between pools",
+    "items": [
+      "New AASN bar at the very top of the home page: jump between the AABL and the AAHL (hockey) pool in one tap.",
+      "Each pool shows a quick status, like games live or sign-ups open. Tap AASN for the network home page."
+    ]
+  },
+  {
+    "date": "2026-10-22",
     "title": "Tiebreakers set",
     "items": [
       "Ties are broken by most home runs + RBI from your hitters, then most strikeouts from your pitchers (current picks, only while they're on your team).",
