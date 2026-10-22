@@ -63,7 +63,9 @@
   <section class="view" id="v-standings" hidden>
     <div class="sec-head"><div class="sec-title">STANDINGS <small>TAP A CEMETERY TO SEE ITS PICKS</small></div>
       <input class="search" id="s-search" type="search" placeholder="Find a cemetery…" aria-label="Find a cemetery"></div>
-    <div class="tbl-wrap"><table><thead><tr><th>RK</th><th>CEMETERY</th><th class="num">POINTS</th><th class="num hide-sm">DEAD PICKS</th><th class="hide-sm">VS LEADER</th></tr></thead><tbody id="s-body"></tbody></table></div>
+    <div class="panel race-panel"><h2>POINTS RACE <small id="race-sub">TOP 8 · ONE SNAPSHOT A DAY</small></h2><div id="race"></div></div>
+    <div class="tbl-wrap"><table><thead><tr><th>RK</th><th>CEMETERY</th><th class="num">POINTS</th><th class="hide-sm">MOVE</th><th class="num" title="Points still on the table: the value of every pick that's still alive (Mummy's Curse not counted)">UPSIDE*</th><th class="num hide-sm">DEAD PICKS</th><th class="hide-sm">VS LEADER</th></tr></thead><tbody id="s-body"></tbody></table></div>
+    <p class="small" style="margin-top:8px">* Upside = the point value of every pick still alive (Mummy's Curse not counted, bonuses not included). Move = places gained or lost since <span id="s-prev">the last snapshot</span>.</p>
   </section>
 
   <!-- GRAVEYARD -->
@@ -109,12 +111,19 @@
       </div>
       <div class="panel"><h2>BONUS POINTS</h2><ul class="bonus-list" id="r-bonuses"></ul></div>
     </div>
+    <div class="sec-title" style="margin-top:18px">THE CATEGORIES <small>TAP ONE TO SEE ITS PICK BOX</small></div>
+    <div class="grid-cards" id="r-cats"></div>
   </section>
 </main>
 
 <dialog id="dlg" aria-labelledby="dlg-title">
   <div class="dlg-head"><div><h3 id="dlg-title"></h3><p id="dlg-sub"></p></div><button type="button" class="x" id="dlg-x" aria-label="Close">×</button></div>
   <div class="dlg-body"><table><thead><tr><th>CATEGORY</th><th>PICK</th><th class="num">PTS</th></tr></thead><tbody id="dlg-body"></tbody></table></div>
+</dialog>
+
+<dialog id="cdlg" aria-labelledby="cdlg-title">
+  <div class="dlg-head"><div><h3 id="cdlg-title"></h3><p id="cdlg-sub"></p></div><button type="button" class="x" id="cdlg-x" aria-label="Close">×</button></div>
+  <div class="dlg-body" id="cdlg-body"></div>
 </dialog>
 
 <footer class="wrap ftr"><span>DEATH POOL 2026 · AN AASN POOL</span><span id="stamp"></span></footer>

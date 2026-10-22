@@ -116,3 +116,21 @@ dialog::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(3px); }
 }
 @media (prefers-reduced-motion: reduce) { .ekg path { animation: none; stroke-dasharray: none; } }
 #k-lead { font-size: 15px; white-space: normal; line-height: 1.15; }
+
+/* Movement, race chart, celeb cards, categories */
+.mv { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.mv.up { color: var(--g); } .mv.down { color: var(--red); } .mv.flat { color: var(--dim); }
+.race-panel { margin-bottom: 12px; }
+#race svg { width: 100%; height: 220px; display: block; }
+#race .lg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-family: var(--mono); font-size: 11px; color: var(--text-2); }
+#race .lg i { display: inline-block; width: 10px; height: 3px; margin-right: 5px; vertical-align: middle; }
+.linkbtn.celeb { font-weight: 600; }
+.cstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 6px 0 12px; }
+.cstats div { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.cstats span { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .5px; }
+.cstats b { font-family: var(--mono); font-size: 17px; }
+.owners { display: flex; flex-wrap: wrap; gap: 6px; }
+.cat-card { cursor: pointer; text-align: left; color: var(--text); font: inherit; width: 100%; }
+.cat-card:hover { border-color: var(--g-line); }
+.cat-card:focus-visible { outline: 2px solid var(--g); outline-offset: 2px; }
+.cat-card p { font-size: 14px; color: var(--text-2); line-height: 1.4; margin-bottom: 6px; }

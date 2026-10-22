@@ -494,7 +494,7 @@ async function deathPool(request, env, ctx) {
 // paid status). Cached 10 minutes at the edge.
 async function deathPoolData(request, env, ctx) {
   const cache = caches.default;
-  const key = new Request('https://aasn-cache.internal/deathpool-data-v5');
+  const key = new Request('https://aasn-cache.internal/deathpool-data-v6');
   // ?only=a,b returns just those keys (handy for checking one section).
   const only = new URL(request.url).searchParams.get('only');
   const pickKeys = o => only ? Object.fromEntries(Object.entries(o).filter(([k]) => k === 'success' || only.split(',').includes(k))) : o;
@@ -610,12 +610,20 @@ async function loadDeathPool(env) {
 
   // Celeb cards: name, age, born, died, age at death, point value, times picked, total points, category, Wikipedia.
   out.celebs = dataTab.map(r => r.map(c)).filter(r => r[0] && !/^(name|start date:?)$/i.test(r[0])).map(r => ({
-    name: r[0], age: num(r[1]), born: r[2], died: r[3], ageAtDeath: num(r[4]), value: num(r[5]), picked: num(r[6]),
+    name: r[0], age: num(r[1]), born: r[2], died: r[3], ageAtDeath: r[4], value: num(r[5]), picked: num(r[6]),
     points: num(r[7]), category: r[8], wiki: /^https?:\/\//i.test(r[9]) ? r[9] : ''
   }));
   // Category descriptions from the Pick Sheets headers, e.g. "Mummy's Curse (pick who you DO NOT want to die)".
-  const labels = [...new Set((pickSheets[0] || []).map(c).filter(Boolean))];
-  out.categoryInfo = labels.map(l => { const m = l.match(/^(.*?)\s*\((.+)\)\s*$/); return m ? { name: m[1].trim(), desc: m[2].trim() } : { name: l, desc: '' }; });
+  // (The sheet has several blocks of categories, so scan every cell for a box name, with or without a description.)
+  const boxKeys = new Set(out.boxes.map(b => b.name.toLowerCase()));
+  const info = new Map();
+  pickSheets.flat().map(c).filter(Boolean).forEach(l => {
+    const m = l.match(/^(.*?)\s*\((.+)\)\s*$/);
+    const name = (m ? m[1] : l).trim();
+    if (!boxKeys.has(name.toLowerCase())) return;
+    if (!info.has(name.toLowerCase()) || (m && !info.get(name.toLowerCase()).desc)) info.set(name.toLowerCase(), { name, desc: m ? m[2].trim() : '' });
+  });
+  out.categoryInfo = [...info.values()];
   return out;
 }
 
