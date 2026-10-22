@@ -117,6 +117,14 @@ td.team { font-family: var(--cond); font-weight: 700; font-size: 15px; }
       <div id="jobs" class="status"></div>
     </section>
 
+    <section class="panel">
+      <h2>WEEKLY DIGEST</h2>
+      <p class="status" style="padding: 0 0 10px">Emailed to you every Monday morning during the season. Preview this week's version here and copy it into the Facebook group.</p>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="btn" id="dg-go">PREVIEW DIGEST</button><button type="button" class="btn ghost" id="dg-copy" hidden>COPY</button></div>
+      <div class="msg" id="dg-msg" role="status"></div>
+      <pre id="dg-text" style="white-space: pre-wrap; margin-top: 10px; font-family: var(--cond); font-size: 16px; line-height: 1.45" hidden></pre>
+    </section>
+
     <section class="panel danger">
       <h2>REMOVE TEST TEAMS</h2>
       <p class="status" style="padding: 0 0 10px">Permanently deletes the test teams (entry IDs starting with "test") and their picks, trades and standings. Real entries are not touched.</p>
@@ -139,6 +147,20 @@ td.team { font-family: var(--cond); font-weight: 700; font-size: 15px; }
   const $ = id => document.getElementById(id);
   let pw = null, state = null, pool = null;
   try { pw = sessionStorage.getItem(PW_KEY); } catch (e) { /* ignore */ }
+
+  document.addEventListener('click', async e => {
+    if (e.target.id === 'dg-go') {
+      e.target.disabled = true; msg('dg-msg', 'Building…', true);
+      try {
+        const out = await api('adminDigest');
+        if (!out.success) { msg('dg-msg', out.error || 'Could not build the digest.'); return; }
+        $('dg-text').textContent = out.text; $('dg-text').hidden = false; $('dg-copy').hidden = false; msg('dg-msg', '');
+      } catch (er) { msg('dg-msg', 'Could not reach the server.'); }
+      finally { e.target.disabled = false; }
+    } else if (e.target.id === 'dg-copy') {
+      try { await navigator.clipboard.writeText($('dg-text').textContent); msg('dg-msg', 'Copied.', true); } catch (er) { msg('dg-msg', 'Copy failed — select the text instead.'); }
+    }
+  });
 
   async function api(action, extra = {}) {
     const res = await fetch(AASN_API_URL + '/aabl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, password: pw, ...extra }) });

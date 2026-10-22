@@ -78,6 +78,11 @@ export default {
       console.log('Worker error: ' + (err && err.stack || err));
       return json(request, env, { success: false, error: 'Something went wrong. Please try again.' }, 500);
     }
+  },
+
+  // Cron (wrangler.toml [triggers]): Monday-morning digest, emailed to the commissioner.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(sendWeeklyDigest(env).catch(err => console.log('Digest failed: ' + (err && err.stack || err))));
   }
 };
 
@@ -313,6 +318,11 @@ async function admin(env, ctx, body) {
   switch (body.action) {
     case 'adminLogin': return { success: true };
 
+    case 'adminDigest': {
+      const d = await buildDigest(env);
+      return d ? { success: true, text: d.text, asOf: d.asOf } : { success: false, error: 'No standings yet — the digest starts once the season does.' };
+    }
+
     case 'adminOverview': {
       const [config, entries, il, jobs] = await Promise.all([
         sb(env, `config?select=*&season=eq.${season}`),
@@ -388,6 +398,91 @@ async function admin(env, ctx, body) {
 
     default: return { success: false, error: 'Unknown admin action.' };
   }
+}
+
+// --------------------------------------------------------- weekly digest
+// Monday-morning summary for the pool's Facebook group: plain text + emoji,
+// trash-talk tone, emailed only to the commissioner (DIGEST_TO, or the
+// GMAIL_FROM address). Built from the standings snapshots and per-game stats.
+
+const pick = list => list[Math.floor(Math.random() * list.length)];
+
+async function buildDigest(env) {
+  const cfg = await currentSeason(env);
+  const season = cfg.season;
+  const [latest] = await sb(env, `standings?select=snapshot_date&season=eq.${season}&order=snapshot_date.desc&limit=1`);
+  if (!latest) return null;
+  const end = latest.snapshot_date;
+  const weekAgo = new Date(end + 'T12:00:00Z'); weekAgo.setUTCDate(weekAgo.getUTCDate() - 7);
+  const startIso = weekAgo.toISOString().slice(0, 10);
+  const [prevRow] = await sb(env, `standings?select=snapshot_date&season=eq.${season}&snapshot_date=lte.${startIso}&order=snapshot_date.desc&limit=1`);
+  const [now, before, teams] = await Promise.all([
+    sb(env, `standings?select=entry_id,points,rank&season=eq.${season}&snapshot_date=eq.${end}&order=rank`),
+    prevRow ? sb(env, `standings?select=entry_id,points,rank&season=eq.${season}&snapshot_date=eq.${prevRow.snapshot_date}`) : Promise.resolve([]),
+    sb(env, `entries?select=entry_id,team_name&season=eq.${season}`)
+  ]);
+  if (!now.length) return null;
+  const name = new Map(teams.map(t => [t.entry_id, t.team_name]));
+  const prev = new Map(before.map(b => [b.entry_id, b]));
+  const f = v => (Math.round(Number(v) * 10) / 10).toLocaleString('en-US');
+  const rows = now.map(r => {
+    const p = prev.get(r.entry_id);
+    return { id: r.entry_id, name: name.get(r.entry_id) || '?', pts: Number(r.points), rank: r.rank,
+      gain: p ? Number(r.points) - Number(p.points) : null, move: p ? p.rank - r.rank : 0 };
+  });
+
+  // Player of the week: most points by a pool player over the same days.
+  let potw = null;
+  const opts = await sb(env, `box_options?select=mlb_id,role,player:players(full_name,team_abbr)&season=eq.${season}`);
+  const poolKey = new Map(opts.map(o => [o.mlb_id + '|' + o.role, o]));
+  const ids = [...new Set(opts.map(o => o.mlb_id))];
+  if (ids.length && prevRow) {
+    const tally = new Map();
+    for (let off = 0; ; off += 1000) {
+      const g = await sb(env, `stats_game?select=mlb_id,role,points&game_date=gt.${prevRow.snapshot_date}&game_date=lte.${end}&mlb_id=in.(${ids.join(',')})&limit=1000&offset=${off}`);
+      g.forEach(x => { const k = x.mlb_id + '|' + x.role; if (poolKey.has(k)) tally.set(k, (tally.get(k) || 0) + Number(x.points)); });
+      if (g.length < 1000) break;
+    }
+    const best = [...tally.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (best) potw = { player: poolKey.get(best[0]).player, pts: best[1] };
+  }
+
+  const leader = rows[0], last = rows[rows.length - 1];
+  const withGain = rows.filter(r => r.gain != null);
+  const hot = [...withGain].sort((a, b) => b.gain - a.gain)[0];
+  const cold = [...withGain].sort((a, b) => a.gain - b.gain)[0];
+  const climber = [...rows].sort((a, b) => b.move - a.move)[0];
+  const faller = [...rows].sort((a, b) => a.move - b.move)[0];
+  const asOf = new Date(end + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' });
+
+  const L = [];
+  L.push(`⚾🦙 AABL WEEKLY — standings through ${asOf}`);
+  L.push('');
+  L.push(`👑 ${leader.name} sits on top with ${f(leader.pts)} pts. ${pick(['Enjoy the view while it lasts.', 'Everyone else: do better.', 'Somebody knock them off already.', 'Heavy is the head that wears the alpaca crown.'])}`);
+  L.push('');
+  L.push('🏆 TOP 5');
+  rows.slice(0, 5).forEach(r => L.push(`${r.rank}. ${r.name} — ${f(r.pts)}${r.gain != null ? ` (+${f(r.gain)} this week)` : ''}${r.move > 0 ? ` ⬆️${r.move}` : r.move < 0 ? ` ⬇️${-r.move}` : ''}`));
+  if (hot) { L.push(''); L.push(`🔥 TEAM OF THE WEEK: ${hot.name} (+${f(hot.gain)}). ${pick(['Absolutely cooking.', 'Somebody check their lineup for PEDs.', 'Hot streak alert.', 'That\'s how you do it.'])}`); }
+  if (potw) L.push(`💪 PLAYER OF THE WEEK: ${potw.player.full_name} (${potw.player.team_abbr || '—'}) with ${f(potw.pts)} pts.`);
+  if (climber && climber.move > 0) L.push(`📈 BIGGEST CLIMBER: ${climber.name}, up ${climber.move} spot${climber.move > 1 ? 's' : ''} to #${climber.rank}.`);
+  if (faller && faller.move < 0) L.push(`📉 FREE FALL: ${faller.name}, down ${-faller.move} to #${faller.rank}. ${pick(['Yikes.', 'Thoughts and prayers.', 'Maybe make a trade?', 'Gravity is undefeated.'])}`);
+  if (cold && hot && cold.id !== hot.id) L.push(`🧊 ICE COLD: ${cold.name} managed just +${f(cold.gain)}. ${pick(['Did they forget the season started?', 'Bold strategy.', 'Wake up!', 'Somebody send coffee.'])}`);
+  L.push('');
+  L.push(`🪣 BASEMENT: ${last.name} at #${last.rank}. ${pick(['At least next year\'s entry is free... for now.', 'The only way is up. Probably.', 'Someone has to hold up the standings.', 'Free entry next season is looking good.'])}`);
+  L.push('');
+  L.push(`📊 Full standings: ${env.SITE_URL}/aabl/standings.html`);
+  return { text: L.join('\n'), asOf: end };
+}
+
+async function sendWeeklyDigest(env) {
+  if (!(env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM)) return;
+  const d = await buildDigest(env);
+  if (!d) return;
+  // Only during the season: skip if the latest standings are over 3 days old.
+  if (Date.now() - new Date(d.asOf + 'T12:00:00Z').getTime() > 3 * 86400000) return;
+  const to = env.DIGEST_TO || (String(env.GMAIL_FROM).match(/<([^>]+)>/) || [null, env.GMAIL_FROM])[1];
+  const html = `<div style="font-family:Arial,sans-serif;max-width:640px"><p style="color:#555">Copy and paste into the Facebook group:</p><pre style="white-space:pre-wrap;font-family:Arial,sans-serif;font-size:15px;background:#f4f6f9;padding:16px;border-left:4px solid #BD3039">${esc(d.text)}</pre></div>`;
+  await gmailSend(env, to, `AABL weekly digest — ${d.asOf}`, d.text, html);
 }
 
 // --------------------------------------------------------------- email

@@ -6,6 +6,10 @@ main = "src/index.js"
 compatibility_date = "2026-10-01"
 keep_vars = true
 
+# Monday 12:13 UTC (8:13am Eastern in summer): weekly digest to the commissioner.
+[triggers]
+crons = ["13 12 * * 1"]
+
 [observability]
 enabled = true
 
@@ -17,6 +21,7 @@ enabled = true
 #   GMAIL_REFRESH_TOKEN    refresh token for the sending Gmail account
 #   GMAIL_FROM             e.g.  AABL <you@gmail.com>
 #   ADMIN_PASSWORD         password for the commissioner tools (admin.html)
+#   DIGEST_TO              (optional) where the Monday digest goes; default = GMAIL_FROM's address
 [vars]
 SUPABASE_URL = "https://tetgrmgurobacdohhiby.supabase.co"
 SITE_URL = "https://matthope001-hub.github.io/AASN"
