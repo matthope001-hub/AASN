@@ -16,6 +16,9 @@
     aahl: 'https://theaahl.ca/',
     aabl: BASE + 'aabl/'
   };
+  // Pools not open to the public yet: shown in the bar but not clickable
+  // (except on that pool's own pages). Remove an id here to switch its link on.
+  const LOCKED = ['aabl'];
   const SB_URL = 'https://tetgrmgurobacdohhiby.supabase.co';
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldGdybWd1cm9iYWNkb2hoaWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5Njc4MTYsImV4cCI6MjEwNDU0MzgxNn0.Jn0MdAdYslGv7znS0DFiSUjlZ6rpw0qsvQwiNq63vWk';
   const POOLS = [
@@ -34,6 +37,8 @@
   #aasn-bar nav { display: flex; gap: 6px; }
   #aasn-bar .ab-pill { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 8px; background: transparent; border: 1px solid #1F252C; border-top: 2px solid transparent; color: #9AA4AF; transition: background .15s, color .15s; }
   #aasn-bar .ab-pill:hover { background: #161B21; color: #E8ECF0; }
+  #aasn-bar .ab-lock, #aasn-bar .ab-lock:hover { cursor: default; background: transparent; color: #6B7580; }
+  #aasn-bar .ab-lock img { opacity: .55; }
   #aasn-bar .ab-pill:focus-visible, #aasn-bar .ab-hub:focus-visible { outline: 2px solid #00D4FF; outline-offset: 2px; }
   #aasn-bar .ab-pill[aria-current="page"] { background: #12161B; border-color: #2E353D; border-top-color: var(--ab-accent); color: #E8ECF0; }
   #aasn-bar .ab-pill img { width: 24px; height: 24px; object-fit: contain; flex: none; }
@@ -57,6 +62,7 @@
   }
   @media print { #aasn-bar { display: none; } }`;
 
+  const isLocked = id => LOCKED.includes(id) && id !== current;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function build() {
@@ -68,11 +74,14 @@
     bar.id = 'aasn-bar';
     bar.innerHTML = `<div class="ab-in">
       <a class="ab-hub" href="${LINKS.hub}" aria-label="AASN home — Angry Alpaca Sports Network"><b>AASN</b><span>ANGRY ALPACA SPORTS NETWORK</span></a>
-      <nav aria-label="Pools">${POOLS.map(p => `
-        <a class="ab-pill" href="${LINKS[p.id]}" style="--ab-accent:${p.accent}"${p.id === current ? ' aria-current="page"' : ''}>
-          <img src="${p.logo}" alt=""${p.round ? ' class="round"' : ''} onerror="this.style.visibility='hidden'">
-          <span class="ab-txt"><span class="ab-nm">${p.name} <em>${p.year}</em></span><span class="ab-st" data-st="${p.id}"></span></span>
-        </a>`).join('')}
+      <nav aria-label="Pools">${POOLS.map(p => {
+        const inner = `<img src="${p.logo}" alt=""${p.round ? ' class="round"' : ''} onerror="this.style.visibility='hidden'">
+          <span class="ab-txt"><span class="ab-nm">${p.name} <em>${p.year}</em></span><span class="ab-st" data-st="${p.id}"></span></span>`;
+        if (isLocked(p.id)) return `
+        <span class="ab-pill ab-lock" style="--ab-accent:${p.accent}" aria-disabled="true" title="${p.name} — coming soon">${inner}</span>`;
+        return `
+        <a class="ab-pill" href="${LINKS[p.id]}" style="--ab-accent:${p.accent}"${p.id === current ? ' aria-current="page"' : ''}>${inner}</a>`;
+      }).join('')}
       </nav></div>`;
     document.body.insertBefore(bar, document.body.firstChild);
     refresh();
@@ -126,8 +135,10 @@
   }
 
   function refresh() {
-    aahlStatus().then(([t, l]) => set('aahl', t, l)).catch(() => set('aahl', 'NHL'));
-    aablStatus().then(([t, l]) => set('aabl', t, l)).catch(() => set('aabl', 'MLB'));
+    if (isLocked('aahl')) set('aahl', 'COMING SOON');
+    else aahlStatus().then(([t, l]) => set('aahl', t, l)).catch(() => set('aahl', 'NHL'));
+    if (isLocked('aabl')) set('aabl', 'COMING SOON');
+    else aablStatus().then(([t, l]) => set('aabl', t, l)).catch(() => set('aabl', 'MLB'));
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
