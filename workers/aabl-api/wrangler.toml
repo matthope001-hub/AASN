@@ -25,5 +25,5 @@ enabled = true
 #   DIGEST_TO              (optional) where the Monday digest goes; default = GMAIL_FROM's address
 [vars]
 SUPABASE_URL = "https://tetgrmgurobacdohhiby.supabase.co"
-SITE_URL = "https://matthope001-hub.github.io/AASN"
-ALLOWED_ORIGINS = "https://matthope001-hub.github.io,https://theaahl.ca,https://www.theaahl.ca"
+SITE_URL = "https://aasn.theaahl.ca"
+ALLOWED_ORIGINS = "https://aasn.theaahl.ca,https://matthope001-hub.github.io,https://theaahl.ca,https://www.theaahl.ca"

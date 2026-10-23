@@ -1,6 +1,6 @@
 /* AASN pool switcher — the thin network bar at the top of each pool's site.
  * Load on any page with:
- *   <script src="https://matthope001-hub.github.io/AASN/shared/switcher.js" data-pool="aahl" defer></script>
+ *   <script src="https://aasn.theaahl.ca/shared/switcher.js" data-pool="aahl" defer></script>
  * data-pool = the pool this page belongs to ("aahl" or "aabl"); that badge shows as current.
  * Self-contained: injects its own styles and reads each pool's status from Supabase (anon, read-only).
  * When the AASN domain arrives, only the URLs in LINKS need changing. */
@@ -10,7 +10,7 @@
 
   const me = document.currentScript;
   const current = ((me && me.dataset.pool) || '').toLowerCase();
-  const BASE = 'https://matthope001-hub.github.io/AASN/';
+  const BASE = 'https://aasn.theaahl.ca/';
   const LINKS = {
     hub: BASE,
     aahl: 'https://theaahl.ca/',
