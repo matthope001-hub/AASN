@@ -42,6 +42,29 @@ td.team { font-family: var(--cond); font-weight: 700; font-size: 15px; }
 .danger { border-color: #6B2A33; }
 .danger h2 { color: #FF9EA2; }
 .hide { display: none; }
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.tabs button { min-height: 44px; padding: 0 18px; background: none; border: 0; border-bottom: 3px solid transparent; color: var(--dim); font-family: var(--cond); font-weight: 700; font-size: 16px; letter-spacing: .5px; cursor: pointer; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--red); }
+.tabs .mono { font-family: var(--mono); font-size: 12px; color: var(--red-text); }
+.pane { display: none; } .pane.on { display: block; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.bar input[type=search] { flex: 1 1 220px; min-height: 44px; padding: 0 12px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--cond); font-size: 16px; }
+.bulk { display: flex; gap: 10px; align-items: center; padding: 8px 12px; margin-bottom: 10px; border: 1px solid #6B2A33; background: var(--bg); }
+.tag { display: inline-block; padding: 3px 8px; margin: 0 4px 2px 0; border: 1px solid var(--border); font-family: var(--mono); font-size: 11px; background: none; color: var(--text); }
+.tag.ok { border-color: #2F6B4A; color: #7EE2A8; } .tag.warn { border-color: #7A5A1E; color: #FFC266; } .tag.off { color: var(--dim); }
+button.tag { cursor: pointer; min-height: 28px; }
+.owner { font-family: var(--cond); font-size: 13px; color: var(--dim); font-weight: 500; display: block; }
+.acts { display: flex; gap: 6px; align-items: center; }
+.more { position: relative; }
+.bulk.hide { display: none; }
+.more summary { list-style: none; display: inline-flex; align-items: center; } .more summary::-webkit-details-marker { display: none; }
+.more .menu { position: absolute; right: 0; top: 100%; z-index: 30; min-width: 170px; background: var(--panel); border: 1px solid var(--border); box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+.more .menu button { display: block; width: 100%; text-align: left; min-height: 40px; padding: 0 12px; background: none; border: 0; border-bottom: 1px solid var(--row); color: var(--text); font-family: var(--cond); font-size: 15px; cursor: pointer; }
+.more .menu button:hover { background: var(--bg); } .more .menu .dg { color: #FF9EA2; }
+tr.detail td { white-space: normal; background: var(--bg); }
+.picks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px 14px; font-size: 12px; }
+.linkbox { display: flex; gap: 8px; margin-top: 8px; } .linkbox input { flex: 1; min-height: 40px; padding: 0 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; }
+@media (max-width: 700px) { .tabs button { padding: 0 12px; } }
 </style>
 </head>
 <body>
@@ -65,77 +88,105 @@ td.team { font-family: var(--cond); font-weight: 700; font-size: 15px; }
   </form>
 
   <div id="app" class="hide">
-    <section class="panel">
-      <h2>SEASON SETTINGS</h2>
-      <form id="cfg" novalidate>
-        <div class="fields">
-          <label class="toggle"><input type="checkbox" id="c-signups"> Sign-ups open</label>
-          <label class="toggle"><input type="checkbox" id="c-locked"> Picks locked</label>
-          <div class="field"><label for="c-opening">PICK DEADLINE (FIRST PITCH, ET)</label><input id="c-opening" type="datetime-local"></div>
-          <div class="field"><label for="c-deadline">TRADE DEADLINE (ET)</label><input id="c-deadline" type="datetime-local"></div>
-          <div class="field"><label for="c-fee">ENTRY FEE ($)</label><input id="c-fee" type="number" min="0" step="1"></div>
-          <div class="field"><label for="c-moves">TRADES PER SEASON</label><input id="c-moves" type="number" min="0" max="10" step="1"></div>
+    <nav class="tabs" id="tabs">
+      <button type="button" data-pane="today" class="on">TODAY</button>
+      <button type="button" data-pane="teams">TEAMS <span class="mono" id="team-count"></span></button>
+      <button type="button" data-pane="tools">TOOLS</button>
+    </nav>
+
+    <section class="pane on" data-pane="today">
+      <section class="panel">
+        <h2>ENTRIES &amp; POT</h2>
+        <div class="stats" id="pot"></div>
+      </section>
+      <section class="panel">
+        <h2>NIGHTLY UPDATES</h2>
+        <div id="jobs" class="status"></div>
+      </section>
+      <section class="panel">
+        <h2>WEEKLY DIGEST</h2>
+        <p class="status" style="padding: 0 0 10px">Emailed to you every Monday morning during the season. Preview this week's version here and copy it into the Facebook group.</p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="btn" id="dg-go">PREVIEW DIGEST</button><button type="button" class="btn ghost" id="dg-copy" hidden>COPY</button></div>
+        <div class="msg" id="dg-msg" role="status"></div>
+        <pre id="dg-text" style="white-space: pre-wrap; margin-top: 10px; font-family: var(--cond); font-size: 16px; line-height: 1.45" hidden></pre>
+      </section>
+    </section>
+
+    <section class="pane" data-pane="teams">
+      <section class="panel">
+        <div class="bar">
+          <input type="search" id="search" placeholder="Search team, manager or email…" aria-label="Search teams">
+          <a class="btn ghost" href="signup.html?admin=1" style="display: inline-flex; align-items: center; text-decoration: none" title="Adds a team any time, even after picks lock. Approved straight away.">+ ADD TEAM</a>
+          <button type="button" class="btn ghost" id="late-go" title="A private one-entry link, expires in 7 days.">🔗 LATE ENTRY LINK</button>
         </div>
-        <div class="field" style="margin-top: 12px"><label for="c-pay">PAYMENT NOTE (SHOWN ON CONFIRMATION + EMAIL)</label><textarea id="c-pay" maxlength="300" placeholder="e.g. E-transfer $10 to …"></textarea></div>
-        <div style="margin-top: 12px"><button type="submit" class="btn">SAVE SETTINGS</button></div>
-        <div class="msg" id="cfg-msg" role="status"></div>
-      </form>
+        <div id="late-out"></div>
+        <div class="bulk hide" id="bulk"><span class="mono" id="bulk-n" style="font-family: var(--mono); font-size: 13px"></span><button type="button" class="btn small" id="bulk-del">DELETE SELECTED</button></div>
+        <div class="scroll"><table>
+          <thead><tr><th><input type="checkbox" id="sel-all" aria-label="Select all"></th><th>TEAM</th><th>EMAIL</th><th>#</th><th>SIGNED UP</th><th>TRADES</th><th>STATUS</th><th></th></tr></thead>
+          <tbody id="entries"></tbody>
+        </table></div>
+        <div class="msg" id="entries-msg" role="status"></div>
+      </section>
     </section>
 
-    <section class="panel">
-      <h2>ENTRIES &amp; PAYMENTS</h2>
-      <div class="stats" id="pot"></div>
-      <div class="scroll"><table>
-        <thead><tr><th>TEAM</th><th>MANAGER</th><th>EMAIL</th><th>#</th><th>SIGNED UP</th><th>TRADES</th><th>PAID</th><th>FREE</th><th></th></tr></thead>
-        <tbody id="entries"></tbody>
-      </table></div>
-      <div class="msg" id="entries-msg" role="status"></div>
-    </section>
+    <section class="pane" data-pane="tools">
+      <section class="panel">
+        <h2>SEASON SETTINGS</h2>
+        <form id="cfg" novalidate>
+          <div class="fields">
+            <label class="toggle"><input type="checkbox" id="c-signups"> Sign-ups open</label>
+            <label class="toggle"><input type="checkbox" id="c-locked"> Picks locked</label>
+            <div class="field"><label for="c-opening">PICK DEADLINE (FIRST PITCH, ET)</label><input id="c-opening" type="datetime-local"></div>
+            <div class="field"><label for="c-deadline">TRADE DEADLINE (ET)</label><input id="c-deadline" type="datetime-local"></div>
+            <div class="field"><label for="c-fee">ENTRY FEE ($)</label><input id="c-fee" type="number" min="0" step="1"></div>
+            <div class="field"><label for="c-moves">TRADES PER SEASON</label><input id="c-moves" type="number" min="0" max="10" step="1"></div>
+          </div>
+          <div class="field" style="margin-top: 12px"><label for="c-pay">PAYMENT NOTE (SHOWN ON CONFIRMATION + EMAIL)</label><textarea id="c-pay" maxlength="300" placeholder="e.g. E-transfer $10 to …"></textarea></div>
+          <div style="margin-top: 12px"><button type="submit" class="btn">SAVE SETTINGS</button></div>
+          <div class="msg" id="cfg-msg" role="status"></div>
+        </form>
+      </section>
 
-    <section class="panel">
-      <h2>OFFICIAL TRADE</h2>
-      <p class="status" style="padding: 0 0 10px">Same rules as a manager's own trade: same box, points banked, uses a trade after Opening Day. Marked official.</p>
-      <div class="fields">
-        <div class="field"><label for="t-entry">TEAM</label><select id="t-entry"></select></div>
-        <div class="field"><label for="t-box">BOX</label><select id="t-box"></select></div>
-        <div class="field"><label for="t-opt">NEW PLAYER</label><select id="t-opt"></select></div>
-        <div><button type="button" class="btn" id="t-go">RECORD TRADE</button></div>
-      </div>
-      <div class="msg" id="t-msg" role="status"></div>
-    </section>
+      <section class="panel">
+        <h2>OFFICIAL TRADE</h2>
+        <p class="status" style="padding: 0 0 10px">Same rules as a manager's own trade: same box, points banked, uses a trade after Opening Day. Marked official.</p>
+        <div class="fields">
+          <div class="field"><label for="t-entry">TEAM</label><select id="t-entry"></select></div>
+          <div class="field"><label for="t-box">BOX</label><select id="t-box"></select></div>
+          <div class="field"><label for="t-opt">NEW PLAYER</label><select id="t-opt"></select></div>
+          <div><button type="button" class="btn" id="t-go">RECORD TRADE</button></div>
+        </div>
+        <div class="msg" id="t-msg" role="status"></div>
+      </section>
 
-    <section class="panel">
-      <h2>PLAYER STATUS (IR LIST)</h2>
-      <div class="fields">
-        <div class="field"><label for="il-player">PLAYER</label><select id="il-player"></select></div>
-        <div class="field"><label for="il-note">NOTE</label><input id="il-note" maxlength="120" placeholder="e.g. 60-day IL, elbow"></div>
-        <div><button type="button" class="btn" id="il-add">ADD TO IR LIST</button></div>
-      </div>
-      <div id="il-list" style="margin-top: 10px"></div>
-      <div class="msg" id="il-msg" role="status"></div>
-    </section>
+      <section class="panel">
+        <h2>PLAYER STATUS (IR LIST)</h2>
+        <div class="fields">
+          <div class="field"><label for="il-player">PLAYER</label><select id="il-player"></select></div>
+          <div class="field"><label for="il-note">NOTE</label><input id="il-note" maxlength="120" placeholder="e.g. 60-day IL, elbow"></div>
+          <div><button type="button" class="btn" id="il-add">ADD TO IR LIST</button></div>
+        </div>
+        <div id="il-list" style="margin-top: 10px"></div>
+        <div class="msg" id="il-msg" role="status"></div>
+      </section>
 
-    <section class="panel">
-      <h2>NIGHTLY UPDATES</h2>
-      <div id="jobs" class="status"></div>
-    </section>
+      <section class="panel">
+        <h2>SIGN-INS</h2>
+        <p class="status" style="padding: 0 0 10px">Members who signed in to AASN (Google, Microsoft, Facebook, Yahoo or email link), how, when, and which AABL teams their emails matched.</p>
+        <button type="button" class="btn ghost" id="si-go">LOAD SIGN-INS</button>
+        <div class="msg" id="si-msg" role="status"></div>
+        <div id="si-out" class="scroll" style="margin-top: 10px"></div>
+      </section>
 
-    <section class="panel">
-      <h2>WEEKLY DIGEST</h2>
-      <p class="status" style="padding: 0 0 10px">Emailed to you every Monday morning during the season. Preview this week's version here and copy it into the Facebook group.</p>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="btn" id="dg-go">PREVIEW DIGEST</button><button type="button" class="btn ghost" id="dg-copy" hidden>COPY</button></div>
-      <div class="msg" id="dg-msg" role="status"></div>
-      <pre id="dg-text" style="white-space: pre-wrap; margin-top: 10px; font-family: var(--cond); font-size: 16px; line-height: 1.45" hidden></pre>
-    </section>
-
-    <section class="panel danger">
-      <h2>REMOVE TEST TEAMS</h2>
-      <p class="status" style="padding: 0 0 10px">Permanently deletes the test teams (entry IDs starting with "test") and their picks, trades and standings. Real entries are not touched.</p>
-      <div class="fields">
-        <div class="field"><label for="del-confirm">TYPE DELETE TEST TEAMS</label><input id="del-confirm" autocomplete="off"></div>
-        <div><button type="button" class="btn" id="del-go">DELETE TEST TEAMS</button></div>
-      </div>
-      <div class="msg" id="del-msg" role="status"></div>
+      <section class="panel danger">
+        <h2>REMOVE TEST TEAMS</h2>
+        <p class="status" style="padding: 0 0 10px">Permanently deletes the test teams (entry IDs starting with "test") and their picks, trades and standings. Real entries are not touched.</p>
+        <div class="fields">
+          <div class="field"><label for="del-confirm">TYPE DELETE TEST TEAMS</label><input id="del-confirm" autocomplete="off"></div>
+          <div><button type="button" class="btn" id="del-go">DELETE TEST TEAMS</button></div>
+        </div>
+        <div class="msg" id="del-msg" role="status"></div>
+      </section>
     </section>
   </div>
 </main>
@@ -151,6 +202,15 @@ td.team { font-family: var(--cond); font-weight: 700; font-size: 15px; }
   const $ = id => document.getElementById(id);
   let pw = null, state = null, pool = null;
   try { pw = sessionStorage.getItem(PW_KEY); } catch (e) { /* ignore */ }
+
+  // Tabs (remembered for this browser tab).
+  function showPane(name) {
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.pane === name));
+    document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === name));
+    try { sessionStorage.setItem('aabl_admin_tab', name); } catch (e) { /* ignore */ }
+  }
+  $('tabs').addEventListener('click', e => { const b = e.target.closest('button[data-pane]'); if (b) showPane(b.dataset.pane); });
+  try { const t = sessionStorage.getItem('aabl_admin_tab'); if (t) showPane(t); } catch (e) { /* ignore */ }
 
   document.addEventListener('click', async e => {
     if (e.target.id === 'dg-go') {
@@ -221,19 +281,76 @@ td.team { font-family: var(--cond); font-weight: 700; font-size: 15px; }
     const paid = list.filter(e => e.paid && !e.free_entry).length, free = list.filter(e => e.free_entry).length;
     $('pot').innerHTML = `
       <div class="stat"><b>${list.length}</b><span>ENTRIES</span></div>
+      <div class="stat"><b>${list.filter(e => !e.approved).length}</b><span>PENDING</span></div>
       <div class="stat"><b>${paid}</b><span>PAID</span></div>
       <div class="stat"><b>${list.length - paid - free}</b><span>UNPAID</span></div>
       <div class="stat"><b>${free}</b><span>FREE ENTRIES</span></div>
       <div class="stat"><b>$${(paid * fee).toLocaleString()}</b><span>COLLECTED</span></div>
       <div class="stat"><b>$${((list.length - free) * fee).toLocaleString()}</b><span>POT IF ALL PAY</span></div>`;
-    $('entries').innerHTML = list.length ? list.map(e => `<tr>
-      <td class="team">${esc(e.team_name)}</td><td>${esc(e.manager_name)}</td><td>${esc(e.email)}</td><td>${e.entry_num}</td>
+    $('team-count').textContent = list.length;
+    $('entries').innerHTML = list.length ? list.map(e => `<tr data-id="${esc(e.entry_id)}" data-search="${esc((e.team_name + ' ' + e.manager_name + ' ' + e.email).toLowerCase())}">
+      <td><input type="checkbox" class="sel" data-id="${esc(e.entry_id)}" aria-label="Select ${esc(e.team_name)}"></td>
+      <td class="team">${esc(e.team_name)}<span class="owner">${esc(e.manager_name)}</span></td><td>${esc(e.email)}</td><td>${e.entry_num}</td>
       <td>${new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Toronto' })}</td>
       <td>${e.moves_used}/${state.config.season_moves}</td>
-      <td><input type="checkbox" aria-label="Paid: ${esc(e.team_name)}" data-paid="${esc(e.entry_id)}" ${e.paid ? 'checked' : ''}></td>
-      <td><input type="checkbox" aria-label="Free entry: ${esc(e.team_name)}" data-free="${esc(e.entry_id)}" ${e.free_entry ? 'checked' : ''}></td>
-      <td><button type="button" class="btn ghost small" data-resend="${esc(e.entry_id)}" ${state.email ? '' : 'disabled title="Gmail not set up yet"'}>RESEND EMAIL</button></td>
-    </tr>`).join('') : '<tr><td colspan="9">No entries yet.</td></tr>';
+      <td>
+        <span class="tag ${e.approved ? 'ok' : 'warn'}">${e.approved ? 'APPROVED' : 'PENDING'}</span>${e.late_entry ? '<span class="tag">LATE</span>' : ''}
+        <button type="button" class="tag ${e.paid ? 'ok' : 'off'}" data-paid="${esc(e.entry_id)}" title="Click to mark ${e.paid ? 'unpaid' : 'paid'}">${e.paid ? '✓ PAID' : 'UNPAID'}</button>
+        <button type="button" class="tag ${e.free_entry ? 'ok' : 'off'}" data-free="${esc(e.entry_id)}" title="Free entry (last place last year)">${e.free_entry ? '✓ FREE' : 'NOT FREE'}</button>
+      </td>
+      <td><div class="acts">
+        ${e.approved ? '' : `<button type="button" class="btn small" data-approve="${esc(e.entry_id)}">APPROVE</button>`}
+        <button type="button" class="btn ghost small" data-view="${esc(e.entry_id)}">VIEW</button>
+        <details class="more"><summary class="btn ghost small" aria-label="More actions">⋯</summary><div class="menu">
+          <button type="button" data-edit="${esc(e.entry_id)}">✏️ Edit picks</button>
+          <button type="button" data-rename="${esc(e.entry_id)}">🏷️ Rename team</button>
+          ${e.approved ? `<button type="button" data-unapprove="${esc(e.entry_id)}">⏸️ Back to pending</button>` : ''}
+          <button type="button" data-resend="${esc(e.entry_id)}" ${state.email ? '' : 'disabled title="Gmail not set up yet"'}>✉️ Resend email</button>
+          <button type="button" class="dg" data-del="${esc(e.entry_id)}">🗑️ Delete team</button>
+        </div></details>
+      </div></td>
+    </tr>`).join('') : '<tr><td colspan="8">No entries yet.</td></tr>';
+    applySearch(); updateBulk();
+  }
+
+  function applySearch() {
+    const q = $('search').value.trim().toLowerCase();
+    document.querySelectorAll('#entries tr[data-search]').forEach(r => {
+      const hide = q && !r.dataset.search.includes(q);
+      r.hidden = hide;
+      const d = r.nextElementSibling; if (d && d.classList.contains('detail')) d.hidden = hide;
+    });
+  }
+  function selectedIds() { return [...document.querySelectorAll('#entries .sel:checked')].map(c => c.dataset.id); }
+  function updateBulk() {
+    const n = selectedIds().length;
+    $('bulk').classList.toggle('hide', !n); $('bulk-n').textContent = n + ' selected';
+    $('sel-all').checked = n > 0 && n === document.querySelectorAll('#entries .sel').length;
+  }
+  const teamName = id => (state.entries.find(x => x.entry_id === id) || {}).team_name || 'this team';
+
+  async function deleteTeams(ids) {
+    const names = ids.map(teamName);
+    const what = ids.length === 1 ? `"${names[0]}"` : `${ids.length} teams (${names.join(', ')})`;
+    if (!confirm(`Permanently delete ${what}? Their picks, trades and standings go too. This can't be undone.`)) return;
+    const out = await api('adminDeleteEntries', { entryIds: ids });
+    msg('entries-msg', out.success ? `Deleted ${out.deleted} team${out.deleted === 1 ? '' : 's'}.` : out.error, out.success);
+    if (out.success) refresh();
+  }
+
+  async function toggleView(id, btn) {
+    const row = btn.closest('tr'), next = row.nextElementSibling;
+    if (next && next.classList.contains('detail')) { next.remove(); btn.textContent = 'VIEW'; return; }
+    btn.textContent = '…';
+    const out = await api('adminGetEntry', { entryId: id });
+    btn.textContent = 'HIDE';
+    const tr = document.createElement('tr'); tr.className = 'detail';
+    if (!out.success) { tr.innerHTML = `<td colspan="8">${esc(out.error)}</td>`; row.after(tr); return; }
+    const picks = out.picks.map(p => `<div><b>Box ${p.box_id}</b> · ${esc(p.opt && p.opt.player ? p.opt.player.full_name : p.option_id)} <span style="color: var(--dim)">${esc(p.opt && p.opt.player ? p.opt.player.team_abbr || '' : '')}${p.opt && p.opt.role === 'pitcher' ? ' · P' : ''}${Number(p.banked_points) ? ' · ' + p.banked_points + ' banked' : ''}</span></div>`).join('');
+    const divs = out.divisionPicks.map(d => `<div><b>${esc(d.division)}</b> · ${esc(d.team_abbr)}</div>`).join('');
+    const trades = out.trades.length ? `<p style="margin-top: 8px; color: var(--dim)">${out.trades.length} trade${out.trades.length === 1 ? '' : 's'} on record.</p>` : '';
+    tr.innerHTML = `<td colspan="8"><div class="picks-grid">${picks}${divs}</div>${trades}<p style="margin-top: 6px; color: var(--dim)">Entry ID: ${esc(id)}</p></td>`;
+    row.after(tr);
   }
 
   function renderTradeForm() {
@@ -277,22 +394,66 @@ td.team { font-family: var(--cond); font-weight: 700; font-size: 15px; }
     if (out.success) refresh();
   });
 
-  $('entries').addEventListener('change', async e => {
-    const p = e.target.closest('[data-paid],[data-free]');
-    if (!p) return;
-    const id = p.dataset.paid || p.dataset.free, row = p.closest('tr');
-    const paid = row.querySelector('[data-paid]').checked, free = row.querySelector('[data-free]').checked;
-    const out = await api('adminSetPaid', { entryId: id, paid, free });
-    msg('entries-msg', out.success ? 'Saved.' : out.error, out.success);
-    if (out.success) { const en = state.entries.find(x => x.entry_id === id); Object.assign(en, { paid, free_entry: free }); renderEntries(); }
-  });
+  $('search').addEventListener('input', applySearch);
+  $('sel-all').addEventListener('change', e => { document.querySelectorAll('#entries tr:not([hidden]) .sel').forEach(c => { c.checked = e.target.checked; }); updateBulk(); });
+  $('entries').addEventListener('change', e => { if (e.target.classList.contains('sel')) updateBulk(); });
+  $('bulk-del').addEventListener('click', () => { const ids = selectedIds(); if (ids.length) deleteTeams(ids); });
+
   $('entries').addEventListener('click', async e => {
-    const b = e.target.closest('[data-resend]');
-    if (!b) return;
-    b.disabled = true; b.textContent = 'SENDING…';
-    const out = await api('adminResendEmail', { entryId: b.dataset.resend });
-    msg('entries-msg', out.success ? 'Confirmation re-sent with a new private link (the old link no longer works).' : out.error, out.success);
-    b.disabled = false; b.textContent = 'RESEND EMAIL';
+    const b = e.target.closest('button');
+    if (!b || b.disabled) return;
+    const d = b.dataset, en = id => state.entries.find(x => x.entry_id === id);
+    const menu = b.closest('details'); if (menu) menu.open = false;
+    if (d.paid || d.free) {
+      const x = en(d.paid || d.free), paid = d.paid ? !x.paid : x.paid, free = d.free ? !x.free_entry : x.free_entry;
+      const out = await api('adminSetPaid', { entryId: x.entry_id, paid, free });
+      msg('entries-msg', out.success ? 'Saved.' : out.error, out.success);
+      if (out.success) { Object.assign(x, { paid, free_entry: free }); renderEntries(); }
+    } else if (d.approve || d.unapprove) {
+      const out = await api('adminApprove', { entryId: d.approve || d.unapprove, approved: !!d.approve });
+      msg('entries-msg', out.success ? (d.approve ? `Approved ${teamName(d.approve)}.` : `${teamName(d.unapprove)} is back to pending.`) : out.error, out.success);
+      if (out.success) refresh();
+    } else if (d.view) {
+      toggleView(d.view, b);
+    } else if (d.edit) {
+      location.href = 'signup.html?edit=' + encodeURIComponent(d.edit);
+    } else if (d.rename) {
+      const name = prompt('New team name:', teamName(d.rename));
+      if (name == null || !name.trim() || name.trim() === teamName(d.rename)) return;
+      const out = await api('adminRename', { entryId: d.rename, teamName: name });
+      msg('entries-msg', out.success ? `Renamed to ${out.teamName}.` : out.error, out.success);
+      if (out.success) refresh();
+    } else if (d.resend) {
+      b.disabled = true;
+      const out = await api('adminResendEmail', { entryId: d.resend });
+      msg('entries-msg', out.success ? 'Confirmation re-sent with a new private link (the old link no longer works).' : out.error, out.success);
+      b.disabled = false;
+    } else if (d.del) {
+      deleteTeams([d.del]);
+    }
+  });
+
+  $('late-go').addEventListener('click', async () => {
+    const b = $('late-go'); b.disabled = true;
+    const out = await api('adminCreateLateLink');
+    b.disabled = false;
+    if (!out.success) { $('late-out').innerHTML = `<div class="msg err">${esc(out.error)}</div>`; return; }
+    $('late-out').innerHTML = `<div class="linkbox"><input id="late-url" readonly value="${esc(out.url)}"><button type="button" class="btn small" id="late-copy">COPY</button></div>
+      <div class="msg ok">Works for one entry until ${new Date(out.expiresAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' })} ET. The team starts as pending.</div>`;
+    $('late-copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(out.url); $('late-copy').textContent = 'COPIED'; } catch (er) { $('late-url').select(); }
+    });
+  });
+
+  $('si-go').addEventListener('click', async () => {
+    msg('si-msg', 'Loading…', true);
+    const out = await api('adminSignins');
+    if (!out.success) { msg('si-msg', out.error); return; }
+    msg('si-msg', `${out.users.length} member${out.users.length === 1 ? '' : 's'}.`, true);
+    const when = t => t ? new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' }) : '—';
+    $('si-out').innerHTML = `<table><thead><tr><th>EMAIL</th><th>HOW</th><th>LAST SIGN-IN</th><th>AABL TEAMS</th></tr></thead><tbody>
+      ${out.users.map(u => `<tr><td>${esc(u.email)}</td><td>${esc(u.providers.join(', '))}</td><td>${when(u.lastSignIn)}</td><td>${u.teams.length ? esc(u.teams.join(', ')) : '<span style="color: var(--dim)">—</span>'}</td></tr>`).join('')}
+    </tbody></table>`;
   });
 
   $('t-go').addEventListener('click', async () => {

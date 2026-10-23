@@ -6,6 +6,8 @@
  *   POST /aabl  { action: 'getMyTeam',      entryId, token | email }
  *   POST /aabl  { action: 'makeTrade',      entryId, token | email, boxId, optionId }
  *   POST /aabl  { action: 'changeDivision', entryId, token | email, division, team }
+ *   POST /aabl  { action: 'checkLateInvite', token }   - is a late-entry link still good?
+ *   POST /aabl  { action: 'admin…', password, … }      - commissioner tools
  *
  * All writes use the Supabase secret key (bypasses RLS), so every rule is
  * enforced here: sign-ups open, before the deadline, picks not locked, one
@@ -13,7 +15,7 @@
  * Confirmation emails go out from Matt's Gmail via the Gmail API.
  */
 
-const VERSION = '2026-10-21';
+const VERSION = '2026-10-23';
 const TOTAL_BOXES = 21;
 const TOTAL_PICKS = 27; // 21 boxes + 6 division picks
 const DIVISIONS = {
@@ -90,6 +92,7 @@ export default {
         case 'makeTrade': return json(request, env, await makeTrade(env, ctx, body));
         case 'changeDivision': return json(request, env, await changeDivision(env, body));
         case 'myEntries': return json(request, env, await myEntries(env, body));
+        case 'checkLateInvite': return json(request, env, await checkLateInvite(env, body.token));
         default:
           if (String(body.action || '').startsWith('admin')) return json(request, env, await admin(env, ctx, body));
           return json(request, env, { success: false, error: 'Unknown action' }, 400);
@@ -176,9 +179,20 @@ async function createEntry(env, ctx, body) {
   if (body.website) return { success: true }; // honeypot field: bots fill it, people never see it
   const cfg = await currentSeason(env);
   if (!cfg) return { success: false, error: 'No season is set up yet.' };
-  if (!cfg.signups_open) return { success: false, error: 'Sign-ups are not open yet.' };
-  if (cfg.picks_locked || (cfg.opening_day && new Date() >= new Date(cfg.opening_day))) {
-    return { success: false, error: 'Picks are locked — the season has started and new entries are no longer accepted.' };
+  const locked = !!(cfg.picks_locked || (cfg.opening_day && new Date() >= new Date(cfg.opening_day)));
+
+  // Commissioner adding a team (any time), or a member using a private late-entry link.
+  let byAdmin = false, invite = null;
+  if (body.adminPassword) {
+    if (!env.ADMIN_PASSWORD || !safeEqual(body.adminPassword, env.ADMIN_PASSWORD)) return { success: false, error: 'Wrong admin password. Sign in to the Commissioner page again.' };
+    byAdmin = true;
+  } else if (body.lateToken) {
+    const v = await validateLateInvite(env, body.lateToken);
+    if (!v.valid) return { success: false, error: v.error };
+    invite = v;
+  } else {
+    if (!cfg.signups_open) return { success: false, error: 'Sign-ups are not open yet.' };
+    if (locked) return { success: false, error: 'Picks are locked — the season has started and new entries are no longer accepted.' };
   }
 
   // A retried save (double-click, flaky connection) returns the entry that already went through.
@@ -197,7 +211,8 @@ async function createEntry(env, ctx, body) {
     method: 'POST', headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
       season: cfg.season, email: v.email, manager_name: v.manager, team_name: v.team,
-      entry_num: existing.length + 1, access_token_hash: await sha256(token), idempotency_key: key
+      entry_num: existing.length + 1, access_token_hash: await sha256(token), idempotency_key: key,
+      approved: byAdmin, approved_at: byAdmin ? new Date().toISOString() : null, late_entry: locked || !!invite
     })
   });
   try {
@@ -210,9 +225,37 @@ async function createEntry(env, ctx, body) {
     await sb(env, `entries?entry_id=eq.${entry.entry_id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => {});
     throw err;
   }
+  if (invite) await sb(env, `late_invites?token_hash=eq.${invite.hash}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ used_at: new Date().toISOString(), entry_id: entry.entry_id }) });
 
   ctx.waitUntil(sendConfirmation(env, cfg, entry, v, token).catch(err => console.log('Email failed: ' + (err && err.stack || err))));
   return { success: true, entryId: entry.entry_id, teamName: entry.team_name, entryNum: entry.entry_num, paymentInfo: cfg.payment_info || null };
+}
+
+// --------------------------------------------------------- late invites
+// A private link (signup.html?late=TOKEN) that lets one person enter after the
+// deadline. Only the token's hash is stored; it works once and for 7 days.
+
+function authAdminHeaders(env) {
+  const key = env.SUPABASE_SERVICE_KEY, h = { apikey: key };
+  if (key.startsWith('eyJ')) h.Authorization = `Bearer ${key}`;
+  return h;
+}
+
+async function validateLateInvite(env, token) {
+  token = String(token || '');
+  if (!/^[0-9a-f]{48}$/.test(token)) return { valid: false, error: 'This late-entry link is not valid.' };
+  const hash = await sha256(token);
+  const [row] = await sb(env, `late_invites?select=expires_at,used_at&token_hash=eq.${hash}`);
+  if (!row) return { valid: false, error: 'This late-entry link is not valid.' };
+  if (row.used_at) return { valid: false, error: 'This late-entry link has already been used.' };
+  if (new Date() > new Date(row.expires_at)) return { valid: false, error: 'This late-entry link has expired.' };
+  return { valid: true, hash, expiresAt: row.expires_at };
+}
+
+async function checkLateInvite(env, token) {
+  const v = await validateLateInvite(env, token);
+  return v.valid ? { success: true, expiresAt: v.expiresAt } : { success: false, error: v.error };
 }
 
 // ------------------------------------------------- my team + trades
@@ -355,7 +398,7 @@ async function admin(env, ctx, body) {
     case 'adminOverview': {
       const [config, entries, il, jobs] = await Promise.all([
         sb(env, `config?select=*&season=eq.${season}`),
-        sb(env, `entries?select=entry_id,email,manager_name,team_name,entry_num,paid,paid_at,free_entry,moves_used,created_at&season=eq.${season}&order=created_at.asc`),
+        sb(env, `entries?select=entry_id,email,manager_name,team_name,entry_num,paid,paid_at,free_entry,moves_used,created_at,approved,late_entry&season=eq.${season}&order=created_at.asc`),
         sb(env, 'il?select=mlb_id,note,flagged_at,player:players(full_name,team_abbr)&order=flagged_at.desc'),
         sb(env, 'job_runs?select=job,run_date,started_at,finished_at,ok,detail&order=id.desc&limit=5')
       ]);
@@ -416,6 +459,91 @@ async function admin(env, ctx, body) {
       const [e] = await sb(env, `entries?select=entry_id,email,team_name&entry_id=eq.${encodeURIComponent(id)}`);
       if (e) ctx.waitUntil(sendTradeEmail(env, e, boxId, optionId, r).catch(err => console.log('Trade email failed: ' + err)));
       return { success: true, banked: r.banked, preseason: r.preseason, movesUsed: r.moves_used };
+    }
+
+    case 'adminApprove': {
+      const id = String(body.entryId || '');
+      await sb(env, `entries?entry_id=eq.${encodeURIComponent(id)}&season=eq.${season}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ approved: body.approved !== false, approved_at: body.approved !== false ? new Date().toISOString() : null }) });
+      return { success: true };
+    }
+
+    case 'adminGetEntry': {
+      const id = String(body.entryId || '');
+      const [e] = await sb(env, `entries?select=entry_id,email,manager_name,team_name,entry_num,approved,late_entry,moves_used,created_at&entry_id=eq.${encodeURIComponent(id)}`);
+      if (!e) return { success: false, error: 'Entry not found.' };
+      const [picks, divs, trades] = await Promise.all([
+        sb(env, `picks?select=box_id,option_id,banked_points,opt:box_options(role,player:players(full_name,team_abbr))&entry_id=eq.${e.entry_id}&order=box_id`),
+        sb(env, `division_picks?select=division,team_abbr&entry_id=eq.${e.entry_id}`),
+        sb(env, `trades?select=box_id,old_option_id,new_option_id,points_banked,preseason,official,made_at&entry_id=eq.${e.entry_id}&order=made_at.desc`)
+      ]);
+      return { success: true, entry: e, picks, divisionPicks: divs, trades };
+    }
+
+    case 'adminUpdatePicks': {
+      // A correction: swaps the chosen player in a box without counting as a
+      // trade, so it scores from the original pick date like the old pick did.
+      const id = String(body.entryId || '');
+      const [e] = await sb(env, `entries?select=entry_id,email,manager_name,team_name&entry_id=eq.${encodeURIComponent(id)}&season=eq.${season}`);
+      if (!e) return { success: false, error: 'Entry not found.' };
+      const v = await validateEntry(env, cfg, { teamName: e.team_name, managerName: e.manager_name, email: e.email, picks: body.picks, divisionPicks: body.divisionPicks });
+      if (v.error) return { success: false, error: v.error };
+      const cur = await sb(env, `picks?select=box_id,option_id&entry_id=eq.${e.entry_id}`);
+      const curMap = new Map(cur.map(p => [p.box_id, p.option_id]));
+      let changed = 0;
+      for (const p of v.picks) {
+        if (curMap.get(p.box_id) === p.option_id) continue;
+        if (curMap.has(p.box_id)) await sb(env, `picks?entry_id=eq.${e.entry_id}&box_id=eq.${p.box_id}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ option_id: p.option_id }) });
+        else await sb(env, 'picks', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ entry_id: e.entry_id, season, ...p }) });
+        changed++;
+      }
+      await sb(env, `division_picks?entry_id=eq.${e.entry_id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      await sb(env, 'division_picks', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(v.divs.map(d => ({ entry_id: e.entry_id, ...d }))) });
+      return { success: true, changed };
+    }
+
+    case 'adminRename': {
+      const id = String(body.entryId || ''), team = cleanText(body.teamName, 40);
+      if (team.length < 2) return { success: false, error: 'Team name needs at least 2 characters.' };
+      await sb(env, `entries?entry_id=eq.${encodeURIComponent(id)}&season=eq.${season}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ team_name: team }) });
+      return { success: true, teamName: team };
+    }
+
+    case 'adminDeleteEntries': {
+      // Permanent: picks, division picks, trades and standings go with each team.
+      const ids = (Array.isArray(body.entryIds) ? body.entryIds : []).map(String).filter(x => /^[A-Za-z0-9_-]{4,64}$/.test(x));
+      if (!ids.length) return { success: false, error: 'No teams selected.' };
+      await sb(env, `entries?season=eq.${season}&entry_id=in.(${ids.map(x => '"' + x + '"').join(',')})`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      return { success: true, deleted: ids.length };
+    }
+
+    case 'adminCreateLateLink': {
+      const token = randomHex(24), expires = new Date(Date.now() + 7 * 864e5).toISOString();
+      await sb(env, 'late_invites', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ token_hash: await sha256(token), expires_at: expires }) });
+      return { success: true, url: `${env.SITE_URL || 'https://aasn.theaahl.ca'}/aabl/signup.html?late=${token}`, expiresAt: expires };
+    }
+
+    case 'adminSignins': {
+      // Every signed-in member (shared AASN login), newest sign-in first, with the AABL teams their emails match.
+      const users = [];
+      for (let page = 1; page <= 10; page++) {
+        const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=200`, { headers: authAdminHeaders(env) });
+        if (!res.ok) return { success: false, error: 'Could not load sign-ins (' + res.status + ').' };
+        const batch = (await res.json()).users || [];
+        users.push(...batch);
+        if (batch.length < 200) break;
+      }
+      const ents = await sb(env, `entries?select=entry_id,team_name,email,user_id&season=eq.${season}`);
+      const list = users.map(u => {
+        const emails = new Set([u.email, ...(u.identities || []).map(i => (i.identity_data || {}).email)].filter(Boolean).map(x => String(x).toLowerCase()));
+        return {
+          email: u.email || [...emails][0] || '',
+          providers: [...new Set((u.identities || []).map(i => i.provider))],
+          lastSignIn: u.last_sign_in_at || null, created: u.created_at,
+          teams: ents.filter(e => e.user_id === u.id || emails.has(e.email)).map(e => e.team_name)
+        };
+      }).sort((a, b) => String(b.lastSignIn || '').localeCompare(String(a.lastSignIn || '')));
+      return { success: true, users: list };
     }
 
     case 'adminDeleteTestData': {

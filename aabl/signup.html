@@ -116,6 +116,17 @@ legend .done { color: #7EE2A8; }
   const fmt = v => { const x = num(v); return Number.isInteger(x) ? x : x.toFixed(1); };
   const DRAFT_KEY = 'aabl_signup_draft';
   let cfg = null, idemKey = null;
+  // Special modes: ?admin=1 (commissioner adds a team, any time), ?edit=ID
+  // (commissioner corrects a team's picks), ?late=TOKEN (private late-entry link).
+  const qs = new URLSearchParams(location.search);
+  let adminPw = null; try { adminPw = sessionStorage.getItem('aabl_admin_pw'); } catch (e) { /* ignore */ }
+  const editId = qs.get('edit'), lateToken = qs.get('late');
+  const mode = editId ? 'edit' : qs.get('admin') ? 'admin' : lateToken ? 'late' : 'public';
+  const useDraft = mode === 'public' || mode === 'late';
+  async function api(body) {
+    const res = await fetch(AASN_API_URL + '/aabl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return res.json();
+  }
 
   function banner(html) { document.getElementById('status-banner').innerHTML = html ? `<div class="banner">${html}</div>` : ''; }
 
@@ -132,12 +143,14 @@ legend .done { color: #7EE2A8; }
   }
 
   function saveDraft() {
+    if (!useDraft) return;
     const f = document.getElementById('form'), d = { picks: {}, div: {} };
     ['manager', 'team', 'email'].forEach(k => { d[k] = f[k].value; });
     f.querySelectorAll('input[type=radio]:checked').forEach(r => { if (r.name.startsWith('box-')) d.picks[r.name] = r.value; else d.div[r.name] = r.value; });
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch (e) { /* ignore */ }
   }
   function loadDraft() {
+    if (!useDraft) return;
     let d; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { d = null; }
     if (!d) return;
     const f = document.getElementById('form');
@@ -153,8 +166,24 @@ legend .done { color: #7EE2A8; }
     if (!cfg) { banner('No season is set up yet.'); return; }
     document.getElementById('fee').textContent = num(cfg.entry_fee) || 10;
     const deadlinePassed = cfg.opening_day && new Date() >= new Date(cfg.opening_day);
-    if (cfg.picks_locked || deadlinePassed) { banner('<b>Picks are locked.</b> The season has started and new entries are no longer accepted.'); return; }
-    if (!cfg.signups_open) { banner('<b>Sign-ups aren\'t open yet.</b> You can look through the boxes now and build your team as soon as they open.'); }
+    let editData = null;
+    if (mode === 'admin' || mode === 'edit') {
+      if (!adminPw) { banner('<b>Commissioner only.</b> Sign in on the <a href="admin.html" style="color: var(--red-text)">Commissioner page</a> first, then use the button there.'); return; }
+      if (mode === 'edit') {
+        editData = await api({ action: 'adminGetEntry', password: adminPw, entryId: editId });
+        if (!editData.success) { banner('<b>' + esc(editData.error || 'Could not load that team.') + '</b>'); return; }
+        document.querySelector('h1.title').textContent = 'EDIT PICKS';
+        banner(`<b>Commissioner: editing ${esc(editData.entry.team_name)}.</b> Changing a pick here is a correction, not a trade — it doesn't use a trade and scores from the original pick date. <a href="admin.html" style="color: var(--red-text)">Cancel</a>`);
+      } else {
+        document.querySelector('h1.title').textContent = 'ADD A TEAM';
+        banner('<b>Commissioner: adding a team.</b> Skips the sign-up deadline; the team is approved straight away. <a href="admin.html" style="color: var(--red-text)">Cancel</a>');
+      }
+    } else if (mode === 'late') {
+      const chk = await api({ action: 'checkLateInvite', token: lateToken });
+      if (!chk.success) { banner('<b>' + esc(chk.error || 'This late-entry link is not valid.') + '</b>'); return; }
+      banner(`<b>Late entry invite.</b> You've been invited to join after the deadline. This link works for one entry, until ${new Date(chk.expiresAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' })} ET.`);
+    } else if (cfg.picks_locked || deadlinePassed) { banner('<b>Picks are locked.</b> The season has started and new entries are no longer accepted.'); return; }
+    else if (!cfg.signups_open) { banner('<b>Sign-ups aren\'t open yet.</b> You can look through the boxes now and build your team as soon as they open.'); }
     else banner(cfg.opening_day
       ? `Picks lock at first pitch: <b>${new Date(cfg.opening_day).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' })} ET</b>.`
       : 'Picks lock at the first pitch of MLB Opening Day.');
@@ -189,10 +218,24 @@ legend .done { color: #7EE2A8; }
     const form = document.getElementById('form');
     form.hidden = false;
     loadDraft();
+    if (editData) {
+      fillEdit(form, editData);
+    }
     countPicks();
     form.addEventListener('change', countPicks);
     form.addEventListener('input', e => { if (e.target.matches('input[type=text], input[type=email], input:not([type])')) saveDraft(); });
-    if (!cfg.signups_open) { const b = document.getElementById('submit'); b.disabled = true; b.textContent = 'SIGN-UPS OPEN SOON'; }
+    const sb = document.getElementById('submit');
+    if (mode === 'edit') sb.textContent = 'SAVE PICKS';
+    else if (mode === 'admin') sb.textContent = 'ADD TEAM';
+    else if (mode === 'public' && !cfg.signups_open) { sb.disabled = true; sb.textContent = 'SIGN-UPS OPEN SOON'; }
+  }
+
+  // Edit mode: fill in the team's current picks; name, team and email stay as they are.
+  function fillEdit(form, d) {
+    form.manager.value = d.entry.manager_name; form.team.value = d.entry.team_name; form.email.value = d.entry.email;
+    ['manager', 'team', 'email'].forEach(k => { form[k].readOnly = true; });
+    d.picks.forEach(p => { const r = form.querySelector(`input[name="box-${p.box_id}"][value="${p.option_id}"]`); if (r) r.checked = true; });
+    d.divisionPicks.forEach(p => { const r = form.querySelector(`input[name="div-${CSS.escape(p.division)}"][value="${CSS.escape(p.team_abbr)}"]`); if (r) r.checked = true; });
   }
 
   document.getElementById('form').addEventListener('submit', async e => {
@@ -211,12 +254,23 @@ legend .done { color: #7EE2A8; }
     if (!AASN_API_URL) { err.textContent = 'Sign-ups aren\'t connected yet. Please try again soon.'; return; }
 
     idemKey = idemKey || (crypto.randomUUID ? crypto.randomUUID() : null);
+    const label = btn.textContent;
     btn.disabled = true; btn.textContent = 'SAVING…';
+    if (mode === 'edit') {
+      try {
+        const out = await api({ action: 'adminUpdatePicks', password: adminPw, entryId: editId, picks, divisionPicks });
+        if (!out.success) throw new Error(out.error || 'Could not save the picks.');
+        f.hidden = true; banner('');
+        const done = document.getElementById('done');
+        done.hidden = false;
+        done.innerHTML = `<h2>PICKS SAVED</h2><p><b style="color: var(--text)">${esc(f.team.value)}</b>: ${out.changed} box pick${out.changed === 1 ? '' : 's'} changed, division picks saved.</p><p><a href="admin.html" style="color: var(--red-text)">Back to Commissioner</a></p>`;
+      } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = label; }
+      return;
+    }
     try {
-      const res = await fetch(AASN_API_URL + '/aabl', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'createEntry', idempotencyKey: idemKey, website: f.website.value,
-          entry: { managerName: f.manager.value, teamName: f.team.value, email: f.email.value, picks, divisionPicks } }) });
-      const out = await res.json();
+      const out = await api({ action: 'createEntry', idempotencyKey: idemKey, website: f.website.value,
+        adminPassword: mode === 'admin' ? adminPw : undefined, lateToken: mode === 'late' ? lateToken : undefined,
+        entry: { managerName: f.manager.value, teamName: f.team.value, email: f.email.value, picks, divisionPicks } });
       if (!out.success) throw new Error(out.error || 'Could not save your entry.');
       try { localStorage.removeItem(DRAFT_KEY); } catch (er) { /* ignore */ }
       f.hidden = true; banner('');
@@ -225,12 +279,15 @@ legend .done { color: #7EE2A8; }
       done.innerHTML = `<h2>⚾ YOU'RE IN!</h2>
         <p><b style="color: var(--text)">${esc(out.teamName || f.team.value)}</b> is entered in the AABL${out.entryNum > 1 ? ` (your entry #${out.entryNum})` : ''}.</p>
         <p>A confirmation with your picks and a private link to manage your team is on its way to <b style="color: var(--text)">${esc(f.email.value.trim())}</b>.</p>
+        ${mode === 'admin' ? '' : '<p>Your team appears in the public standings once the commissioner approves it.</p>'}
         <div class="pay"><b>Entry fee: $${num(cfg.entry_fee) || 10}.</b> ${out.paymentInfo ? esc(out.paymentInfo) : 'The commissioner will be in touch about payment.'}</div>
-        <p><a href="signup.html" style="color: var(--red-text)">Enter another team</a> · <a href="standings.html" style="color: var(--red-text)">See the standings</a></p>`;
+        ${mode === 'admin' ? '<p><a href="admin.html" style="color: var(--red-text)">Back to Commissioner</a></p>'
+          : mode === 'late' ? '<p><a href="standings.html" style="color: var(--red-text)">See the standings</a></p>'
+          : '<p><a href="signup.html" style="color: var(--red-text)">Enter another team</a> · <a href="standings.html" style="color: var(--red-text)">See the standings</a></p>'}`;
       done.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (ex) {
       err.textContent = ex.message || 'Could not save your entry. Please try again.';
-      btn.disabled = false; btn.textContent = 'SUBMIT MY TEAM';
+      btn.disabled = false; btn.textContent = label;
     }
   });
 
