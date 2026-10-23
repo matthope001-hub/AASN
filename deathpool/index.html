@@ -9,7 +9,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10.5' fill='%2307110A' stroke='%238BE37A' stroke-width='1.5'/%3E%3Cpath d='M3.5 12.5h4l1.6-3.2 2.4 6.4 2-8 1.8 4.8h5.2' fill='none' stroke='%238BE37A' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="dp.css?v=5">
+<link rel="stylesheet" href="dp.css?v=6">
 <script src="../shared/switcher.js" data-pool="dp" defer></script>
 </head>
 <body>
@@ -28,6 +28,7 @@
       <a href="#boxes">Pick Boxes</a>
       <a href="#rules">Rules</a>
       <a href="#mine">My Cemetery</a>
+      <a href="#whatsnew">What's New</a>
     </nav>
     <button type="button" class="signin dp-signin">SIGN IN</button>
   </div>
@@ -103,6 +104,12 @@
     <div id="m-body"></div>
   </section>
 
+  <!-- WHAT'S NEW -->
+  <section class="view" id="v-whatsnew" hidden>
+    <div class="sec-title">WHAT'S NEW <small>EVERY UPDATE TO THE DEATH POOL SITE, NEWEST FIRST</small></div>
+    <div id="wn-body"><p class="status">Loading…</p></div>
+  </section>
+
   <!-- RULES -->
   <section class="view" id="v-rules" hidden>
     <div class="sec-title">RULES &amp; BONUSES</div>
@@ -139,6 +146,6 @@
 <script src="../shared/config.js"></script>
 <script src="../shared/logos.js?v=4"></script>
 <script src="../shared/auth.js?v=2"></script>
-<script src="dp.js?v=9"></script>
+<script src="dp.js?v=10"></script>
 </body>
 </html>

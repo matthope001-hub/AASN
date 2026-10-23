@@ -2,7 +2,7 @@
  * every page client-side. Hash routes: #home #standings #graveyard #deathrow
  * #birthdays #boxes #rules. Refreshes every 10 minutes while open. */
 (function () {
-  const VIEWS = ['home', 'standings', 'graveyard', 'deathrow', 'birthdays', 'boxes', 'rules', 'mine'];
+  const VIEWS = ['home', 'standings', 'graveyard', 'deathrow', 'birthdays', 'boxes', 'rules', 'mine', 'whatsnew'];
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = v => v == null ? '—' : (Math.round(v * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -367,6 +367,18 @@
       if (!D) $('loading').textContent = 'No pulse right now — the Death Pool data is unavailable. Try again shortly.';
     }
   }
+  // What's New (deathpool/whatsnew.json) + a dot on the tab when there's something unseen.
+  const WN_KEY = 'aasn-dp-wn-seen';
+  fetch('whatsnew.json', { cache: 'no-cache' }).then(r => r.json()).then(list => {
+    $('wn-body').innerHTML = list.map(e => `<div class="panel" style="margin-bottom:10px"><div class="mono small" style="color:var(--g)">${esc(new Date(e.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).toUpperCase())}</div><h2 style="margin:4px 0 6px">${esc(e.title)}</h2><ul style="padding-left:18px">${e.items.map(i => `<li style="font-size:15px;line-height:1.5;color:var(--text-2);margin:3px 0">${esc(i)}</li>`).join('')}</ul></div>`).join('');
+    let seen = 0; try { seen = Number(localStorage.getItem(WN_KEY) || 0); } catch (e) { /* ignore */ }
+    const tab = document.querySelector('.tabs a[href="#whatsnew"]');
+    const mark = () => { try { localStorage.setItem(WN_KEY, String(list.length)); } catch (e) { /* ignore */ } const d = tab && tab.querySelector('.wn-dot'); if (d) d.remove(); };
+    if (tab && list.length > seen) tab.insertAdjacentHTML('beforeend', '<span class="wn-dot" aria-label="new" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#FF5C5C;margin-left:5px;vertical-align:middle"></span>');
+    if (location.hash === '#whatsnew') mark();
+    window.addEventListener('hashchange', () => { if (location.hash === '#whatsnew') mark(); });
+  }).catch(() => { $('wn-body').innerHTML = '<p class="small">What\'s New is unavailable right now.</p>'; });
+
   load().then(loadMe);
   setInterval(() => { if (!document.hidden) load(); }, 600000);
 })();

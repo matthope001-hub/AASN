@@ -151,3 +151,4 @@ details.mine-card[open] .ms-name { font-size: 30px; }
 .mine-empty { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 22px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .mine-empty p { color: var(--text-2); font-size: 16px; line-height: 1.5; max-width: 520px; }
 .btn-g { min-height: 44px; padding: 0 20px; background: var(--g); color: var(--g-dark); border: 0; border-radius: 4px; font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: 1px; cursor: pointer; }
+@media (min-width: 861px) { .tabs a { padding: 10px 9px; font-size: 15px; } }
