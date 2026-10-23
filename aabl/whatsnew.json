@@ -5,8 +5,14 @@
     "items": [
       "Add your own team logo from My Team: upload a photo or paste a link to an image. It's cropped to a circle and goes live straight away.",
       "Logos show next to team names in the standings and team pop-ups; teams without one get their initials. Tap any logo to see it full size.",
-      "The sign-in box and account menu now match each AASN site's own colours.",
       "The AASN bar shows the new AASN badge, and the site moved to aasn.theaahl.ca."
+    ]
+  },
+  {
+    "date": "2026-10-22",
+    "title": "Player cards tidied",
+    "items": [
+      "Player cards: the name now sits above the photo, the full headshot shows (no clipped caps) and it no longer covers the team logo."
     ]
   },
   {
@@ -34,8 +40,7 @@
       "Ranks, totals and payouts include tonight's points while games are on (▲/▼ shows spots gained or lost tonight). The official points still come in the 4am update.",
       "Team rosters show each player's live points tonight.",
       "Today's games on the home page show live scores and innings.",
-      "The pick deadline is set automatically to the first pitch of Opening Day once MLB posts the start times, and picks lock on their own at that moment.",
-      "Player cards: the name now sits above the photo, the full headshot shows (no clipped caps) and it no longer covers the team logo."
+      "The pick deadline is set automatically to the first pitch of Opening Day once MLB posts the start times, and picks lock on their own at that moment."
     ]
   },
   {
