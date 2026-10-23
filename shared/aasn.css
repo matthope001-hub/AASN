@@ -125,6 +125,7 @@ a { color: var(--ice); }
   .champs { max-height: 132px; }
 }
 @media (min-width: 900px) and (min-height: 620px) and (max-height: 820px) {
+  .hero { min-height: 104px; }
   .main { gap: 12px; padding-top: 12px; padding-bottom: 12px; }
   .hero p { display: none; }
   .league, .dp-flat { padding: 14px; gap: 10px; }
@@ -152,3 +153,15 @@ a { color: var(--ice); }
 .card-logo svg { aspect-ratio: 1; }
 .league, .dp-flat { min-height: 0; }
 @media (max-width: 899px) { .card-logo { flex: none; height: 150px; } }
+
+/* AASN logo: header mark + hero banner */
+.brand { flex-direction: row; align-items: center; gap: 10px; }
+.brand-txt { display: flex; flex-direction: column; }
+.brand-logo { width: 42px; height: 42px; border-radius: 50%; flex: none; }
+.hero { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: 6px; padding: 18px 22px; min-height: 128px; align-items: center;
+  background: linear-gradient(90deg, rgba(11,13,16,1) 0%, rgba(11,13,16,.96) 60%, rgba(11,13,16,.2) 80%, rgba(11,13,16,0) 100%), url(img/aasn-hero.jpg) right center / auto 112% no-repeat, #0B0D10; padding-right: 260px; }
+.hero > * { position: relative; }
+.hero p { text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+@media (max-width: 899px) {
+  .hero { background: linear-gradient(180deg, rgba(11,13,16,0) 0%, rgba(11,13,16,0) 38%, rgba(11,13,16,.95) 62%), url(img/aasn-hero.jpg) center top / 100% auto no-repeat, #0B0D10; padding: 175px 18px 16px; }
+}
