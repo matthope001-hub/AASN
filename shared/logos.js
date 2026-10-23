@@ -1,7 +1,9 @@
 /* AASN team logos — shared by the AAHL, AABL and Death Pool sites.
  *   await aasnLogos.load('aabl')          -> loads that pool's logos (cached for the page)
  *   aasnLogos.badge('aabl', id, name, px) -> <img> if the team has a logo, else an initials circle
- *   aasnLogos.pick({ pool, team, proof }) -> file picker -> square crop -> upload; resolves { success, url }
+ *   aasnLogos.choose({ pool, team, proof }) -> small dialog: upload a photo OR paste a link; resolves { success, url }
+ *   aasnLogos.pick({ pool, team, proof }) -> file picker -> square crop -> upload
+ *   aasnLogos.fromUrl({ pool, team, proof, url }) -> the server copies the image at that link
  *   aasnLogos.remove({ pool, team, proof })
  * proof = { token } | { accessToken } | { email } — whatever the page already uses for My Team.
  * Self-contained: carries its own Supabase read key so the AAHL site can load it too. */
@@ -86,6 +88,44 @@
     });
   }
   const remove = ({ pool, team, proof }) => send({ action: 'remove', pool, team, ...(proof || {}) });
+  const fromUrl = ({ pool, team, proof, url }) => send({ action: 'upload', pool, team, imageUrl: url, ...(proof || {}) });
 
-  window.aasnLogos = { load, url, badge, pick, remove };
+  // Upload-or-link chooser. Styled to sit on any of the three sites' dark themes.
+  function choose(args) {
+    return new Promise(resolve => {
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px';
+      ov.innerHTML = `<div role="dialog" aria-modal="true" aria-label="Team logo" style="width:min(420px,100%);background:#12161B;border:1px solid #2E353D;border-radius:8px;padding:18px;color:#E8ECF0;font-family:'Barlow Condensed',system-ui,sans-serif">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b style="font-size:22px;letter-spacing:1px">TEAM LOGO</b><button type="button" data-x aria-label="Close" style="min-width:44px;min-height:44px;background:none;border:0;color:#9AA4AF;font-size:26px;cursor:pointer">×</button></div>
+        <button type="button" data-file style="width:100%;min-height:46px;background:#00D4FF;color:#0B0D10;border:0;border-radius:4px;font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:1px;cursor:pointer">UPLOAD A PHOTO</button>
+        <div style="text-align:center;margin:12px 0;font:12px 'JetBrains Mono',monospace;color:#9AA4AF">— OR PASTE A LINK TO AN IMAGE —</div>
+        <form data-form style="display:flex;gap:8px"><label style="flex:1"><span style="position:absolute;left:-9999px">Image link</span><input data-url type="url" inputmode="url" placeholder="https://…/logo.png" required style="width:100%;min-height:44px;padding:0 10px;background:#0B0D10;border:1px solid #2E353D;border-radius:4px;color:#E8ECF0;font:14px 'JetBrains Mono',monospace;box-sizing:border-box"></label><button type="submit" style="min-height:44px;padding:0 16px;background:transparent;border:1px solid #00D4FF;color:#00D4FF;border-radius:4px;font:800 16px 'Barlow Condensed',sans-serif;cursor:pointer">USE LINK</button></form>
+        <p data-msg role="status" style="min-height:18px;margin-top:10px;font:12px 'JetBrains Mono',monospace;color:#FF8A7A"></p>
+        <p style="font:11px 'JetBrains Mono',monospace;color:#9AA4AF;line-height:1.5">Tip: right-click a logo on a website and choose "Copy image address". JPG, PNG, WebP or GIF. Square images look best.</p></div>`;
+      const done = out => { ov.remove(); document.removeEventListener('keydown', onKey); resolve(out); };
+      const onKey = e => { if (e.key === 'Escape') done({ success: false, cancelled: true }); };
+      document.addEventListener('keydown', onKey);
+      const msg = t => { ov.querySelector('[data-msg]').textContent = t || ''; };
+      ov.addEventListener('click', async e => {
+        if (e.target === ov || e.target.closest('[data-x]')) return done({ success: false, cancelled: true });
+        if (e.target.closest('[data-file]')) {
+          const out = await pick(args);
+          if (out.cancelled) return;
+          if (out.success) done(out); else msg(out.error);
+        }
+      });
+      ov.querySelector('[data-form]').addEventListener('submit', async e => {
+        e.preventDefault();
+        const url = ov.querySelector('[data-url]').value.trim();
+        msg(''); ov.querySelector('[data-msg]').style.color = '#9AA4AF'; msg('Fetching…');
+        const out = await fromUrl({ ...args, url });
+        ov.querySelector('[data-msg]').style.color = '#FF8A7A';
+        if (out.success) done(out); else msg(out.error || 'That link didn\'t work.');
+      });
+      document.body.appendChild(ov);
+      ov.querySelector('[data-file]').focus();
+    });
+  }
+
+  window.aasnLogos = { load, url, badge, pick, fromUrl, choose, remove };
 })();

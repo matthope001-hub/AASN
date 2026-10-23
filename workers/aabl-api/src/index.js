@@ -598,16 +598,33 @@ async function teamLogo(env, body) {
     await sb(env, `team_logos?pool=eq.${pool}&team_id=eq.${encodeURIComponent(team)}`, { method: 'DELETE', headers: { 'Accept-Profile': 'public', 'Content-Profile': 'public', Prefer: 'return=minimal' } });
     return { success: true, removed: true };
   }
-  const m = String(body.image || '').match(/^data:(image\/(?:webp|png|jpeg));base64,([A-Za-z0-9+/=]+)$/);
-  if (!m) return { success: false, error: 'Please choose a JPG, PNG or WebP image.' };
-  const bytes = Uint8Array.from(atob(m[2]), ch => ch.charCodeAt(0));
-  if (bytes.length > LOGO_MAX) return { success: false, error: 'That image is too big. Try a smaller one.' };
+  let bytes, type, maxBytes = LOGO_MAX;
+  if (body.imageUrl) {
+    // A link to a logo: fetch it here and keep our own copy, so it never breaks or tracks visitors.
+    let u;
+    try { u = new URL(String(body.imageUrl).trim()); } catch (e) { return { success: false, error: "That doesn't look like a web link." }; }
+    if (!/^https?:$/.test(u.protocol)) return { success: false, error: 'Use an http or https link to an image.' };
+    let res;
+    try { res = await fetch(u.toString(), { redirect: 'follow', headers: { Accept: 'image/*' }, signal: AbortSignal.timeout(8000) }); }
+    catch (e) { return { success: false, error: "Couldn't reach that link." }; }
+    if (!res.ok) return { success: false, error: `That link didn't work (error ${res.status}).` };
+    maxBytes = 2 * 1024 * 1024;
+    const len = Number(res.headers.get('content-length') || 0);
+    if (len > maxBytes) return { success: false, error: 'That image is too big (2 MB max).' };
+    bytes = new Uint8Array(await res.arrayBuffer());
+  } else {
+    const m = String(body.image || '').match(/^data:(image\/(?:webp|png|jpeg));base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) return { success: false, error: 'Please choose a JPG, PNG or WebP image.' };
+    bytes = Uint8Array.from(atob(m[2]), ch => ch.charCodeAt(0));
+  }
+  if (bytes.length > maxBytes) return { success: false, error: 'That image is too big. Try a smaller one.' };
   const sig = [...bytes.slice(0, 12)];
-  const isWebp = sig[0] === 0x52 && sig[1] === 0x49 && sig[8] === 0x57 && sig[9] === 0x45;
-  const isPng = sig[0] === 0x89 && sig[1] === 0x50;
-  const isJpg = sig[0] === 0xFF && sig[1] === 0xD8;
-  if (!(isWebp || isPng || isJpg)) return { success: false, error: 'That file is not a valid image.' };
-  const up = await fetch(storage, { method: 'POST', headers: { ...auth, 'Content-Type': m[1], 'x-upsert': 'true', 'Cache-Control': 'max-age=3600' }, body: bytes });
+  if (sig[0] === 0x52 && sig[1] === 0x49 && sig[8] === 0x57 && sig[9] === 0x45) type = 'image/webp';
+  else if (sig[0] === 0x89 && sig[1] === 0x50) type = 'image/png';
+  else if (sig[0] === 0xFF && sig[1] === 0xD8) type = 'image/jpeg';
+  else if (sig[0] === 0x47 && sig[1] === 0x49 && sig[2] === 0x46) type = 'image/gif';
+  else return { success: false, error: body.imageUrl ? "That link isn't a JPG, PNG, WebP or GIF image. Right-click the logo and use 'Copy image address'." : 'That file is not a valid image.' };
+  const up = await fetch(storage, { method: 'POST', headers: { ...auth, 'Content-Type': type, 'x-upsert': 'true', 'Cache-Control': 'max-age=3600' }, body: bytes });
   if (!up.ok) { console.log('logo upload: ' + up.status + ' ' + await up.text()); return { success: false, error: 'Upload failed. Please try again.' }; }
   const url = `${env.SUPABASE_URL}/storage/v1/object/public/logos/${path}?v=${Date.now()}`;
   await sb(env, 'team_logos?on_conflict=pool,team_id', {

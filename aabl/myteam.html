@@ -95,7 +95,7 @@
 <footer><a href="../">AABL 2027 · AN AASN LEAGUE</a></footer>
 
 <script src="../shared/config.js"></script>
-<script src="../shared/logos.js"></script>
+<script src="../shared/logos.js?v=2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
 <script src="cards.js"></script>
 <script>
@@ -225,7 +225,7 @@
     if (auth && auth.signedIn) proof = { accessToken: window.aasnAuth ? await aasnAuth.accessToken() : null };
     const args = { pool: 'aabl', team: data.entry.entryId, proof: { token: proof.token, accessToken: proof.accessToken, email: proof.email } };
     b.disabled = true;
-    const out = b.dataset.logo === 'remove' ? await aasnLogos.remove(args) : await aasnLogos.pick(args);
+    const out = b.dataset.logo === 'remove' ? await aasnLogos.remove(args) : await aasnLogos.choose(args);
     b.disabled = false;
     if (out.cancelled) return;
     if (!out.success) { const m = document.getElementById('msg'); if (m) m.innerHTML = `<p class="err" style="margin-bottom:12px">${esc(out.error || 'Could not update the logo.')}</p>`; return; }

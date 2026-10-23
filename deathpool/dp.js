@@ -310,7 +310,7 @@
     const team = b.dataset.team;
     const args = { pool: 'dp', team, proof: { accessToken: await aasnAuth.accessToken() } };
     b.disabled = true;
-    const out = b.dataset.dplogo === 'remove' ? await aasnLogos.remove(args) : await aasnLogos.pick(args);
+    const out = b.dataset.dplogo === 'remove' ? await aasnLogos.remove(args) : await aasnLogos.choose(args);
     b.disabled = false;
     if (out.cancelled) return;
     if (!out.success) { const m = document.getElementById('dplogo-msg-' + key(team)); if (m) m.textContent = out.error || 'Could not update the logo.'; return; }
