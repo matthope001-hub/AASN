@@ -104,20 +104,38 @@
     $('h-top').innerHTML = s.slice(0, 10).map(r => `<tr class="${r.rank === 1 ? 'top1' : ''}"><td class="rk">${r.rank ?? ''}</td><td>${cemBtn(r.name)}</td><td class="num">${fmt(r.points)}</td><td class="hide-sm"><div class="bar"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></div></td></tr>`).join('');
   }
 
-  // Movement since the most recent death: ranks from the last daily snapshot taken BEFORE
-  // that death vs now. Only shown once a death has happened after snapshots began (Oct 22, 2026).
+  // Season history rebuilt from the deaths themselves: each cemetery's points step up
+  // (or down, for Mummy's Curse) on the day each of its picks died, from Jan 1.
+  function seasonTimeline() {
+    const dayOf = name => { const g = deadMap.get(key(name)); const c = celebMap.get(key(name)); return parseDate((g && g.died) || (c && c.died)); };
+    const events = [];   // { t, cem, pts, celeb }
+    D.cemeteries.forEach(c => c.picks.forEach(p => {
+      if (!p.points) return;
+      const d = dayOf(p.celeb);
+      events.push({ t: d ? d.getTime() : Date.now(), cem: c.name, pts: p.points, celeb: p.celeb });
+    }));
+    events.sort((a, b) => a.t - b.t);
+    const days = [...new Set(events.map(e => e.t))];
+    return { events, days };
+  }
+  // Points for every cemetery as of the end of a given day (ms timestamp).
+  function pointsAt(tl, t) {
+    const m = new Map(D.cemeteries.map(c => [c.name, 0]));
+    tl.events.forEach(e => { if (e.t <= t) m.set(e.cem, (m.get(e.cem) || 0) + e.pts); });
+    return m;
+  }
+  const ranksOf = m => { const arr = [...m.entries()]; return new Map(arr.map(([n, v]) => [key(n), 1 + arr.filter(x => x[1] > v).length])); };
+
+  // Movement since the most recent death: standings the day before it vs now.
   function deathMove() {
-    const h = D.history || { dates: [], rows: [] };
-    const iso = s => { const d = parseDate(s); return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : null; };
-    const deaths = D.graveyard.map(g => ({ name: g.name, day: iso(g.died) })).filter(g => g.day).sort((a, b) => b.day.localeCompare(a.day));
-    const last = deaths[0];
-    if (!last) return null;
-    const before = [...(h.dates || [])].filter(d => d < last.day).pop();
-    if (!before) return null;
-    const pts = h.rows.filter(r => r[0] === before).map(r => ({ name: r[1], pts: r[2] }));
-    const rankOf = new Map(pts.map(p => [key(p.name), 1 + pts.filter(x => x.pts > p.pts).length]));
-    const map = new Map(D.standings.map(s => [key(s.name), rankOf.has(key(s.name)) && s.rank != null ? rankOf.get(key(s.name)) - s.rank : null]));
-    return { map, death: last };
+    const tl = seasonTimeline();
+    const last = tl.days[tl.days.length - 1];
+    if (last == null || tl.days.length < 2) return null;
+    const before = ranksOf(pointsAt(tl, last - 1));
+    const now = ranksOf(pointsAt(tl, last));
+    const map = new Map([...now.keys()].map(k => [k, before.has(k) ? before.get(k) - now.get(k) : null]));
+    const who = tl.events.filter(e => e.t === last).map(e => e.celeb);
+    return { map, death: { name: [...new Set(who)].join(' & '), t: last } };
   }
   let DM = null;
   const moveHtml = d => d == null ? '<span class="mv flat">—</span>' : d > 0 ? `<span class="mv up">▲${d}</span>` : d < 0 ? `<span class="mv down">▼${-d}</span>` : '<span class="mv flat">–</span>';
@@ -127,7 +145,7 @@
     const lead = leaderPts();
     DM = deathMove();
     document.querySelectorAll('.dm-col').forEach(x => { x.hidden = !DM; });
-    if (DM) $('s-prev').textContent = `${DM.death.name}'s death (${niceDate(DM.death.day.replace(/^(\d{4})-(\d{2})-(\d{2})$/, (m, y, mo, d) => `${+mo}/${+d}/${y}`))})`;
+    if (DM) $('s-prev').textContent = `${DM.death.name} (${new Date(DM.death.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})`;
     $('s-body').innerHTML = sortedStandings().filter(r => !q || key(r.name).includes(q)).map(r => {
       const c = cemByName.get(key(r.name));
       const dead = c ? c.picks.filter(p => deadMap.has(key(p.celeb))).length : null;
@@ -136,25 +154,32 @@
     renderRace();
   }
 
-  // Points race: top 8 cemeteries over the daily snapshots.
+  // Points race: the top 8 cemeteries from Jan 1, stepping up on each death.
   function renderRace() {
-    const el = $('race'), h = D.history || { dates: [], rows: [] };
-    if ((h.dates || []).length < 2) { el.innerHTML = '<p class="small">The race chart fills in as daily snapshots build up — check back tomorrow.</p>'; return; }
+    const el = $('race');
+    const tl = seasonTimeline();
+    if (!tl.events.length) { el.innerHTML = '<p class="small">The race starts with the first death.</p>'; return; }
     const top = sortedStandings().slice(0, 8).map(s => s.name);
     const COLORS = ['#8BE37A', '#00D4FF', '#FFB800', '#F06A70', '#B79CFF', '#FF9F43', '#4FD1C5', '#E8ECF0'];
-    const W = 800, H = 220, P = { l: 40, r: 10, t: 10, b: 22 };
-    const dates = h.dates, max = Math.max(1, ...h.rows.filter(r => top.includes(r[1])).map(r => r[2]));
-    const x = i => P.l + (W - P.l - P.r) * (dates.length === 1 ? 0 : i / (dates.length - 1));
-    const y = v => P.t + (H - P.t - P.b) * (1 - v / max);
-    const lines = top.map((name, k) => {
-      const pts = dates.map((d, i) => { const r = h.rows.find(r => r[0] === d && r[1] === name); return r ? `${x(i).toFixed(1)},${y(r[2]).toFixed(1)}` : null; }).filter(Boolean);
-      return `<polyline points="${pts.join(' ')}" fill="none" stroke="${COLORS[k]}" stroke-width="2.2" vector-effect="non-scaling-stroke"><title>${esc(name)}</title></polyline>`;
-    }).join('');
-    const grid = [0, .25, .5, .75, 1].map(f => `<line x1="${P.l}" x2="${W - P.r}" y1="${y(max * f)}" y2="${y(max * f)}" stroke="#1F252C"/><text x="${P.l - 6}" y="${y(max * f) + 4}" fill="#9AA4AF" font-size="10" text-anchor="end" font-family="JetBrains Mono">${Math.round(max * f)}</text>`).join('');
-    const lab = i => { const [yy, mm, dd] = dates[i].split('-'); return `${+mm}/${+dd}`; };
-    const xl = `<text x="${x(0)}" y="${H - 6}" fill="#9AA4AF" font-size="10" font-family="JetBrains Mono">${lab(0)}</text><text x="${x(dates.length - 1)}" y="${H - 6}" fill="#9AA4AF" font-size="10" text-anchor="end" font-family="JetBrains Mono">${lab(dates.length - 1)}</text>`;
-    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Points race for the top 8 cemeteries">${grid}${lines}${xl}</svg>
-      <div class="lg">${top.map((n, k) => `<span><i style="background:${COLORS[k]}"></i>${esc(n)}</span>`).join('')}</div>`;
+    const W = 800, H = 240, P = { l: 40, r: 12, t: 10, b: 24 };
+    const year = new Date(tl.days[0]).getFullYear();
+    const t0 = new Date(year, 0, 1).getTime(), t1 = Math.max(Date.now(), tl.days[tl.days.length - 1]);
+    const series = top.map(name => {
+      let v = 0; const pts = [[t0, 0]];
+      tl.events.filter(e => e.cem === name).forEach(e => { pts.push([e.t, v]); v += e.pts; pts.push([e.t, v]); });
+      pts.push([t1, v]);
+      return { name, pts, max: Math.max(...pts.map(p => p[1])), min: Math.min(...pts.map(p => p[1])) };
+    });
+    const max = Math.max(1, ...series.map(s => s.max)), min = Math.min(0, ...series.map(s => s.min));
+    const x = t => P.l + (W - P.l - P.r) * (t - t0) / (t1 - t0);
+    const y = v => P.t + (H - P.t - P.b) * (1 - (v - min) / (max - min));
+    const lines = series.map((s, k) => `<polyline points="${s.pts.map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${COLORS[k]}" stroke-width="2.2" stroke-linejoin="round" vector-effect="non-scaling-stroke"><title>${esc(s.name)} · ${fmt(s.pts[s.pts.length - 1][1])} pts</title></polyline>`).join('');
+    const grid = [0, .25, .5, .75, 1].map(f => { const v = min + (max - min) * f; return `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" stroke="#1F252C"/><text x="${P.l - 6}" y="${y(v) + 4}" fill="#9AA4AF" font-size="10" text-anchor="end" font-family="JetBrains Mono">${Math.round(v)}</text>`; }).join('');
+    const months = []; for (let m = 0; m < 12; m++) { const t = new Date(year, m, 1).getTime(); if (t <= t1) months.push(t); }
+    const xl = months.map(t => `<line x1="${x(t)}" x2="${x(t)}" y1="${P.t}" y2="${H - P.b}" stroke="#161B21"/><text x="${x(t) + 2}" y="${H - 8}" fill="#9AA4AF" font-size="10" font-family="JetBrains Mono">${new Date(t).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}</text>`).join('');
+    const ticks = tl.days.map(t => `<line x1="${x(t)}" x2="${x(t)}" y1="${H - P.b}" y2="${H - P.b + 4}" stroke="#FF5C5C"/>`).join('');
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Points race for the top 8 cemeteries since January 1">${xl}${grid}${ticks}${lines}</svg>
+      <div class="lg">${series.map((s, k) => `<span><i style="background:${COLORS[k]}"></i>${esc(s.name)}</span>`).join('')}<span class="small">· red ticks = a death</span></div>`;
   }
 
   function renderGraveyard() {
