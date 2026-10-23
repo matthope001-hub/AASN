@@ -46,6 +46,7 @@
   #aasn-bar a { text-decoration: none; }
   #aasn-bar .ab-hub { display: flex; align-items: baseline; gap: 10px; color: #E8ECF0; min-height: 40px; align-items: center; }
   #aasn-bar .ab-hub b { font-weight: 800; font-size: 16px; letter-spacing: 2px; }
+  #aasn-bar .ab-badge { width: 32px; height: 32px; border-radius: 50%; flex: none; align-self: center; }
   #aasn-bar .ab-hub span { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 1px; color: #9AA4AF; }
   #aasn-bar nav { display: flex; gap: 6px; }
   #aasn-bar .ab-pill { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 8px; background: transparent; border: 1px solid #1F252C; border-top: 2px solid transparent; color: #9AA4AF; transition: background .15s, color .15s; }
@@ -68,8 +69,9 @@
   @media (prefers-reduced-motion: reduce) { #aasn-bar .ab-live { animation: none; } #aasn-bar .ab-pill { transition: none; } }
   @media (max-width: 640px) {
     #aasn-bar .ab-in { padding: 5px 10px; gap: 6px; }
-    #aasn-bar .ab-hub { min-width: 44px; justify-content: center; border: 1px solid #1F252C; padding: 0 6px; }
-    #aasn-bar .ab-hub b { font-size: 12px; letter-spacing: 1px; color: #9AA4AF; }
+    #aasn-bar .ab-hub { min-width: 44px; justify-content: center; padding: 0 2px; }
+    #aasn-bar .ab-hub b { display: none; }
+    #aasn-bar .ab-badge { width: 38px; height: 38px; }
     #aasn-bar .ab-hub span { display: none; }
     #aasn-bar nav { flex: 1; }
     #aasn-bar .ab-pill { flex: 1; min-height: 44px; padding: 0 8px 0 6px; }
@@ -106,7 +108,7 @@
 
   function navHtml() {
     return `<div class="ab-in">
-      <a class="ab-hub" href="${LINKS.hub}" aria-label="AASN home — Angry Alpaca Sports Network"><b>AASN</b><span>ANGRY ALPACA SPORTS NETWORK</span></a>
+      <a class="ab-hub" href="${LINKS.hub}" aria-label="AASN home — Angry Alpaca Sports Network"><img class="ab-badge" src="${BASE}shared/img/aasn-logo.png" alt="" onerror="this.remove()"><b>AASN</b><span>ANGRY ALPACA SPORTS NETWORK</span></a>
       <nav aria-label="Pools">${POOLS.map(p => {
         const pic = p.icon || `<img src="${p.logo}" alt=""${p.round ? ' class="round"' : ''} onerror="this.style.visibility='hidden'">`;
         const nm = p.short ? `<span class="ab-long">${p.name}</span><span class="ab-short">${p.short}</span>` : p.name;
