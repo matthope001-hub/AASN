@@ -33,7 +33,7 @@
   // ---------- headshots
   // Photos come from Wikipedia's free page-summary API, looked up by the celeb's
   // Wikipedia link (or name). Kept in this browser for a week; misses show initials.
-  const FACE_KEY = 'aasn-dp-faces-v1', FACE_TTL = 7 * 864e5;
+  const FACE_KEY = 'aasn-dp-faces-v2', FACE_TTL = 7 * 864e5;
   let faceCache = {};
   try { faceCache = JSON.parse(localStorage.getItem(FACE_KEY) || '{}'); } catch (e) { faceCache = {}; }
   const facePending = new Map();
@@ -48,9 +48,12 @@
     const k = key(name), hit = faceCache[k];
     if (hit && Date.now() - hit.t < FACE_TTL) return Promise.resolve(hit.u);
     if (facePending.has(k)) return facePending.get(k);
-    const p = fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(wikiTitle(name)))
-      .then(r => r.ok ? r.json() : null)
-      .then(j => (j && j.type !== 'disambiguation' && j.thumbnail && j.thumbnail.source) || '')
+    // Wikipedia's Action API (CORS via origin=*): follows redirects, skips disambiguation pages.
+    const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&origin=*&redirects=1'
+      + '&prop=pageimages%7Cpageprops&piprop=thumbnail&pithumbsize=240&ppprop=disambiguation&titles=' + encodeURIComponent(wikiTitle(name));
+    const p = fetch(url)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(j => { const pg = j && j.query && j.query.pages && j.query.pages[0]; return (pg && !pg.missing && !(pg.pageprops && 'disambiguation' in pg.pageprops) && pg.thumbnail && pg.thumbnail.source) || ''; })
       .catch(() => null)
       .then(u => {
         facePending.delete(k);
@@ -67,10 +70,13 @@
       el.setAttribute('data-face-done', '');
       faceUrl(el.dataset.face).then(u => {
         if (!u) return;
-        const img = new Image();
-        img.alt = ''; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
-        img.onload = () => el.appendChild(img);
+        // Attached straight away (a detached lazy image never loads); shown once it arrives.
+        const img = document.createElement('img');
+        img.alt = ''; img.decoding = 'async'; img.style.opacity = '0';
+        img.onload = () => { img.style.opacity = '1'; };
+        img.onerror = () => img.remove();
         img.src = u;
+        el.appendChild(img);
       });
     });
   }
