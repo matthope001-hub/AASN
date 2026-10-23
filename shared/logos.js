@@ -36,7 +36,7 @@
   function badge(pool, id, name, px = 24) {
     const u = url(pool, id);
     const box = `width:${px}px;height:${px}px;border-radius:50%;flex:none;display:inline-block;vertical-align:middle;margin-right:8px`;
-    if (u) return `<img class="aasn-logo" src="${esc(u)}" alt="" loading="lazy" style="${box};object-fit:cover;background:#0B0D10;border:1px solid #2E353D" onerror="this.remove()">`;
+    if (u) return `<img class="aasn-logo" data-logo-name="${esc(name)}" title="Tap to enlarge" src="${esc(u)}" alt="" loading="lazy" style="${box};object-fit:cover;background:#0B0D10;border:1px solid #2E353D" onerror="this.remove()">`;
     const c = color(name);
     return `<span class="aasn-logo" aria-hidden="true" style="${box};line-height:${px}px;text-align:center;font:700 ${Math.round(px * 0.42)}px 'JetBrains Mono',monospace;color:${c};background:#0B0D10;border:1px solid ${c}55">${esc(initials(name))}</span>`;
   }
@@ -126,6 +126,32 @@
       ov.querySelector('[data-file]').focus();
     });
   }
+
+  // Tap/click any logo to see it big. Runs in the capture phase so it doesn't also
+  // open the team pop-up the logo sits inside.
+  function zoom(img) {
+    const ov = document.createElement('div');
+    ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', (img.dataset.logoName || 'Team') + ' logo');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,.82);backdrop-filter:blur(3px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;cursor:zoom-out';
+    ov.innerHTML = `<img src="${esc(img.currentSrc || img.src)}" alt="${esc(img.dataset.logoName || '')} logo" style="width:min(80vw,80vh,420px);height:min(80vw,80vh,420px);object-fit:contain;border-radius:50%;background:#0B0D10;border:2px solid #2E353D;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+      <div style="font:800 24px 'Barlow Condensed',system-ui,sans-serif;letter-spacing:1px;color:#E8ECF0;text-align:center">${esc(img.dataset.logoName || '')}</div>
+      <button type="button" aria-label="Close" style="position:absolute;top:10px;right:12px;min-width:44px;min-height:44px;background:none;border:0;color:#C9D1D9;font-size:30px;cursor:pointer">×</button>`;
+    const close = () => { ov.remove(); document.removeEventListener('keydown', onKey, true); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    ov.addEventListener('click', close);
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(ov);
+    ov.querySelector('button').focus();
+  }
+  document.addEventListener('click', e => {
+    const img = e.target.closest && e.target.closest('img.aasn-logo');
+    if (!img) return;
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    zoom(img);
+  }, true);
+  const st = document.createElement('style');
+  st.textContent = 'img.aasn-logo{cursor:zoom-in}';
+  (document.head || document.documentElement).appendChild(st);
 
   window.aasnLogos = { load, url, badge, pick, fromUrl, choose, remove };
 })();
