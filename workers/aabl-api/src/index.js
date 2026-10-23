@@ -57,6 +57,12 @@ export default {
         email: !!(env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM)
       });
     }
+    if (url.pathname === '/deathpool/me' && request.method === 'POST') {
+      try {
+        let body = {}; try { body = JSON.parse(await request.text()); } catch (e) { /* ignore */ }
+        return json(request, env, await deathPoolMe(env, body));
+      } catch (err) { console.log('Death Pool me failed: ' + (err && err.stack || err)); return json(request, env, { success: false, error: 'Something went wrong.' }, 500); }
+    }
     if (url.pathname === '/deathpool/data') {
       try { return await deathPoolData(request, env, ctx); }
       catch (err) { console.log('Death Pool data failed: ' + (err && err.stack || err)); return json(request, env, { success: false }, 502); }
@@ -495,7 +501,7 @@ async function deathPool(request, env, ctx) {
 // Fast path: edge cache (per data centre) -> last saved copy in Supabase (served
 // instantly, refreshed in the background when over 10 minutes old) -> live sheet.
 const DP_FRESH_MS = 10 * 60 * 1000;
-const DP_EDGE_KEY = 'https://aasn-cache.internal/deathpool-data-v7';
+const DP_EDGE_KEY = 'https://aasn-cache.internal/deathpool-data-v8';
 
 async function deathPoolData(request, env, ctx) {
   const cache = caches.default;
@@ -519,10 +525,36 @@ async function deathPoolData(request, env, ctx) {
   return json(request, env, pickKeys(out));
 }
 
+// POST /deathpool/me {accessToken} -> the cemeteries owned by the signed-in email(s).
+const DP_ADMIN_HASHES = ['151d5c340cdf9463eb6a300de214c14dcbd2d6924ecae1711be2c870147b36f8', '4f6a82e70c1b2065606d552344f2606a9cc793196633b9d76b360900a1d52514'];
+async function sha256Hex(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+async function deathPoolMe(env, body) {
+  const user = await verifyUser(env, String(body.accessToken || ''));
+  if (!user) return { success: false, error: 'Please sign in again.' };
+  const emails = [...user.emails];
+  if (!emails.length) return { success: true, emails, cemeteries: [] };
+  const list = emails.map(e => '"' + e.replace(/"/g, '') + '"').join(',');
+  const rows = await sb(env, `deathpool_owners?select=cemetery&email=in.(${encodeURIComponent(list)})`, { headers: { 'Accept-Profile': 'public' } });
+  let admin = false;
+  for (const e of emails) if (DP_ADMIN_HASHES.includes(await sha256Hex(e))) admin = true;
+  return { success: true, emails, admin, cemeteries: [...new Set(rows.map(r => r.cemetery))] };
+}
+
 // Re-read the sheet, attach history, save the snapshot + the shared copy + the edge cache.
 async function refreshDeathPool(env) {
   const out = await loadDeathPool(env);
   if (!out) return null;
+  const owners = out._owners || [];
+  delete out._owners;
+  if (owners.length) {
+    try {
+      const seen = new Set();
+      const rows = owners.filter(o => !seen.has(o.cemetery + '|' + o.email) && seen.add(o.cemetery + '|' + o.email)).map(o => ({ ...o, updated_at: new Date().toISOString() }));
+      await sb(env, 'deathpool_owners?on_conflict=cemetery,email', {
+        method: 'POST', headers: { 'Accept-Profile': 'public', 'Content-Profile': 'public', Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows)
+      });
+    } catch (e) { console.log('owners: ' + e); }
+  }
   try { await saveDeathPoolSnapshot(env, out); } catch (e) { console.log('snapshot: ' + e); }
   try { await addDeathPoolHistory(env, out); } catch (e) { console.log('history: ' + e); }
   await sb(env, 'deathpool_cache?on_conflict=id', {
@@ -576,6 +608,10 @@ async function loadDeathPool(env) {
       cats.push({ i, name, pts: H[i + 1] === 'Points' ? i + 1 : -1 });
     }
     out.categories = cats.map(x => x.name);
+    // Private: which email owns which cemetery (never sent to the browser; saved to a service-only table).
+    const em = H.findIndex(x => /^email/i.test(x));
+    out._owners = em < 0 ? [] : picksTab.slice(h + 1).filter(r => c(r[cem]) && c(r[em]).includes('@'))
+      .map(r => ({ cemetery: c(r[cem]), email: c(r[em]).toLowerCase() }));
     out.cemeteries = picksTab.slice(h + 1).filter(r => c(r[cem])).map(r => ({
       name: c(r[cem]),
       total: total >= 0 ? num(r[total]) : null,

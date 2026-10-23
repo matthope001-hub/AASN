@@ -2,7 +2,7 @@
  * every page client-side. Hash routes: #home #standings #graveyard #deathrow
  * #birthdays #boxes #rules. Refreshes every 10 minutes while open. */
 (function () {
-  const VIEWS = ['home', 'standings', 'graveyard', 'deathrow', 'birthdays', 'boxes', 'rules'];
+  const VIEWS = ['home', 'standings', 'graveyard', 'deathrow', 'birthdays', 'boxes', 'rules', 'mine'];
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = v => v == null ? '—' : (Math.round(v * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -202,6 +202,59 @@
     $('r-bonuses').innerHTML = (D.bonuses || []).map(b => `<li><b>${esc(b.code)}</b><span>${esc(b.text)}</span></li>`).join('') || '<li class="small">Bonus list unavailable.</li>';
   }
 
+  // ---------- My Cemetery (sign in with the email from your entry form)
+  let me = null;
+  async function loadMe() {
+    if (!window.aasnAuth) return;
+    const token = await aasnAuth.accessToken().catch(() => null);
+    if (!token) { me = null; renderMine(); return; }
+    try {
+      const res = await fetch(AASN_API_URL + '/deathpool/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: token }) });
+      me = await res.json();
+    } catch (e) { me = { success: false, error: 'Could not reach the server.' }; }
+    renderMine();
+  }
+  function renderMine() {
+    if (!D) return;
+    const el = $('m-body');
+    const session = window.aasnAuth && aasnAuth.session();
+    if (!session) {
+      $('m-sub').textContent = '';
+      el.innerHTML = `<div class="mine-empty"><p>Sign in with the <b>same email you used on your Death Pool entry</b> to see your cemetery, your picks and how you stack up.</p><button type="button" class="btn-g" data-signin>SIGN IN</button></div>`;
+      return;
+    }
+    if (!me) { el.innerHTML = '<p class="status">Finding your cemetery…</p>'; return; }
+    if (!me.success) { el.innerHTML = `<div class="mine-empty"><p>${esc(me.error || 'Something went wrong.')}</p></div>`; return; }
+    const names = me.admin ? sortedStandings().map(s => s.name) : me.cemeteries;
+    $('m-sub').textContent = (me.emails || []).join(' · ').toUpperCase() + (me.admin ? ' · COMMISSIONER (ALL CEMETERIES)' : '');
+    if (!names.length) {
+      el.innerHTML = `<div class="mine-empty"><p>No cemetery is registered to <b>${esc((me.emails || []).join(', '))}</b>. Sign in with the email from your entry form, or ask the commissioner to check it.</p></div>`;
+      return;
+    }
+    el.innerHTML = names.map(n => {
+      const st = D.standings.find(s => key(s.name) === key(n)) || {};
+      const c = cemByName.get(key(n));
+      const dead = c ? c.picks.filter(p => deadMap.has(key(p.celeb))).length : 0;
+      const up = upside(c);
+      const picks = c ? c.picks.map(p => {
+        const g = deadMap.get(key(p.celeb));
+        return `<tr><td class="small">${esc(p.category)}</td><td>${celebBtn(p.celeb)}${g ? `<span class="dead-mark">☠ ${esc(niceDate(g.died))}</span>` : ''}</td><td class="num">${p.points ? fmt(p.points) : '—'}</td></tr>`;
+      }).join('') : '';
+      return `<div class="mine-card"><h3>${esc(n)}</h3>
+        <div class="cstats">
+          <div><span>RANK</span><b>${st.rank ?? '—'}${st.prevRank != null && st.rank != null && st.prevRank !== st.rank ? ` <span class="mv ${st.prevRank > st.rank ? 'up' : 'down'}">${st.prevRank > st.rank ? '▲' : '▼'}${Math.abs(st.prevRank - st.rank)}</span>` : ''}</b></div>
+          <div><span>POINTS</span><b>${fmt(st.points)}</b></div>
+          <div><span>BEHIND LEADER</span><b>${st.points != null ? fmt(Math.max(0, leaderPts() - st.points)) : '—'}</b></div>
+          <div><span>UPSIDE</span><b>${up == null ? '—' : fmt(up)}</b></div>
+          <div><span>DEAD PICKS</span><b>${c ? dead + ' / ' + c.picks.length : '—'}</b></div>
+        </div>
+        ${picks ? `<div class="tbl-wrap"><table><thead><tr><th>CATEGORY</th><th>PICK</th><th class="num">PTS</th></tr></thead><tbody>${picks}</tbody></table></div>` : ''}
+      </div>`;
+    }).join('');
+  }
+  document.addEventListener('click', e => { if (e.target.closest('[data-signin]') && window.aasnAuth) aasnAuth.open(); });
+  if (window.aasnAuth) aasnAuth.onChange(() => { me = null; renderMine(); loadMe(); });
+
   function renderAll() {
     deadMap = new Map(D.graveyard.map(g => [key(g.name), g]));
     cemByName = new Map(D.cemeteries.map(c => [key(c.name), c]));
@@ -212,7 +265,7 @@
       if (!owners.has(key(p.celeb))) owners.set(key(p.celeb), []);
       owners.get(key(p.celeb)).push({ cem: c.name, category: p.category });
     }));
-    renderHome(); renderStandings(); renderGraveyard(); renderDeathRow(); renderBirthdays(); renderBoxes(); renderRules();
+    renderMine(); renderHome(); renderStandings(); renderGraveyard(); renderDeathRow(); renderBirthdays(); renderBoxes(); renderRules();
     $('stamp').textContent = 'UPDATED ' + new Date(D.updatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
 
@@ -249,6 +302,6 @@
       if (!D) $('loading').textContent = 'No pulse right now — the Death Pool data is unavailable. Try again shortly.';
     }
   }
-  load();
+  load().then(loadMe);
   setInterval(() => { if (!document.hidden) load(); }, 600000);
 })();
