@@ -17,33 +17,45 @@
     { id: 'custom:yahoo', label: 'Yahoo', icon: 'Y', bg: '#6001d2', fg: '#ffffff' }
   ];
   const SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
-  const inAabl = /\/aabl\//.test(location.pathname);
-  const MY_TEAMS = inAabl ? 'myteam.html' : 'aabl/myteam.html';
+  // Each site gets the sign-in box and menu in its own colours, with its own "my team" link.
+  const SITE = /\/aabl\//.test(location.pathname) ? 'aabl' : /\/deathpool\//.test(location.pathname) ? 'dp' : 'hub';
+  const THEMES = {
+    aabl: { bg: '#0C2340', panel: '#132E52', line: '#25446E', accent: '#BD3039', hi: '#F06A70', dim: '#A9B8CC', hover: '#1A3860', goText: '#FFFFFF' },
+    dp:   { bg: '#07110A', panel: '#0B0D10', line: '#1E3A24', accent: '#8BE37A', hi: '#8BE37A', dim: '#9AA4AF', hover: '#12161B', goText: '#07110A' },
+    hub:  { bg: '#12161B', panel: '#0B0D10', line: '#2E353D', accent: '#00D4FF', hi: '#00D4FF', dim: '#9AA4AF', hover: '#161B21', goText: '#0B0D10' }
+  };
+  const T = THEMES[SITE];
+  const MY_LINK = SITE === 'aabl' ? { href: 'myteam.html', label: '⚾ My Teams' }
+    : SITE === 'dp' ? { href: '#mine', label: '☠ My Cemetery' }
+    : { href: 'deathpool/#mine', label: '☠ Death Pool · My Cemetery' };
+  const INTRO = SITE === 'dp' ? 'Sign in with the email from your Death Pool entry to see your cemetery and add your logo.'
+    : SITE === 'aabl' ? 'Optional — see every team on your email in one place. Use the account with the email you entered with.'
+    : 'One AASN account for every pool. Use the account with the email you entered with.';
 
   let client = null, session = null;
   const listeners = [];
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const css = `
-  .aasn-auth-ov { position: fixed; inset: 0; background: rgba(4,12,24,.8); display: none; align-items: center; justify-content: center; z-index: 300; padding: 16px; }
+  .aasn-auth-ov { position: fixed; inset: 0; background: rgba(0,0,0,.78); display: none; align-items: center; justify-content: center; z-index: 300; padding: 16px; }
   .aasn-auth-ov.on { display: flex; }
-  .aasn-auth { width: 100%; max-width: 380px; background: #0C2340; border: 1px solid #25446E; border-top: 4px solid #BD3039; color: #E8EDF1; padding: 22px; position: relative; font-family: 'Barlow Condensed', sans-serif; }
-  .aasn-auth h2 { font-size: 24px; font-weight: 800; letter-spacing: 1px; margin: 0 0 4px; }
-  .aasn-auth p { color: #A9B8CC; font-size: 15px; margin: 0 0 12px; }
-  .aasn-auth-x { position: absolute; top: 6px; right: 8px; width: 44px; height: 44px; background: none; border: 0; color: #A9B8CC; font-size: 28px; cursor: pointer; }
-  .aasn-auth-btn { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; margin-top: 8px; padding: 0 14px; background: #132E52; color: #E8EDF1; border: 1px solid #25446E; font: 600 16px 'Barlow Condensed', sans-serif; cursor: pointer; text-align: left; }
-  .aasn-auth-btn:hover { border-color: #F06A70; }
+  .aasn-auth { width: 100%; max-width: 380px; background: ${T.bg}; border: 1px solid ${T.line}; border-top: 4px solid ${T.accent}; border-radius: ${SITE === 'aabl' ? '0' : '6px'}; color: #E8EDF1; padding: 22px; position: relative; font-family: 'Barlow Condensed', sans-serif; }
+  .aasn-auth h2 { font-size: 24px; font-weight: 800; letter-spacing: 1px; margin: 0 0 4px; color: ${SITE === 'dp' ? T.hi : '#E8EDF1'}; }
+  .aasn-auth p { color: ${T.dim}; font-size: 15px; margin: 0 0 12px; }
+  .aasn-auth-x { position: absolute; top: 6px; right: 8px; width: 44px; height: 44px; background: none; border: 0; color: ${T.dim}; font-size: 28px; cursor: pointer; }
+  .aasn-auth-btn { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; margin-top: 8px; padding: 0 14px; background: ${T.panel}; color: #E8EDF1; border: 1px solid ${T.line}; border-radius: ${SITE === 'aabl' ? '0' : '4px'}; font: 600 16px 'Barlow Condensed', sans-serif; cursor: pointer; text-align: left; }
+  .aasn-auth-btn:hover { border-color: ${T.hi}; }
   .aasn-auth-ic { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font: 700 13px 'JetBrains Mono', monospace; flex-shrink: 0; }
-  .aasn-auth-or { text-align: center; color: #A9B8CC; font: 12px 'JetBrains Mono', monospace; margin: 14px 0 6px; }
-  .aasn-auth input { width: 100%; min-height: 44px; padding: 0 12px; background: #132E52; border: 1px solid #25446E; color: #E8EDF1; font: 16px 'Barlow Condensed', sans-serif; box-sizing: border-box; }
-  .aasn-auth .go { width: 100%; min-height: 44px; margin-top: 8px; background: #BD3039; border: 0; color: #fff; font: 700 16px 'Barlow Condensed', sans-serif; letter-spacing: .5px; cursor: pointer; }
+  .aasn-auth-or { text-align: center; color: ${T.dim}; font: 12px 'JetBrains Mono', monospace; margin: 14px 0 6px; }
+  .aasn-auth input { width: 100%; min-height: 44px; padding: 0 12px; background: ${T.panel}; border: 1px solid ${T.line}; border-radius: ${SITE === 'aabl' ? '0' : '4px'}; color: #E8EDF1; font: 16px 'Barlow Condensed', sans-serif; box-sizing: border-box; }
+  .aasn-auth .go { width: 100%; min-height: 44px; margin-top: 8px; background: ${T.accent}; border: 0; border-radius: ${SITE === 'aabl' ? '0' : '4px'}; color: ${T.goText}; font: 700 16px 'Barlow Condensed', sans-serif; letter-spacing: .5px; cursor: pointer; }
   .aasn-auth .msg { font: 12px 'JetBrains Mono', monospace; margin-top: 10px; min-height: 16px; }
   .aasn-auth .msg.ok { color: #7EE2A8; } .aasn-auth .msg.err { color: #FF9EA2; }
-  .aasn-auth .note { font-size: 13px; color: #A9B8CC; margin-top: 12px; }
-  .aasn-user-menu { position: absolute; z-index: 120; min-width: 200px; background: #132E52; border: 1px solid #25446E; border-top: 3px solid #BD3039; padding: 6px 0; box-shadow: 0 12px 28px rgba(0,0,0,.45); }
-  .aasn-user-menu .who { padding: 6px 16px 8px; font: 12px 'JetBrains Mono', monospace; color: #A9B8CC; border-bottom: 1px solid #25446E; margin-bottom: 4px; word-break: break-all; }
+  .aasn-auth .note { font-size: 13px; color: ${T.dim}; margin-top: 12px; }
+  .aasn-user-menu { position: absolute; z-index: 120; min-width: 220px; background: ${T.bg}; border: 1px solid ${T.line}; border-top: 3px solid ${T.accent}; padding: 6px 0; box-shadow: 0 12px 28px rgba(0,0,0,.45); }
+  .aasn-user-menu .who { padding: 6px 16px 8px; font: 12px 'JetBrains Mono', monospace; color: ${T.dim}; border-bottom: 1px solid ${T.line}; margin-bottom: 4px; word-break: break-all; }
   .aasn-user-menu a, .aasn-user-menu button { display: flex; align-items: center; width: 100%; min-height: 42px; padding: 0 16px; background: none; border: 0; color: #E8EDF1; text-decoration: none; font: 600 16px 'Barlow Condensed', sans-serif; cursor: pointer; text-align: left; }
-  .aasn-user-menu a:hover, .aasn-user-menu button:hover { background: #1A3860; color: #F06A70; }`;
+  .aasn-user-menu a:hover, .aasn-user-menu button:hover { background: ${T.hover}; color: ${T.hi}; }`;
 
   function loadSdk() {
     return new Promise(resolve => {
@@ -83,13 +95,13 @@
     ov.innerHTML = `<div class="aasn-auth" role="dialog" aria-modal="true" aria-labelledby="aasn-auth-title">
       <button type="button" class="aasn-auth-x" aria-label="Close">×</button>
       <h2 id="aasn-auth-title">SIGN IN</h2>
-      <p>Optional — see every team on your email in one place. Use the account with the email you entered with.</p>
+      <p>${esc(INTRO)}</p>
       ${PROVIDERS.map(p => `<button type="button" class="aasn-auth-btn" data-provider="${p.id}"><span class="aasn-auth-ic" style="background:${p.bg};color:${p.fg}">${p.icon}</span>Continue with ${esc(p.label)}</button>`).join('')}
       <div class="aasn-auth-or">— OR GET A SIGN-IN LINK BY EMAIL —</div>
       <form class="aasn-auth-email" novalidate><label for="aasn-auth-email" style="position:absolute;left:-9999px">Email</label>
         <input id="aasn-auth-email" type="email" autocomplete="email" placeholder="you@example.com"><button type="submit" class="go">EMAIL ME A LINK</button></form>
       <div class="msg" role="status"></div>
-      <div class="note">Same account as the AAHL. You can still manage a team without signing in.</div>
+      <div class="note">${SITE === 'aabl' ? 'Same account as the AAHL. You can still manage a team without signing in.' : 'Same account across the AAHL, AABL and Death Pool.'}</div>
     </div>`;
     ov.addEventListener('click', e => { if (e.target === ov || e.target.closest('.aasn-auth-x')) close(); });
     ov.querySelectorAll('[data-provider]').forEach(b => b.addEventListener('click', async () => {
@@ -122,7 +134,7 @@
     m.id = 'aasn-user-menu'; m.className = 'aasn-user-menu';
     m.style.top = (window.scrollY + r.bottom + 6) + 'px';
     m.style.left = Math.max(8, window.scrollX + r.right - 220) + 'px';
-    m.innerHTML = `<div class="who">${esc(session.user.email || 'Signed in')}</div><a href="${MY_TEAMS}">⚾ My Teams</a><button type="button" data-out>Sign out</button>`;
+    m.innerHTML = `<div class="who">${esc(session.user.email || 'Signed in')}</div><a href="${MY_LINK.href}">${esc(MY_LINK.label)}</a><button type="button" data-out>Sign out</button>`;
     m.querySelector('[data-out]').addEventListener('click', signOut);
     document.body.appendChild(m);
     setTimeout(() => document.addEventListener('click', function off(e) { if (!m.contains(e.target) && e.target !== btn) { closeMenu(); document.removeEventListener('click', off); } }), 0);

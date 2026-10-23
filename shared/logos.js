@@ -91,15 +91,19 @@
   const fromUrl = ({ pool, team, proof, url }) => send({ action: 'upload', pool, team, imageUrl: url, ...(proof || {}) });
 
   // Upload-or-link chooser. Styled to sit on any of the three sites' dark themes.
+  // Accent colour for the chooser: matches whichever site it opens on.
+  const ACC = /\/aabl\//.test(location.pathname) ? { c: '#BD3039', t: '#FFFFFF', h: '#F06A70' }
+    : /\/deathpool\//.test(location.pathname) ? { c: '#8BE37A', t: '#07110A', h: '#8BE37A' }
+    : { c: '#00D4FF', t: '#0B0D10', h: '#00D4FF' };
   function choose(args) {
     return new Promise(resolve => {
       const ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px';
       ov.innerHTML = `<div role="dialog" aria-modal="true" aria-label="Team logo" style="width:min(420px,100%);background:#12161B;border:1px solid #2E353D;border-radius:8px;padding:18px;color:#E8ECF0;font-family:'Barlow Condensed',system-ui,sans-serif">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b style="font-size:22px;letter-spacing:1px">TEAM LOGO</b><button type="button" data-x aria-label="Close" style="min-width:44px;min-height:44px;background:none;border:0;color:#9AA4AF;font-size:26px;cursor:pointer">×</button></div>
-        <button type="button" data-file style="width:100%;min-height:46px;background:#00D4FF;color:#0B0D10;border:0;border-radius:4px;font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:1px;cursor:pointer">UPLOAD A PHOTO</button>
+        <button type="button" data-file style="width:100%;min-height:46px;background:${ACC.c};color:${ACC.t};border:0;border-radius:4px;font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:1px;cursor:pointer">UPLOAD A PHOTO</button>
         <div style="text-align:center;margin:12px 0;font:12px 'JetBrains Mono',monospace;color:#9AA4AF">— OR PASTE A LINK TO AN IMAGE —</div>
-        <form data-form style="display:flex;gap:8px"><label style="flex:1"><span style="position:absolute;left:-9999px">Image link</span><input data-url type="url" inputmode="url" placeholder="https://…/logo.png" required style="width:100%;min-height:44px;padding:0 10px;background:#0B0D10;border:1px solid #2E353D;border-radius:4px;color:#E8ECF0;font:14px 'JetBrains Mono',monospace;box-sizing:border-box"></label><button type="submit" style="min-height:44px;padding:0 16px;background:transparent;border:1px solid #00D4FF;color:#00D4FF;border-radius:4px;font:800 16px 'Barlow Condensed',sans-serif;cursor:pointer">USE LINK</button></form>
+        <form data-form style="display:flex;gap:8px"><label style="flex:1"><span style="position:absolute;left:-9999px">Image link</span><input data-url type="url" inputmode="url" placeholder="https://…/logo.png" required style="width:100%;min-height:44px;padding:0 10px;background:#0B0D10;border:1px solid #2E353D;border-radius:4px;color:#E8ECF0;font:14px 'JetBrains Mono',monospace;box-sizing:border-box"></label><button type="submit" style="min-height:44px;padding:0 16px;background:transparent;border:1px solid ${ACC.h};color:${ACC.h};border-radius:4px;font:800 16px 'Barlow Condensed',sans-serif;cursor:pointer">USE LINK</button></form>
         <p data-msg role="status" style="min-height:18px;margin-top:10px;font:12px 'JetBrains Mono',monospace;color:#FF8A7A"></p>
         <p style="font:11px 'JetBrains Mono',monospace;color:#9AA4AF;line-height:1.5">Tip: right-click a logo on a website and choose "Copy image address". JPG, PNG, WebP or GIF. Square images look best.</p></div>`;
       const done = out => { ov.remove(); document.removeEventListener('keydown', onKey); resolve(out); };
