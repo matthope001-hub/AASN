@@ -509,6 +509,11 @@ async function deathPoolData(request, env, ctx) {
   // ?only=a,b returns just those keys (handy for checking one section).
   const only = new URL(request.url).searchParams.get('only');
   const pickKeys = o => only ? Object.fromEntries(Object.entries(o).filter(([k]) => k === 'success' || only.split(',').includes(k))) : o;
+  // ?fresh=1 re-reads the sheet now (used after the commissioner changes the sheet); reports any error.
+  if (new URL(request.url).searchParams.get('fresh') === '1') {
+    try { const o = await refreshDeathPool(env); return json(request, env, pickKeys(o || { success: false })); }
+    catch (e) { return json(request, env, { success: false, error: String(e && e.message || e) }, 500); }
+  }
   const hit = await cache.match(key);
   if (hit) return json(request, env, pickKeys(await hit.json()));
 
