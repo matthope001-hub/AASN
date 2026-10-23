@@ -104,19 +104,34 @@
     $('h-top').innerHTML = s.slice(0, 10).map(r => `<tr class="${r.rank === 1 ? 'top1' : ''}"><td class="rk">${r.rank ?? ''}</td><td>${cemBtn(r.name)}</td><td class="num">${fmt(r.points)}</td><td class="hide-sm"><div class="bar"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></div></td></tr>`).join('');
   }
 
-  const move = r => {
-    if (r.prevRank == null || r.rank == null) return '<span class="mv flat">—</span>';
-    const d = r.prevRank - r.rank;
-    return d > 0 ? `<span class="mv up">▲${d}</span>` : d < 0 ? `<span class="mv down">▼${-d}</span>` : '<span class="mv flat">–</span>';
-  };
+  // Movement since the most recent death: ranks from the last daily snapshot taken BEFORE
+  // that death vs now. Only shown once a death has happened after snapshots began (Oct 22, 2026).
+  function deathMove() {
+    const h = D.history || { dates: [], rows: [] };
+    const iso = s => { const d = parseDate(s); return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : null; };
+    const deaths = D.graveyard.map(g => ({ name: g.name, day: iso(g.died) })).filter(g => g.day).sort((a, b) => b.day.localeCompare(a.day));
+    const last = deaths[0];
+    if (!last) return null;
+    const before = [...(h.dates || [])].filter(d => d < last.day).pop();
+    if (!before) return null;
+    const pts = h.rows.filter(r => r[0] === before).map(r => ({ name: r[1], pts: r[2] }));
+    const rankOf = new Map(pts.map(p => [key(p.name), 1 + pts.filter(x => x.pts > p.pts).length]));
+    const map = new Map(D.standings.map(s => [key(s.name), rankOf.has(key(s.name)) && s.rank != null ? rankOf.get(key(s.name)) - s.rank : null]));
+    return { map, death: last };
+  }
+  let DM = null;
+  const moveHtml = d => d == null ? '<span class="mv flat">—</span>' : d > 0 ? `<span class="mv up">▲${d}</span>` : d < 0 ? `<span class="mv down">▼${-d}</span>` : '<span class="mv flat">–</span>';
+  const move = r => moveHtml(DM ? DM.map.get(key(r.name)) : null);
   function renderStandings() {
     const q = key($('s-search').value);
     const lead = leaderPts();
-    if (D.prevDate) $('s-prev').textContent = niceDate(D.prevDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, (m, y, mo, d) => `${+mo}/${+d}/${y}`));
+    DM = deathMove();
+    document.querySelectorAll('.dm-col').forEach(x => { x.hidden = !DM; });
+    if (DM) $('s-prev').textContent = `${DM.death.name}'s death (${niceDate(DM.death.day.replace(/^(\d{4})-(\d{2})-(\d{2})$/, (m, y, mo, d) => `${+mo}/${+d}/${y}`))})`;
     $('s-body').innerHTML = sortedStandings().filter(r => !q || key(r.name).includes(q)).map(r => {
       const c = cemByName.get(key(r.name));
       const dead = c ? c.picks.filter(p => deadMap.has(key(p.celeb))).length : null;
-      return `<tr class="${r.rank === 1 ? 'top1' : ''}"><td class="rk">${r.rank ?? ''}</td><td>${cemBtn(r.name)}</td><td class="num">${fmt(r.points)}</td><td class="hide-sm">${move(r)}</td><td class="num hide-sm">${dead ?? '—'}</td><td class="hide-sm"><div class="bar"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></div></td></tr>`;
+      return `<tr class="${r.rank === 1 ? 'top1' : ''}"><td class="rk">${r.rank ?? ''}</td><td>${cemBtn(r.name)}</td><td class="num">${fmt(r.points)}</td>${DM ? `<td class="hide-sm">${move(r)}</td>` : ''}<td class="num hide-sm">${dead ?? '—'}</td><td class="hide-sm"><div class="bar"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></div></td></tr>`;
     }).join('') || '<tr><td colspan="6" class="small">No match.</td></tr>';
     renderRace();
   }
@@ -252,7 +267,7 @@
         <div class="ms-body">
         <div style="display:flex;gap:6px;margin:0 0 10px"><button type="button" class="dp-signin" style="min-height:34px;font-size:13px" data-dplogo="set" data-team="${esc(n)}">${has ? 'CHANGE LOGO' : 'ADD LOGO'}</button>${has ? `<button type="button" class="dp-signin" style="min-height:34px;font-size:13px" data-dplogo="remove" data-team="${esc(n)}">REMOVE</button>` : ''}<span class="small" id="dplogo-msg-${esc(key(n))}"></span></div>
         <div class="cstats">
-          <div><span>RANK</span><b>${st.rank ?? '—'}${st.prevRank != null && st.rank != null && st.prevRank !== st.rank ? ` <span class="mv ${st.prevRank > st.rank ? 'up' : 'down'}">${st.prevRank > st.rank ? '▲' : '▼'}${Math.abs(st.prevRank - st.rank)}</span>` : ''}</b></div>
+          <div><span>RANK</span><b>${st.rank ?? '—'}${DM && DM.map.get(key(n)) ? ' ' + moveHtml(DM.map.get(key(n))) : ''}</b></div>
           <div><span>POINTS</span><b>${fmt(st.points)}</b></div>
           <div><span>BEHIND LEADER</span><b>${st.points != null ? fmt(Math.max(0, leaderPts() - st.points)) : '—'}</b></div>
           <div><span>DEAD PICKS</span><b>${c ? dead + ' / ' + c.picks.length : '—'}</b></div>
@@ -288,6 +303,7 @@
       if (!owners.has(key(p.celeb))) owners.set(key(p.celeb), []);
       owners.get(key(p.celeb)).push({ cem: c.name, category: p.category });
     }));
+    DM = deathMove();
     renderMine(); renderHome(); renderStandings(); renderGraveyard(); renderDeathRow(); renderBirthdays(); renderBoxes(); renderRules();
     $('stamp').textContent = 'UPDATED ' + new Date(D.updatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
