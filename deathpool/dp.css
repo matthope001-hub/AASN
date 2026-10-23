@@ -137,7 +137,17 @@ dialog::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(3px); }
 
 .dp-signin { min-height: 40px; padding: 0 16px; background: transparent; border: 1px solid var(--g); color: var(--g); border-radius: 4px; font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: 1px; cursor: pointer; }
 .mine-card { background: var(--panel); border: 1px solid var(--g-line); border-top: 4px solid var(--g); border-radius: 6px; padding: 16px; margin-bottom: 14px; }
-.mine-card h3 { font-family: var(--display); font-weight: 800; font-size: 30px; line-height: 1.05; margin-bottom: 8px; }
+details.mine-card { padding: 0; }
+details.mine-card > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 12px 16px; min-height: 56px; }
+details.mine-card > summary::-webkit-details-marker { display: none; }
+details.mine-card > summary::after { content: '▾'; color: var(--g); font-size: 16px; transition: transform .2s; }
+details.mine-card[open] > summary::after { transform: rotate(180deg); }
+details.mine-card > summary:focus-visible { outline: 2px solid var(--g); outline-offset: -2px; }
+details.mine-card:not([open]) { border-top-width: 1px; border-color: var(--border); }
+.ms-name { flex: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-family: var(--display); font-weight: 800; font-size: 24px; line-height: 1.1; min-width: 0; }
+details.mine-card[open] .ms-name { font-size: 30px; }
+.ms-meta { font-size: 13px; color: var(--text-2); }
+.ms-body { padding: 0 16px 16px; }
 .mine-empty { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 22px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .mine-empty p { color: var(--text-2); font-size: 16px; line-height: 1.5; max-width: 520px; }
 .btn-g { min-height: 44px; padding: 0 20px; background: var(--g); color: var(--g-dark); border: 0; border-radius: 4px; font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: 1px; cursor: pointer; }

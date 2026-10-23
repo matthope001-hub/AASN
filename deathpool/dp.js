@@ -205,6 +205,13 @@
 
   // ---------- My Cemetery (sign in with the email from your entry form)
   let me = null;
+  const openCems = new Set(), closedCems = new Set();   // remembers what you opened/closed between refreshes
+  document.addEventListener('toggle', e => {
+    const d = e.target;
+    if (!d.matches || !d.matches('details.mine-card')) return;
+    const k = d.dataset.cemkey;
+    if (d.open) { openCems.add(k); closedCems.delete(k); } else { openCems.delete(k); closedCems.add(k); }
+  }, true);
   async function loadMe() {
     if (!window.aasnAuth) return;
     const token = await aasnAuth.accessToken().catch(() => null);
@@ -226,7 +233,10 @@
     }
     if (!me) { el.innerHTML = '<p class="status">Finding your cemetery…</p>'; return; }
     if (!me.success) { el.innerHTML = `<div class="mine-empty"><p>${esc(me.error || 'Something went wrong.')}</p></div>`; return; }
-    const names = me.admin ? sortedStandings().map(s => s.name) : me.cemeteries;
+    // Your own cemetery (or cemeteries) first and open; for the commissioner, everyone else follows, closed.
+    const own = me.cemeteries || [];
+    const others = me.admin ? sortedStandings().map(s => s.name).filter(n => !own.some(o => key(o) === key(n))) : [];
+    const names = [...own, ...others];
     $('m-sub').textContent = (me.emails || []).join(' · ').toUpperCase() + (me.admin ? ' · COMMISSIONER (ALL CEMETERIES)' : '');
     if (!names.length) {
       el.innerHTML = `<div class="mine-empty"><p>No cemetery is registered to <b>${esc((me.emails || []).join(', '))}</b>. Sign in with the email from your entry form, or ask the commissioner to check it.</p></div>`;
@@ -242,8 +252,12 @@
         return `<tr><td class="small">${esc(p.category)}</td><td>${celebBtn(p.celeb)}${g ? `<span class="dead-mark">☠ ${esc(niceDate(g.died))}</span>` : ''}</td><td class="num">${p.points ? fmt(p.points) : '—'}</td></tr>`;
       }).join('') : '';
       const has = window.aasnLogos && aasnLogos.url('dp', n);
-      return `<div class="mine-card"><h3 style="display:flex;align-items:center;gap:4px">${logo(n, 56)}${esc(n)}</h3>
-        <div style="display:flex;gap:6px;margin:-2px 0 10px"><button type="button" class="dp-signin" style="min-height:34px;font-size:13px" data-dplogo="set" data-team="${esc(n)}">${has ? 'CHANGE LOGO' : 'ADD LOGO'}</button>${has ? `<button type="button" class="dp-signin" style="min-height:34px;font-size:13px" data-dplogo="remove" data-team="${esc(n)}">REMOVE</button>` : ''}<span class="small" id="dplogo-msg-${esc(key(n))}"></span></div>
+      const mine = own.some(o => key(o) === key(n));
+      const isOpen = openCems.has(key(n)) || (mine && !closedCems.has(key(n)));
+      return `<details class="mine-card" data-cemkey="${esc(key(n))}"${isOpen ? ' open' : ''}>
+        <summary><span class="ms-name">${logo(n, 40)}${esc(n)}${mine ? ' <span class="chip g">YOURS</span>' : ''}</span><span class="ms-meta mono">${st.rank != null ? '#' + st.rank + ' · ' : ''}${fmt(st.points)} PTS</span></summary>
+        <div class="ms-body">
+        <div style="display:flex;gap:6px;margin:0 0 10px"><button type="button" class="dp-signin" style="min-height:34px;font-size:13px" data-dplogo="set" data-team="${esc(n)}">${has ? 'CHANGE LOGO' : 'ADD LOGO'}</button>${has ? `<button type="button" class="dp-signin" style="min-height:34px;font-size:13px" data-dplogo="remove" data-team="${esc(n)}">REMOVE</button>` : ''}<span class="small" id="dplogo-msg-${esc(key(n))}"></span></div>
         <div class="cstats">
           <div><span>RANK</span><b>${st.rank ?? '—'}${st.prevRank != null && st.rank != null && st.prevRank !== st.rank ? ` <span class="mv ${st.prevRank > st.rank ? 'up' : 'down'}">${st.prevRank > st.rank ? '▲' : '▼'}${Math.abs(st.prevRank - st.rank)}</span>` : ''}</b></div>
           <div><span>POINTS</span><b>${fmt(st.points)}</b></div>
@@ -252,7 +266,8 @@
           <div><span>DEAD PICKS</span><b>${c ? dead + ' / ' + c.picks.length : '—'}</b></div>
         </div>
         ${picks ? `<div class="tbl-wrap"><table><thead><tr><th>CATEGORY</th><th>PICK</th><th class="num">PTS</th></tr></thead><tbody>${picks}</tbody></table></div>` : ''}
-      </div>`;
+        </div>
+      </details>`;
     }).join('');
   }
   document.addEventListener('click', e => { if (e.target.closest('[data-signin]') && window.aasnAuth) aasnAuth.open(); });
