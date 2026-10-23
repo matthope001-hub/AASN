@@ -104,11 +104,6 @@
     $('h-top').innerHTML = s.slice(0, 10).map(r => `<tr class="${r.rank === 1 ? 'top1' : ''}"><td class="rk">${r.rank ?? ''}</td><td>${cemBtn(r.name)}</td><td class="num">${fmt(r.points)}</td><td class="hide-sm"><div class="bar"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></div></td></tr>`).join('');
   }
 
-  const upside = c => !c ? null : c.picks.reduce((t, p) => {
-    if (/mummy/i.test(p.category) || deadMap.has(key(p.celeb))) return t;
-    const v = (celebMap.get(key(p.celeb)) || {}).value;
-    return t + (v > 0 ? v : 0);
-  }, 0);
   const move = r => {
     if (r.prevRank == null || r.rank == null) return '<span class="mv flat">—</span>';
     const d = r.prevRank - r.rank;
@@ -121,9 +116,8 @@
     $('s-body').innerHTML = sortedStandings().filter(r => !q || key(r.name).includes(q)).map(r => {
       const c = cemByName.get(key(r.name));
       const dead = c ? c.picks.filter(p => deadMap.has(key(p.celeb))).length : null;
-      const up = upside(c);
-      return `<tr class="${r.rank === 1 ? 'top1' : ''}"><td class="rk">${r.rank ?? ''}</td><td>${cemBtn(r.name)}</td><td class="num">${fmt(r.points)}</td><td class="hide-sm">${move(r)}</td><td class="num">${up == null ? '—' : fmt(up)}</td><td class="num hide-sm">${dead ?? '—'}</td><td class="hide-sm"><div class="bar"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></div></td></tr>`;
-    }).join('') || '<tr><td colspan="7" class="small">No match.</td></tr>';
+      return `<tr class="${r.rank === 1 ? 'top1' : ''}"><td class="rk">${r.rank ?? ''}</td><td>${cemBtn(r.name)}</td><td class="num">${fmt(r.points)}</td><td class="hide-sm">${move(r)}</td><td class="num hide-sm">${dead ?? '—'}</td><td class="hide-sm"><div class="bar"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></div></td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="small">No match.</td></tr>';
     renderRace();
   }
 
@@ -246,7 +240,6 @@
       const st = D.standings.find(s => key(s.name) === key(n)) || {};
       const c = cemByName.get(key(n));
       const dead = c ? c.picks.filter(p => deadMap.has(key(p.celeb))).length : 0;
-      const up = upside(c);
       const picks = c ? c.picks.map(p => {
         const g = deadMap.get(key(p.celeb));
         return `<tr><td class="small">${esc(p.category)}</td><td>${celebBtn(p.celeb)}${g ? `<span class="dead-mark">☠ ${esc(niceDate(g.died))}</span>` : ''}</td><td class="num">${p.points ? fmt(p.points) : '—'}</td></tr>`;
@@ -262,7 +255,6 @@
           <div><span>RANK</span><b>${st.rank ?? '—'}${st.prevRank != null && st.rank != null && st.prevRank !== st.rank ? ` <span class="mv ${st.prevRank > st.rank ? 'up' : 'down'}">${st.prevRank > st.rank ? '▲' : '▼'}${Math.abs(st.prevRank - st.rank)}</span>` : ''}</b></div>
           <div><span>POINTS</span><b>${fmt(st.points)}</b></div>
           <div><span>BEHIND LEADER</span><b>${st.points != null ? fmt(Math.max(0, leaderPts() - st.points)) : '—'}</b></div>
-          <div><span>UPSIDE</span><b>${up == null ? '—' : fmt(up)}</b></div>
           <div><span>DEAD PICKS</span><b>${c ? dead + ' / ' + c.picks.length : '—'}</b></div>
         </div>
         ${picks ? `<div class="tbl-wrap"><table><thead><tr><th>CATEGORY</th><th>PICK</th><th class="num">PTS</th></tr></thead><tbody>${picks}</tbody></table></div>` : ''}
