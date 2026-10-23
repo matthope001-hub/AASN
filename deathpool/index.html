@@ -9,7 +9,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10.5' fill='%2307110A' stroke='%238BE37A' stroke-width='1.5'/%3E%3Cpath d='M3.5 12.5h4l1.6-3.2 2.4 6.4 2-8 1.8 4.8h5.2' fill='none' stroke='%238BE37A' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="dp.css?v=8">
+<link rel="stylesheet" href="dp.css?v=9">
 <script src="../shared/switcher.js" data-pool="dp" defer></script>
 </head>
 <body>
@@ -24,11 +24,16 @@
       <a href="#standings">Standings</a>
       <a href="#graveyard">Graveyard</a>
       <a href="#deathrow">Death Row</a>
-      <a href="#birthdays">Birthdays</a>
       <a href="#boxes">Pick Boxes</a>
-      <a href="#rules">Rules</a>
       <a href="#mine">My Cemetery</a>
-      <a href="#whatsnew">What's New</a>
+      <details class="more" id="more">
+        <summary>More ▾</summary>
+        <div class="more-menu">
+          <a href="#birthdays">Birthdays</a>
+          <a href="#rules">Rules</a>
+          <a href="#whatsnew">What's New</a>
+        </div>
+      </details>
     </nav>
     <button type="button" class="signin dp-signin">SIGN IN</button>
   </div>
@@ -39,27 +44,32 @@
 
   <!-- HOME -->
   <section class="view" id="v-home" hidden>
-    <div class="hero">
-      <div class="monitor-card">
-        <div class="mc-top">
-          <div><h1>DEATH POOL</h1><p>2026 · WHO'S NEXT?</p></div>
-          <div class="bpm" aria-hidden="true">BPM<br><b>72</b></div>
-        </div>
-        <div class="ekg" aria-hidden="true"><svg viewBox="0 0 360 90" preserveAspectRatio="none"><path d="M0 50 H70 L82 50 L90 20 L100 78 L110 8 L120 62 L128 50 H200 L212 50 L220 20 L230 78 L240 8 L250 62 L258 50 H360"/></svg></div>
-        <div class="kpis">
-          <div class="kpi"><span>GRAVEYARD</span><b id="k-grave">—</b></div>
-          <div class="kpi"><span>DEATH ROW</span><b id="k-row">—</b></div>
-          <div class="kpi"><span>CEMETERIES</span><b id="k-cem">—</b></div>
-          <div class="kpi"><span>LEADER</span><b id="k-lead">—</b></div>
-        </div>
-      </div>
-      <div class="side">
-        <div class="panel"><h2>☠ LATEST ARRIVALS</h2><ul class="latest" id="h-latest"></ul></div>
-        <div class="panel"><h2>🎂 BIRTHDAYS <small id="h-bday-sub">NEXT 14 DAYS</small></h2><div class="chips" id="h-bdays"></div></div>
-      </div>
+    <div class="kpis4" aria-label="Pool at a glance">
+      <div class="kpi"><span>IN THE GRAVEYARD</span><b id="k-grave">—</b></div>
+      <div class="kpi"><span>DAYS SINCE LAST DEATH</span><b id="k-quiet" class="gold">—</b></div>
+      <div class="kpi"><span>ON DEATH ROW</span><b id="k-row">—</b></div>
+      <div class="kpi"><span>CEMETERIES</span><b id="k-cem">—</b></div>
     </div>
-    <div class="sec-title">TOP 10 <small>TAP A CEMETERY TO SEE ITS PICKS · <a href="#standings">FULL STANDINGS →</a></small></div>
-    <div class="tbl-wrap"><table><thead><tr><th>RK</th><th>CEMETERY</th><th class="num">POINTS</th><th class="hide-sm">VS LEADER</th></tr></thead><tbody id="h-top"></tbody></table></div>
+    <div class="home-grid">
+      <section class="panel st-panel" aria-labelledby="h-st">
+        <div class="ph"><h2 id="h-st">STANDINGS</h2><a href="#standings" class="more-link">ALL <span id="h-count"></span> →</a></div>
+        <div class="st-head"><span>RK</span><span>CEMETERY</span><span class="num">PTS</span><span class="hide-sm">VS LEADER</span></div>
+        <div id="h-top"></div>
+        <div id="h-mine"></div>
+      </section>
+      <aside class="home-side">
+        <section class="panel arrivals" aria-labelledby="h-arr">
+          <div class="ph"><h2 id="h-arr">LATEST ARRIVALS</h2><span class="small" id="h-arr-date"></span></div>
+          <div class="arr-cards" id="h-feature"></div>
+          <div id="h-latest"></div>
+          <a href="#graveyard" class="more-link">FULL GRAVEYARD →</a>
+        </section>
+        <section class="panel" aria-labelledby="h-bd">
+          <div class="ph"><h2 id="h-bd">BIRTHDAYS</h2><span class="small">NEXT 14 DAYS</span></div>
+          <div id="h-bdays"></div>
+        </section>
+      </aside>
+    </div>
   </section>
 
   <!-- STANDINGS -->
@@ -146,6 +156,6 @@
 <script src="../shared/config.js"></script>
 <script src="../shared/logos.js?v=5"></script>
 <script src="../shared/auth.js?v=2"></script>
-<script src="dp.js?v=11"></script>
+<script src="dp.js?v=12"></script>
 </body>
 </html>

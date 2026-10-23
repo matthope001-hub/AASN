@@ -20,12 +20,60 @@
     if (!D) return;
     VIEWS.forEach(x => { $('v-' + x).hidden = x !== view; });
     if (view === 'standings') renderRace();   // size the chart to the now-visible panel
-    document.querySelectorAll('.tabs a').forEach(a => a.toggleAttribute('aria-current', a.getAttribute('href') === '#' + view));
+    document.querySelectorAll('.tabs a').forEach(a => { if (a.getAttribute('href') === '#' + view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    const more = $('more');
+    if (more) { more.open = false; more.classList.toggle('on', !!more.querySelector('a[aria-current]')); }
     if (a11yFirst) a11yFirst = false; else window.scrollTo(0, 0);
   }
   let a11yFirst = true;
   window.addEventListener('hashchange', route);
   document.querySelectorAll('.tabs a').forEach(a => a.addEventListener('click', () => { if (a.getAttribute('href') === location.hash) route(); }));
+  document.addEventListener('click', e => { const m = $('more'); if (m && m.open && !m.contains(e.target)) m.open = false; });
+
+  // ---------- headshots
+  // Photos come from Wikipedia's free page-summary API, looked up by the celeb's
+  // Wikipedia link (or name). Kept in this browser for a week; misses show initials.
+  const FACE_KEY = 'aasn-dp-faces-v1', FACE_TTL = 7 * 864e5;
+  let faceCache = {};
+  try { faceCache = JSON.parse(localStorage.getItem(FACE_KEY) || '{}'); } catch (e) { faceCache = {}; }
+  const facePending = new Map();
+  const initials = n => String(n || '').replace(/\(.*?\)/g, '').replace(/[^A-Za-z .'-]/g, '').split(/\s+/).filter(w => /^[A-Za-z]/.test(w) && !/^(Rep|Sen|Dr|Mr|Mrs|Ms|Sir|Jr|Sr)\.?$/i.test(w)).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+  const face = (name, size) => `<span class="face${size ? ' ' + size : ''}${deadMap.has(key(name)) ? ' dead' : ''}" data-face="${esc(name)}" aria-hidden="true">${esc(initials(name))}</span>`;
+  function wikiTitle(name) {
+    const c = celebMap.get(key(name));
+    const m = c && c.wiki && String(c.wiki).match(/wikipedia\.org\/wiki\/([^?#]+)/);
+    return m ? decodeURIComponent(m[1]) : String(name).replace(/^(Rep|Sen|Dr)\.?\s+/i, '').trim().replace(/ /g, '_');
+  }
+  function faceUrl(name) {
+    const k = key(name), hit = faceCache[k];
+    if (hit && Date.now() - hit.t < FACE_TTL) return Promise.resolve(hit.u);
+    if (facePending.has(k)) return facePending.get(k);
+    const p = fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(wikiTitle(name)))
+      .then(r => r.ok ? r.json() : null)
+      .then(j => (j && j.type !== 'disambiguation' && j.thumbnail && j.thumbnail.source) || '')
+      .catch(() => null)
+      .then(u => {
+        facePending.delete(k);
+        if (u === null) return '';   // network error: try again next time
+        faceCache[k] = { u, t: Date.now() };
+        try { localStorage.setItem(FACE_KEY, JSON.stringify(faceCache)); } catch (e) { /* ignore */ }
+        return u;
+      });
+    facePending.set(k, p);
+    return p;
+  }
+  function hydrateFaces(root) {
+    (root || document).querySelectorAll('[data-face]:not([data-face-done])').forEach(el => {
+      el.setAttribute('data-face-done', '');
+      faceUrl(el.dataset.face).then(u => {
+        if (!u) return;
+        const img = new Image();
+        img.alt = ''; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
+        img.onload = () => el.appendChild(img);
+        img.src = u;
+      });
+    });
+  }
 
   // ---------- cemetery dialog
   const dlg = $('dlg');
@@ -72,13 +120,14 @@
       stat('TIMES PICKED', own.length || c.picked || 0)
     ];
     if (g) stats.push(stat('SCORED', fmt(g.points)));
-    $('cdlg-body').innerHTML = `<div class="cstats">${stats.join('')}</div>
+    $('cdlg-body').innerHTML = `<div class="celeb-hd">${face(c.name || name, 'xl')}<div class="small">${esc(c.category || '')}</div></div><div class="cstats">${stats.join('')}</div>
       ${g && g.bonuses.length ? `<p class="small" style="margin-bottom:10px">Bonuses: ${tags(g.bonuses)}</p>` : ''}
       <div class="sec-title" style="font-size:16px">PICKED BY</div>
       <div class="owners">${own.length ? own.map(o => `<span class="chip">${cemBtn(o.cem)} <span class="small">· ${esc(o.category)}</span></span>`).join('') : '<span class="small">Nobody picked them.</span>'}</div>
       ${c.wiki ? `<p style="margin-top:14px"><a href="${esc(c.wiki)}" target="_blank" rel="noopener">More on Wikipedia →</a></p>` : ''}`;
     if (dlg.open) dlg.close();
     if (typeof cdlg.showModal === 'function') cdlg.showModal(); else cdlg.setAttribute('open', '');
+    hydrateFaces($('cdlg-body'));
   }
   const celebBtn = name => `<button type="button" class="linkbtn celeb" data-celeb="${esc(name)}">${esc(name)}</button>`;
 
@@ -91,18 +140,31 @@
   const sortedStandings = () => [...D.standings].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
 
   function renderHome() {
-    const s = sortedStandings();
+    const s = sortedStandings(), lead = leaderPts();
+    const byDeath = [...D.graveyard].sort((a, b) => (parseDate(b.died) || 0) - (parseDate(a.died) || 0));
+    const lastDay = byDeath[0] && parseDate(byDeath[0].died);
     $('k-grave').textContent = D.graveyard.length;
+    $('k-quiet').textContent = lastDay ? Math.max(0, Math.round((today() - lastDay) / 864e5)) : '—';
     $('k-row').textContent = D.deathRow.filter(x => !x.died).length;
     $('k-cem').textContent = s.length;
-    $('k-lead').textContent = s[0] ? s[0].name : '—';
-    $('k-lead').title = s[0] ? `${s[0].name} · ${fmt(s[0].points)} pts` : '';
-    const latest = [...D.graveyard].sort((a, b) => (parseDate(b.died) || 0) - (parseDate(a.died) || 0)).slice(0, 5);
-    $('h-latest').innerHTML = latest.map(g => `<li>${celebBtn(g.name)}<span>${esc(niceDate(g.died))} · ${fmt(g.points)} PTS</span></li>`).join('') || '<li class="small">Nobody yet.</li>';
-    const up = upcomingBirthdays(14);
-    $('h-bdays').innerHTML = up.map(b => `<span class="chip${b.days === 0 ? ' g' : ''}">${b.days === 0 ? '🎂 TODAY: ' : ''}${esc(b.name)} · ${b.turning}${b.days ? ' · ' + b.days + 'D' : ''}</span>`).join('') || '<span class="small">No birthdays in the next two weeks.</span>';
-    const lead = leaderPts();
-    $('h-top').innerHTML = s.slice(0, 10).map(r => `<tr class="${r.rank === 1 ? 'top1' : ''}"><td class="rk">${r.rank ?? ''}</td><td>${cemBtn(r.name)}</td><td class="num">${fmt(r.points)}</td><td class="hide-sm"><div class="bar"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></div></td></tr>`).join('');
+    $('h-count').textContent = s.length;
+
+    const row = (r, cls) => `<div class="st-row ${cls || ''}"><span class="rk">${r.rank ?? ''}</span>${cemBtn(r.name)}<span class="num">${fmt(r.points)}</span><span class="hide-sm"><span class="bar" style="display:block"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></span></span></div>`;
+    $('h-top').innerHTML = s.slice(0, 10).map(r => row(r, r.rank === 1 ? 'top1' : '')).join('');
+    // Signed in: your cemeteries outside the top 10 are pinned underneath.
+    const mine = (me && me.success && me.cemeteries) || [];
+    $('h-mine').innerHTML = mine.map(n => s.find(r => key(r.name) === key(n))).filter(r => r && s.indexOf(r) >= 10).map(r => row(r, 'mine')).join('');
+
+    // Everyone who died on the most recent death day gets a card (up to 2); the next few are listed.
+    const feature = lastDay ? byDeath.filter(g => +parseDate(g.died) === +lastDay).slice(0, 2) : [];
+    $('h-arr-date').textContent = lastDay ? lastDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase() : '';
+    $('h-feature').className = 'arr-cards' + (feature.length === 1 ? ' one' : '');
+    $('h-feature').innerHTML = feature.map(g => `<button type="button" class="arr-card" data-celeb="${esc(g.name)}">${face(g.name, 'lg')}<span class="nm">${esc(g.name)}</span><span style="display:flex;gap:6px;align-items:center"><span class="pt">+${fmt(g.points)}</span>${g.bonuses.length ? tags(g.bonuses) : ''}</span></button>`).join('');
+    $('h-latest').innerHTML = byDeath.slice(feature.length, feature.length + 4).map(g => `<div class="mini">${face(g.name)}<div>${celebBtn(g.name)}<div class="sub">${esc(niceDate(g.died)).toUpperCase()}</div></div><span class="val">${fmt(g.points)}</span></div>`).join('') || (feature.length ? '' : '<p class="small">Nobody yet.</p>');
+
+    const up = upcomingBirthdays(14).slice(0, 5);
+    $('h-bdays').innerHTML = up.map(b => `<div class="mini">${face(b.name)}<div>${celebBtn(b.name)}<div class="sub">TURNS ${b.turning}</div></div><span class="val${b.days === 0 ? ' g' : ' small'}">${b.days === 0 ? '🎂 TODAY' : 'IN ' + b.days + 'D'}</span></div>`).join('') || '<p class="small" style="padding-top:6px">No birthdays in the next two weeks.</p>';
+    hydrateFaces($('v-home'));
   }
 
   // Season history rebuilt from the deaths themselves: each cemetery's points step up
@@ -321,7 +383,7 @@
       const res = await fetch(AASN_API_URL + '/deathpool/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: token }) });
       me = await res.json();
     } catch (e) { me = { success: false, error: 'Could not reach the server.' }; }
-    renderMine();
+    renderMine(); if (D) renderHome();
   }
   function renderMine() {
     if (!D) return;

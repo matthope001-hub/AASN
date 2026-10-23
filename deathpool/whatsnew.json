@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-10-23",
+    "title": "New home page and celeb photos",
+    "items": [
+      "Redesigned home page: the standings are front and centre, with the latest deaths and upcoming birthdays alongside.",
+      "New counter: days since the last death.",
+      "Signed in? Your cemetery is pinned under the top 10 if it's further down.",
+      "Celeb photos: tap any celeb to see their headshot (from Wikipedia). Photos also show on the home page, in grey for the dearly departed.",
+      "Tidier menu: Birthdays, Rules and What's New now live under More, and the tabs swipe sideways on phones."
+    ]
+  },
+  {
+    "date": "2026-10-23",
     "title": "Sign in, My Cemetery and logos",
     "items": [
       "Sign in with the email from your Death Pool entry (Google, Microsoft, Yahoo or an email link) and open My Cemetery: your rank, points, dead picks and every pick, with your cemetery at the top.",
