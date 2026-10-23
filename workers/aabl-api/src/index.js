@@ -95,8 +95,8 @@ export default {
       return;
     }
     const at = new Date(event.scheduledTime || Date.now());
-    if (at.getUTCHours() === 5 && at.getUTCMinutes() === 0) {
-      ctx.waitUntil(loadDeathPool(env).then(o => saveDeathPoolSnapshot(env, o)).catch(err => console.log('Death Pool snapshot failed: ' + err)));
+    if (at.getUTCMinutes() % 10 === 0) {
+      ctx.waitUntil(refreshDeathPool(env).catch(err => console.log('Death Pool refresh failed: ' + err)));
     }
     if (env.LIVE_POINTS === 'off') return;
     ctx.waitUntil(runLivePoints(env).catch(err => console.log('Live points failed: ' + (err && err.stack || err))));
@@ -492,20 +492,45 @@ async function deathPool(request, env, ctx) {
 // GET /deathpool/data -> everything the Death Pool site shows, read from the
 // sheet and reduced to public fields only (no emails, phones, real names or
 // paid status). Cached 10 minutes at the edge.
+// Fast path: edge cache (per data centre) -> last saved copy in Supabase (served
+// instantly, refreshed in the background when over 10 minutes old) -> live sheet.
+const DP_FRESH_MS = 10 * 60 * 1000;
+const DP_EDGE_KEY = 'https://aasn-cache.internal/deathpool-data-v7';
+
 async function deathPoolData(request, env, ctx) {
   const cache = caches.default;
-  const key = new Request('https://aasn-cache.internal/deathpool-data-v6');
+  const key = new Request(DP_EDGE_KEY);
   // ?only=a,b returns just those keys (handy for checking one section).
   const only = new URL(request.url).searchParams.get('only');
   const pickKeys = o => only ? Object.fromEntries(Object.entries(o).filter(([k]) => k === 'success' || only.split(',').includes(k))) : o;
   const hit = await cache.match(key);
   if (hit) return json(request, env, pickKeys(await hit.json()));
-  const out = await loadDeathPool(env);
+
+  let saved = null;
+  try { [saved] = await sb(env, 'deathpool_cache?select=data,updated_at&id=eq.1', { headers: { 'Accept-Profile': 'public' } }); } catch (e) { /* ignore */ }
+  if (saved && saved.data) {
+    const age = Date.now() - new Date(saved.updated_at).getTime();
+    if (age > DP_FRESH_MS) ctx.waitUntil(refreshDeathPool(env).catch(e => console.log('refresh: ' + e)));
+    else ctx.waitUntil(cache.put(key, new Response(JSON.stringify(saved.data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${Math.max(30, Math.round((DP_FRESH_MS - age) / 1000))}` } })));
+    return json(request, env, pickKeys(saved.data));
+  }
+  const out = await refreshDeathPool(env);
   if (!out) return json(request, env, { success: false }, 404);
-  try { await addDeathPoolHistory(env, out); } catch (e) { console.log('history: ' + e); }
-  ctx.waitUntil(saveDeathPoolSnapshot(env, out).catch(e => console.log('snapshot: ' + e)));
-  ctx.waitUntil(cache.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } })));
   return json(request, env, pickKeys(out));
+}
+
+// Re-read the sheet, attach history, save the snapshot + the shared copy + the edge cache.
+async function refreshDeathPool(env) {
+  const out = await loadDeathPool(env);
+  if (!out) return null;
+  try { await saveDeathPoolSnapshot(env, out); } catch (e) { console.log('snapshot: ' + e); }
+  try { await addDeathPoolHistory(env, out); } catch (e) { console.log('history: ' + e); }
+  await sb(env, 'deathpool_cache?on_conflict=id', {
+    method: 'POST', headers: { 'Accept-Profile': 'public', 'Content-Profile': 'public', Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ id: 1, data: out, updated_at: new Date().toISOString() })
+  });
+  await caches.default.put(new Request(DP_EDGE_KEY), new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } }));
+  return out;
 }
 
 async function loadDeathPool(env) {

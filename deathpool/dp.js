@@ -227,15 +227,24 @@
   [['s-search', renderStandings], ['g-search', renderGraveyard], ['b-search', renderBirthdays], ['x-search', renderBoxes]]
     .forEach(([id, fn]) => $(id).addEventListener('input', () => D && fn()));
 
+  // Show the last copy this browser saw right away, then swap in fresh data.
+  const LS = 'aasn-dp-data';
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS) || 'null');
+    if (saved && saved.success) { D = saved; renderAll(); $('loading').hidden = true; route(); }
+  } catch (e) { /* ignore */ }
+
   async function load() {
     try {
       const res = await fetch(AASN_API_URL + '/deathpool/data');
       const d = await res.json();
       if (!d || !d.success) throw new Error('no data');
+      const first = !D;
       D = d;
       renderAll();
       $('loading').hidden = true;
-      route();
+      if (first) route();
+      try { localStorage.setItem(LS, JSON.stringify(d)); } catch (e) { /* storage full or blocked */ }
     } catch (e) {
       if (!D) $('loading').textContent = 'No pulse right now — the Death Pool data is unavailable. Try again shortly.';
     }
