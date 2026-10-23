@@ -38,7 +38,7 @@
   function openCemetery(name) {
     const c = cemByName.get(key(name));
     const st = D.standings.find(s => key(s.name) === key(name));
-    $('dlg-title').textContent = name;
+    $('dlg-title').innerHTML = logo(name, 40) + esc(name);
     $('dlg-sub').textContent = (st ? `RANK ${st.rank} · ${fmt(st.points)} PTS` : '') + (c ? ` · ${c.picks.filter(p => deadMap.has(key(p.celeb))).length} OF ${c.picks.length} PICKS DEAD` : '');
     $('dlg-body').innerHTML = c ? c.picks.map(p => {
       const dead = deadMap.get(key(p.celeb));
@@ -84,7 +84,8 @@
   // ---------- renderers
   const bonusText = code => { const b = (D.bonuses || []).find(x => x.code === code); return b ? b.text : code; };
   const tags = list => list.map(code => `<span class="btag${code === 'B16' ? ' neg' : ''}" title="${esc(bonusText(code))}">${esc(code)}</span>`).join('') || '<span class="small">—</span>';
-  const cemBtn = name => `<button type="button" class="linkbtn" data-cem="${esc(name)}">${esc(name)}</button>`;
+  const logo = (name, px) => window.aasnLogos ? aasnLogos.badge('dp', name, name, px) : '';
+  const cemBtn = name => `<button type="button" class="linkbtn" data-cem="${esc(name)}">${logo(name, 20)}${esc(name)}</button>`;
   const leaderPts = () => (D.standings[0] && D.standings[0].points) || 0;
   const sortedStandings = () => [...D.standings].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
 
@@ -240,7 +241,9 @@
         const g = deadMap.get(key(p.celeb));
         return `<tr><td class="small">${esc(p.category)}</td><td>${celebBtn(p.celeb)}${g ? `<span class="dead-mark">☠ ${esc(niceDate(g.died))}</span>` : ''}</td><td class="num">${p.points ? fmt(p.points) : '—'}</td></tr>`;
       }).join('') : '';
-      return `<div class="mine-card"><h3>${esc(n)}</h3>
+      const has = window.aasnLogos && aasnLogos.url('dp', n);
+      return `<div class="mine-card"><h3 style="display:flex;align-items:center;gap:4px">${logo(n, 56)}${esc(n)}</h3>
+        <div style="display:flex;gap:6px;margin:-2px 0 10px"><button type="button" class="dp-signin" style="min-height:34px;font-size:13px" data-dplogo="set" data-team="${esc(n)}">${has ? 'CHANGE LOGO' : 'ADD LOGO'}</button>${has ? `<button type="button" class="dp-signin" style="min-height:34px;font-size:13px" data-dplogo="remove" data-team="${esc(n)}">REMOVE</button>` : ''}<span class="small" id="dplogo-msg-${esc(key(n))}"></span></div>
         <div class="cstats">
           <div><span>RANK</span><b>${st.rank ?? '—'}${st.prevRank != null && st.rank != null && st.prevRank !== st.rank ? ` <span class="mv ${st.prevRank > st.rank ? 'up' : 'down'}">${st.prevRank > st.rank ? '▲' : '▼'}${Math.abs(st.prevRank - st.rank)}</span>` : ''}</b></div>
           <div><span>POINTS</span><b>${fmt(st.points)}</b></div>
@@ -253,6 +256,19 @@
     }).join('');
   }
   document.addEventListener('click', e => { if (e.target.closest('[data-signin]') && window.aasnAuth) aasnAuth.open(); });
+  // Cemetery logo: owners (signed in with their entry email) — goes live straight away.
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-dplogo]');
+    if (!b || !window.aasnLogos || !window.aasnAuth) return;
+    const team = b.dataset.team;
+    const args = { pool: 'dp', team, proof: { accessToken: await aasnAuth.accessToken() } };
+    b.disabled = true;
+    const out = b.dataset.dplogo === 'remove' ? await aasnLogos.remove(args) : await aasnLogos.pick(args);
+    b.disabled = false;
+    if (out.cancelled) return;
+    if (!out.success) { const m = document.getElementById('dplogo-msg-' + key(team)); if (m) m.textContent = out.error || 'Could not update the logo.'; return; }
+    renderAll();
+  });
   if (window.aasnAuth) aasnAuth.onChange(() => { me = null; renderMine(); loadMe(); });
 
   function renderAll() {
@@ -293,6 +309,7 @@
       const d = await res.json();
       if (!d || !d.success) throw new Error('no data');
       const first = !D;
+      if (window.aasnLogos) await aasnLogos.load('dp');
       D = d;
       renderAll();
       $('loading').hidden = true;

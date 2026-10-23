@@ -14,6 +14,7 @@
   const fmt = v => num(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
   async function load(season) {
+    if (window.aasnLogos) await aasnLogos.load('aabl');
     const [teams, cfg, dates, winners] = await Promise.all([
       aasnSelect('teams', `select=entry_id,team_name,moves_used&season=eq.${season}`, 'aabl'),
       aasnSelect('config', `select=season_moves,entry_fee&season=eq.${season}`, 'aabl'),
@@ -132,7 +133,7 @@
       </tr></thead>
       <tbody>${rows.map(r => `<tr>
         <td class="${r.rank === 1 ? 'rank1' : ''}">${r.rank}${L && r.liveMove ? ` <span class="${r.liveMove > 0 ? 'up' : 'down'}" style="font-size:10px" title="${r.liveMove > 0 ? 'Up' : 'Down'} ${Math.abs(r.liveMove)} tonight">${r.liveMove > 0 ? '▲' : '▼'}${Math.abs(r.liveMove)}</span>` : ''}</td>
-        <td><button type="button" class="team-link" data-entry="${esc(r.entry_id)}" data-name="${esc(r.team_name)}" data-rank="${r.rank}" data-points="${r.points}">${esc(r.team_name)}</button></td>
+        <td><button type="button" class="team-link" data-entry="${esc(r.entry_id)}" data-name="${esc(r.team_name)}" data-rank="${r.rank}" data-points="${r.points}">${window.aasnLogos ? aasnLogos.badge('aabl', r.entry_id, r.team_name, 22) : ''}${esc(r.team_name)}</button></td>
         <td class="num pts">${fmt(r.players_points)}</td>
         ${L ? `<td class="num" style="color:${r.tonight ? '#5BD08A' : 'var(--dim)'}">${r.tonight ? '+' + fmt(r.tonight) : '—'}${r.tonightN ? ` <span style="color:var(--dim);font-size:11px">(${r.tonightN})</span>` : ''}</td>` : ''}
         <td>${div(r)}</td>

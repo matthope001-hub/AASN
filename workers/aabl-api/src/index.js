@@ -57,6 +57,12 @@ export default {
         email: !!(env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM)
       });
     }
+    if (url.pathname === '/logo' && request.method === 'POST') {
+      try {
+        let body = {}; try { body = JSON.parse(await request.text()); } catch (e) { /* ignore */ }
+        return json(request, env, await teamLogo(env, body));
+      } catch (err) { console.log('Logo failed: ' + (err && err.stack || err)); return json(request, env, { success: false, error: 'Something went wrong. Please try again.' }, 500); }
+    }
     if (url.pathname === '/deathpool/me' && request.method === 'POST') {
       try {
         let body = {}; try { body = JSON.parse(await request.text()); } catch (e) { /* ignore */ }
@@ -521,7 +527,8 @@ async function deathPoolData(request, env, ctx) {
   try { [saved] = await sb(env, 'deathpool_cache?select=data,updated_at&id=eq.1', { headers: { 'Accept-Profile': 'public' } }); } catch (e) { /* ignore */ }
   if (saved && saved.data) {
     const age = Date.now() - new Date(saved.updated_at).getTime();
-    if (age > DP_FRESH_MS) ctx.waitUntil(refreshDeathPool(env).catch(e => console.log('refresh: ' + e)));
+    if (age > 3 * DP_FRESH_MS) { try { const o = await refreshDeathPool(env); if (o) return json(request, env, pickKeys(o)); } catch (e) { console.log('refresh: ' + e); } }
+    else if (age > DP_FRESH_MS) ctx.waitUntil(refreshDeathPool(env).catch(e => console.log('refresh: ' + e)));
     else ctx.waitUntil(cache.put(key, new Response(JSON.stringify(saved.data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${Math.max(30, Math.round((DP_FRESH_MS - age) / 1000))}` } })));
     return json(request, env, pickKeys(saved.data));
   }
@@ -543,6 +550,71 @@ async function deathPoolMe(env, body) {
   let admin = false;
   for (const e of emails) if (DP_ADMIN_HASHES.includes(await sha256Hex(e))) admin = true;
   return { success: true, emails, admin, cemeteries: [...new Set(rows.map(r => r.cemetery))] };
+}
+
+// ---------------------------------------------------------------- logos
+// POST /logo { action: 'upload'|'remove', pool: 'aabl'|'aahl'|'dp', team, image (data URL), + proof }
+// Proof: AABL -> emailed token / signed-in accessToken / email (same as My Team);
+//        AAHL -> signed-in accessToken matching the entry email, or entryId + email;
+//        Death Pool -> signed-in accessToken whose email owns the cemetery.
+// The commissioner (signed in) can change any team. Logos go live immediately.
+const LOGO_MAX = 300 * 1024;
+async function teamLogo(env, body) {
+  const pool = String(body.pool || '');
+  const team = String(body.team || '').trim();
+  if (!['aabl', 'aahl', 'dp'].includes(pool) || !team || team.length > 120) return { success: false, error: 'Unknown team.' };
+  let ok = false;
+  if (body.accessToken) {
+    const u = await verifyUser(env, String(body.accessToken));
+    if (u) for (const e of u.emails) if (DP_ADMIN_HASHES.includes(await sha256Hex(e))) ok = true;
+  }
+  if (!ok && pool === 'aabl') ok = !!(await authEntry(env, { entryId: team, token: body.token, accessToken: body.accessToken, email: body.email }));
+  if (!ok && pool === 'aahl') {
+    if (!/^[A-Za-z0-9_-]{4,64}$/.test(team)) return { success: false, error: 'Unknown team.' };
+    const [e] = await sb(env, `entries?select=id,data->>email&id=eq.${encodeURIComponent(team)}`, { headers: { 'Accept-Profile': 'public' } });
+    const email = e && String(e.email || '').trim().toLowerCase();
+    if (email) {
+      if (body.accessToken) { const u = await verifyUser(env, String(body.accessToken)); ok = !!(u && u.emails.has(email)); }
+      else if (body.email) ok = String(body.email).trim().toLowerCase() === email;
+    }
+  }
+  if (!ok && pool === 'dp' && body.accessToken) {
+    const u = await verifyUser(env, String(body.accessToken));
+    if (u && u.emails.size) {
+      const list = [...u.emails].map(e => '"' + e.replace(/"/g, '') + '"').join(',');
+      const rows = await sb(env, `deathpool_owners?select=cemetery&email=in.(${encodeURIComponent(list)})`, { headers: { 'Accept-Profile': 'public' } });
+      ok = rows.some(r => r.cemetery === team);
+    }
+  }
+  if (!ok) return { success: false, error: 'Only the team owner can change this logo. Use your team link or sign in with your entry email.' };
+
+  const slug = team.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) + '-' + (await sha256Hex(team)).slice(0, 8);
+  const path = `${pool}/${slug}.webp`;
+  const storage = `${env.SUPABASE_URL}/storage/v1/object/logos/${path}`;
+  const auth = { apikey: env.SUPABASE_SERVICE_KEY, ...(env.SUPABASE_SERVICE_KEY.startsWith('eyJ') ? { Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}` } : {}) };
+
+  if (body.action === 'remove') {
+    await fetch(storage, { method: 'DELETE', headers: auth });
+    await sb(env, `team_logos?pool=eq.${pool}&team_id=eq.${encodeURIComponent(team)}`, { method: 'DELETE', headers: { 'Accept-Profile': 'public', 'Content-Profile': 'public', Prefer: 'return=minimal' } });
+    return { success: true, removed: true };
+  }
+  const m = String(body.image || '').match(/^data:(image\/(?:webp|png|jpeg));base64,([A-Za-z0-9+/=]+)$/);
+  if (!m) return { success: false, error: 'Please choose a JPG, PNG or WebP image.' };
+  const bytes = Uint8Array.from(atob(m[2]), ch => ch.charCodeAt(0));
+  if (bytes.length > LOGO_MAX) return { success: false, error: 'That image is too big. Try a smaller one.' };
+  const sig = [...bytes.slice(0, 12)];
+  const isWebp = sig[0] === 0x52 && sig[1] === 0x49 && sig[8] === 0x57 && sig[9] === 0x45;
+  const isPng = sig[0] === 0x89 && sig[1] === 0x50;
+  const isJpg = sig[0] === 0xFF && sig[1] === 0xD8;
+  if (!(isWebp || isPng || isJpg)) return { success: false, error: 'That file is not a valid image.' };
+  const up = await fetch(storage, { method: 'POST', headers: { ...auth, 'Content-Type': m[1], 'x-upsert': 'true', 'Cache-Control': 'max-age=3600' }, body: bytes });
+  if (!up.ok) { console.log('logo upload: ' + up.status + ' ' + await up.text()); return { success: false, error: 'Upload failed. Please try again.' }; }
+  const url = `${env.SUPABASE_URL}/storage/v1/object/public/logos/${path}?v=${Date.now()}`;
+  await sb(env, 'team_logos?on_conflict=pool,team_id', {
+    method: 'POST', headers: { 'Accept-Profile': 'public', 'Content-Profile': 'public', Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ pool, team_id: team, url, updated_at: new Date().toISOString() })
+  });
+  return { success: true, url };
 }
 
 // Re-read the sheet, attach history, save the snapshot + the shared copy + the edge cache.

@@ -62,8 +62,9 @@
     const entryId = el.dataset.entry;
     const ov = overlay();
     lastFocus = document.activeElement;
+    if (window.aasnLogos) await aasnLogos.load('aabl');
     const head = `<button type="button" class="aabl-tm-x" aria-label="Close">×</button>
-      <div class="aabl-tm-head"><div class="aabl-tm-name">${esc(el.dataset.name || 'Team')}</div>
+      <div class="aabl-tm-head"><div class="aabl-tm-name">${window.aasnLogos ? aasnLogos.badge('aabl', el.dataset.entry, el.dataset.name, 40) : ''}${esc(el.dataset.name || 'Team')}</div>
       <div class="aabl-tm-meta">${el.dataset.rank ? `RANK ${esc(el.dataset.rank)} · ` : ''}<b>${el.dataset.points ? fmt(el.dataset.points) : '—'}</b> PTS</div></div>`;
     ov.innerHTML = `<div class="aabl-tm" role="dialog" aria-modal="true" aria-label="${esc(el.dataset.name || 'Team')}">${head}<div class="aabl-tm-msg">Loading roster…</div></div>`;
     ov.classList.add('on');
