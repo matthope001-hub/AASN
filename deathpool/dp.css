@@ -121,9 +121,27 @@ dialog::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(3px); }
 .mv { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
 .mv.up { color: var(--g); } .mv.down { color: var(--red); } .mv.flat { color: var(--dim); }
 .race-panel { margin-bottom: 12px; }
-#race svg { width: 100%; height: 220px; display: block; }
-#race .lg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-family: var(--mono); font-size: 11px; color: var(--text-2); }
-#race .lg i { display: inline-block; width: 10px; height: 3px; margin-right: 5px; vertical-align: middle; }
+#race svg { width: 100%; height: auto; display: block; }
+.race-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.race-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; background: var(--bg); border: 1px solid var(--border-2); border-radius: 16px; color: var(--text-2); font: 600 13px var(--display); letter-spacing: .3px; cursor: pointer; }
+.race-chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.race-chip.on { border-color: var(--g); color: var(--text); background: #101A12; }
+.race-chip.dim { opacity: .55; }
+.race-chip:focus-visible { outline: 2px solid var(--g); outline-offset: 2px; }
+.race-wrap { position: relative; }
+.race-hit { cursor: crosshair; }
+.race-tip { position: absolute; top: 6px; z-index: 3; min-width: 220px; max-width: 280px; background: rgba(11,13,16,.96); border: 1px solid var(--border-2); border-radius: 6px; padding: 8px 10px; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+.race-tip .rt-date { font: 700 11px var(--mono); color: var(--g); letter-spacing: .5px; }
+.race-tip .rt-died { font-size: 13px; color: #FF8A7A; margin: 3px 0 5px; }
+.race-tip table { width: 100%; font-size: 13px; border-collapse: collapse; }
+.race-tip td { padding: 2px 3px; border: 0; white-space: nowrap; }
+.race-tip td:first-child { color: var(--dim); font-family: var(--mono); font-size: 11px; width: 16px; }
+.race-tip td:nth-child(2) { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.race-tip td:nth-child(3), .race-tip td:nth-child(4) { text-align: right; font-family: var(--mono); font-size: 12px; }
+.race-tip td i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.race-tip td.up { color: var(--g); } .race-tip td.down { color: var(--red); }
+.race-tip tr.dim td { opacity: .5; }
+.race-help { margin-top: 6px; }
 .linkbtn.celeb { font-weight: 600; }
 .cstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 6px 0 12px; }
 .cstats div { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
@@ -152,3 +170,4 @@ details.mine-card[open] .ms-name { font-size: 30px; }
 .mine-empty p { color: var(--text-2); font-size: 16px; line-height: 1.5; max-width: 520px; }
 .btn-g { min-height: 44px; padding: 0 20px; background: var(--g); color: var(--g-dark); border: 0; border-radius: 4px; font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: 1px; cursor: pointer; }
 @media (min-width: 861px) { .tabs a { padding: 10px 9px; font-size: 15px; } }
+@media (max-width: 640px) { .race-tip { position: static; max-width: none; margin-top: 8px; box-shadow: none; } .race-chip { min-height: 30px; font-size: 12px; padding: 0 8px; } }

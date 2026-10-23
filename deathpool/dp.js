@@ -19,6 +19,7 @@
     const view = VIEWS.includes(v) ? v : 'home';
     if (!D) return;
     VIEWS.forEach(x => { $('v-' + x).hidden = x !== view; });
+    if (view === 'standings') renderRace();   // size the chart to the now-visible panel
     document.querySelectorAll('.tabs a').forEach(a => a.toggleAttribute('aria-current', a.getAttribute('href') === '#' + view));
     if (a11yFirst) a11yFirst = false; else window.scrollTo(0, 0);
   }
@@ -154,33 +155,99 @@
     renderRace();
   }
 
-  // Points race: the top 8 cemeteries from Jan 1, stepping up on each death.
+  // Points race (Jan 1 -> today), built for reading:
+  //  - tap a cemetery chip (or a line) to spotlight it; the rest fade to grey
+  //  - hover / drag across the chart to see the standings on any death day, and who died
+  //  - names sit at the end of each line instead of a separate legend
+  let raceFocus = null;                 // cemetery key, or null = all in colour
+  const RACE_COLORS = ['#8BE37A', '#00D4FF', '#FFB800', '#F06A70', '#B79CFF', '#FF9F43', '#4FD1C5', '#E8ECF0'];
   function renderRace() {
     const el = $('race');
     const tl = seasonTimeline();
     if (!tl.events.length) { el.innerHTML = '<p class="small">The race starts with the first death.</p>'; return; }
+    if (raceFocus == null && me && me.cemeteries && me.cemeteries.length) raceFocus = key(me.cemeteries[0]);
     const top = sortedStandings().slice(0, 8).map(s => s.name);
-    const COLORS = ['#8BE37A', '#00D4FF', '#FFB800', '#F06A70', '#B79CFF', '#FF9F43', '#4FD1C5', '#E8ECF0'];
-    const W = 800, H = 240, P = { l: 40, r: 12, t: 10, b: 24 };
     const year = new Date(tl.days[0]).getFullYear();
     const t0 = new Date(year, 0, 1).getTime(), t1 = Math.max(Date.now(), tl.days[tl.days.length - 1]);
-    const series = top.map(name => {
+    const series = top.map((name, k) => {
       let v = 0; const pts = [[t0, 0]];
       tl.events.filter(e => e.cem === name).forEach(e => { pts.push([e.t, v]); v += e.pts; pts.push([e.t, v]); });
       pts.push([t1, v]);
-      return { name, pts, max: Math.max(...pts.map(p => p[1])), min: Math.min(...pts.map(p => p[1])) };
+      return { name, k: key(name), color: RACE_COLORS[k], pts, end: v };
     });
-    const max = Math.max(1, ...series.map(s => s.max)), min = Math.min(0, ...series.map(s => s.min));
+    const W = Math.max(320, el.clientWidth || 800), narrow = W < 640;
+    const H = narrow ? 240 : 300, P = { l: 38, r: narrow ? 10 : 170, t: 12, b: 26 };
+    const max = Math.max(1, ...series.map(s => Math.max(...s.pts.map(p => p[1])))), min = Math.min(0, ...series.map(s => Math.min(...s.pts.map(p => p[1]))));
     const x = t => P.l + (W - P.l - P.r) * (t - t0) / (t1 - t0);
-    const y = v => P.t + (H - P.t - P.b) * (1 - (v - min) / (max - min));
-    const lines = series.map((s, k) => `<polyline points="${s.pts.map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${COLORS[k]}" stroke-width="2.2" stroke-linejoin="round" vector-effect="non-scaling-stroke"><title>${esc(s.name)} · ${fmt(s.pts[s.pts.length - 1][1])} pts</title></polyline>`).join('');
-    const grid = [0, .25, .5, .75, 1].map(f => { const v = min + (max - min) * f; return `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" stroke="#1F252C"/><text x="${P.l - 6}" y="${y(v) + 4}" fill="#9AA4AF" font-size="10" text-anchor="end" font-family="JetBrains Mono">${Math.round(v)}</text>`; }).join('');
+    const y = v => P.t + (H - P.t - P.b) * (1 - (v - min) / (max - min || 1));
+    const focus = raceFocus && series.some(s => s.k === raceFocus) ? raceFocus : null;
+    const dim = s => focus && s.k !== focus;
+    // grid + axes
+    const grid = [0, .25, .5, .75, 1].map(f => { const v = min + (max - min) * f; return `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" stroke="#1A1F26"/><text x="${P.l - 6}" y="${y(v) + 4}" fill="#6B7580" font-size="10" text-anchor="end" font-family="JetBrains Mono">${Math.round(v)}</text>`; }).join('');
     const months = []; for (let m = 0; m < 12; m++) { const t = new Date(year, m, 1).getTime(); if (t <= t1) months.push(t); }
-    const xl = months.map(t => `<line x1="${x(t)}" x2="${x(t)}" y1="${P.t}" y2="${H - P.b}" stroke="#161B21"/><text x="${x(t) + 2}" y="${H - 8}" fill="#9AA4AF" font-size="10" font-family="JetBrains Mono">${new Date(t).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}</text>`).join('');
-    const ticks = tl.days.map(t => `<line x1="${x(t)}" x2="${x(t)}" y1="${H - P.b}" y2="${H - P.b + 4}" stroke="#FF5C5C"/>`).join('');
-    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Points race for the top 8 cemeteries since January 1">${xl}${grid}${ticks}${lines}</svg>
-      <div class="lg">${series.map((s, k) => `<span><i style="background:${COLORS[k]}"></i>${esc(s.name)}</span>`).join('')}<span class="small">· red ticks = a death</span></div>`;
+    const xl = months.map(t => `<text x="${x(t) + 3}" y="${H - 8}" fill="#6B7580" font-size="10" font-family="JetBrains Mono">${new Date(t).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}</text>`).join('');
+    const ticks = tl.days.map(t => `<line x1="${x(t)}" x2="${x(t)}" y1="${H - P.b}" y2="${H - P.b + 5}" stroke="#FF5C5C" stroke-width="1.5"/>`).join('');
+    // lines: faded ones first, spotlight last so it sits on top
+    const order = [...series].sort((a, b) => (dim(b) - dim(a)));
+    const lines = order.map(s => `<polyline data-k="${esc(s.k)}" points="${s.pts.map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${dim(s) ? '#2E353D' : s.color}" stroke-width="${focus && !dim(s) ? 3.2 : 2}" stroke-linejoin="round"/>
+      <polyline data-k="${esc(s.k)}" points="${s.pts.map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="transparent" stroke-width="12" style="cursor:pointer"/>`).join('');
+    // end labels (desktop), nudged apart so they never overlap
+    let labels = '';
+    if (!narrow) {
+      const L = series.map(s => ({ s, y: y(s.end) })).sort((a, b) => a.y - b.y);
+      for (let i = 1; i < L.length; i++) if (L[i].y - L[i - 1].y < 14) L[i].y = L[i - 1].y + 14;
+      const over = L.length ? L[L.length - 1].y - (H - P.b) : 0;
+      if (over > 0) L.forEach(l => { l.y -= over; });
+      labels = L.map(l => `<text data-k="${esc(l.s.k)}" x="${W - P.r + 8}" y="${l.y + 4}" fill="${dim(l.s) ? '#4A535D' : l.s.color}" font-size="12" font-weight="${focus && !dim(l.s) ? 700 : 500}" font-family="Barlow Condensed, sans-serif" style="cursor:pointer">${esc(l.s.name.length > 22 ? l.s.name.slice(0, 21) + '…' : l.s.name)} · ${Math.round(l.s.end)}</text>`).join('');
+    }
+    el.innerHTML = `
+      <div class="race-chips" role="group" aria-label="Spotlight a cemetery">${series.map(s => `<button type="button" class="race-chip${focus === s.k ? ' on' : ''}${dim(s) ? ' dim' : ''}" data-k="${esc(s.k)}" aria-pressed="${focus === s.k}"><i style="background:${s.color}"></i>${esc(s.name)}</button>`).join('')}${focus ? '<button type="button" class="race-chip" data-k="">SHOW ALL</button>' : ''}</div>
+      <div class="race-wrap">
+        <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Points race for the top 8 cemeteries since January 1">${grid}${xl}${ticks}${lines}${labels}
+          <line class="race-cross" x1="0" x2="0" y1="${P.t}" y2="${H - P.b}" stroke="#9AA4AF" stroke-dasharray="3 3" visibility="hidden"/>
+          <g class="race-dots"></g>
+          <rect class="race-hit" x="${P.l}" y="${P.t}" width="${W - P.l - P.r}" height="${H - P.t - P.b}" fill="transparent"/>
+        </svg>
+        <div class="race-tip" hidden></div>
+      </div>
+      <p class="small race-help">Tap a name to spotlight it · ${narrow ? 'touch' : 'hover'} the chart to see the standings on any death day · red ticks = deaths</p>`;
+
+    const svg = el.querySelector('svg'), tip = el.querySelector('.race-tip'), cross = el.querySelector('.race-cross'), dots = el.querySelector('.race-dots');
+    const byDay = new Map(); tl.events.forEach(e => { if (!byDay.has(e.t)) byDay.set(e.t, new Set()); byDay.get(e.t).add(e.celeb); });
+    const valAt = (s, t) => { let v = 0; for (const [tt, vv] of s.pts) { if (tt <= t) v = vv; else break; } return v; };
+    function show(clientX) {
+      const r = svg.getBoundingClientRect();
+      const px = (clientX - r.left) * (W / r.width);
+      const t = t0 + (px - P.l) / (W - P.l - P.r) * (t1 - t0);
+      // snap to the nearest death day
+      let best = tl.days[0]; for (const d of tl.days) if (Math.abs(d - t) < Math.abs(best - t)) best = d;
+      const cx = x(best);
+      cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('visibility', 'visible');
+      const rows = series.map(s => ({ s, v: valAt(s, best), before: valAt(s, best - 1) })).sort((a, b) => b.v - a.v);
+      dots.innerHTML = rows.map(rw => `<circle cx="${cx}" cy="${y(rw.v)}" r="${dim(rw.s) ? 2.5 : 4}" fill="${dim(rw.s) ? '#2E353D' : rw.s.color}" stroke="#0B0D10" stroke-width="1.5"/>`).join('');
+      const died = [...(byDay.get(best) || [])];
+      tip.innerHTML = `<div class="rt-date">${new Date(best).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}</div>
+        ${died.length ? `<div class="rt-died">☠ ${died.map(esc).join(', ')}</div>` : ''}
+        <table>${rows.map((rw, i) => `<tr class="${dim(rw.s) ? 'dim' : ''}"><td>${i + 1}</td><td><i style="background:${rw.s.color}"></i>${esc(rw.s.name)}</td><td>${fmt(rw.v)}</td><td class="${rw.v - rw.before > 0 ? 'up' : rw.v - rw.before < 0 ? 'down' : ''}">${rw.v !== rw.before ? (rw.v > rw.before ? '+' : '') + fmt(rw.v - rw.before) : ''}</td></tr>`).join('')}</table>`;
+      tip.hidden = false;
+      const left = (cx / W) * r.width;
+      tip.style.left = Math.min(Math.max(0, left + 14), r.width - tip.offsetWidth) + 'px';
+      if (left + 14 + tip.offsetWidth > r.width) tip.style.left = Math.max(0, left - tip.offsetWidth - 14) + 'px';
+    }
+    const hide = () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); dots.innerHTML = ''; };
+    const hit = el.querySelector('.race-hit');
+    hit.addEventListener('mousemove', e => show(e.clientX));
+    hit.addEventListener('mouseleave', hide);
+    hit.addEventListener('touchstart', e => show(e.touches[0].clientX), { passive: true });
+    hit.addEventListener('touchmove', e => show(e.touches[0].clientX), { passive: true });
+    el.querySelectorAll('[data-k]').forEach(n => n.addEventListener('click', () => {
+      const k = n.getAttribute('data-k');
+      raceFocus = !k || raceFocus === k ? '' : k;
+      renderRace();
+    }));
   }
+  let raceResizeT = null;
+  window.addEventListener('resize', () => { clearTimeout(raceResizeT); raceResizeT = setTimeout(() => { if (D && !$('v-standings').hidden) renderRace(); }, 200); });
 
   function renderGraveyard() {
     const q = key($('g-search').value);
