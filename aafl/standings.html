@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../shared/gate.js" data-gate="aafl"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Standings — AAFL 2026</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07101F">
+<link rel="icon" type="image/png" href="assets/icon-180.png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aafl.css?v=1">
+<script src="../shared/switcher.js" data-pool="aafl" defer></script>
+<style>
+.pg{padding:20px 0 28px}
+.pg h1{font-family:var(--display);font-weight:400;font-size:32px;margin:0}
+.lead{color:var(--mut);margin:2px 0 14px}
+.note{background:rgba(255,207,90,.08);border:1px dashed rgba(255,207,90,.5);color:#F3DFA6;border-radius:10px;padding:8px 12px;font-size:14px;margin-bottom:14px}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px;margin-bottom:14px}
+.seg button{border:0;background:none;color:#C9D3E0;font:700 16px var(--body);padding:7px 16px;border-radius:8px;cursor:pointer}
+.seg button[aria-selected=true]{background:var(--navy);color:#fff}
+.st td,.st th{padding:9px 12px}
+.st tbody tr.row{cursor:pointer}
+.st tbody tr.row:hover td{background:rgba(255,255,255,.03)}
+.st tbody tr.row:focus-visible{outline:2px solid var(--silver);outline-offset:-2px}
+.st .tn{font-weight:600}
+.st .caret{color:var(--mut);font-size:12px;margin-left:6px}
+.det td{background:#0A1426;padding:14px}
+.dg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.dg div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center}
+.dg span{display:block;font-size:11px;letter-spacing:1px;color:var(--mut)}.dg b{font-family:var(--display);font-weight:400;font-size:20px}
+.bars{display:flex;align-items:flex-end;gap:6px;height:110px;padding-top:6px}
+.bars div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
+.bars i{display:block;width:100%;max-width:34px;background:var(--silver);border-radius:4px 4px 0 0}
+.bars i.best{background:var(--ok)}.bars i.win{background:var(--gold)}
+.bars em{font-style:normal;font-size:12px;font-weight:700;margin-bottom:2px}
+.bars small{font-size:11px;color:var(--mut);margin-top:3px}
+.legend{font-size:12px;color:var(--mut);margin-top:6px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin:0 4px 0 10px}
+.weeks{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px}
+.weeks button{flex:none;min-width:44px;height:38px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:#C9D3E0;font:700 16px var(--body);cursor:pointer}
+.weeks button[aria-pressed=true]{background:var(--navy);border-color:var(--silver);color:#fff}
+.gridwrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.pk{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%}
+.pk th,.pk td{padding:6px 6px;text-align:center;border-top:1px solid var(--line);white-space:nowrap}
+.pk thead th{border-top:0;font-size:11px;letter-spacing:.5px;color:var(--mut);vertical-align:bottom;line-height:1.15}
+.pk thead th img{width:22px;height:22px;object-fit:contain;display:block;margin:0 auto 2px}
+.pk thead th b{color:#C9D3E0;font-weight:700}
+.pk .tcol{position:sticky;left:0;background:var(--panel);text-align:left;z-index:1;min-width:150px;padding-left:12px;box-shadow:1px 0 0 var(--line)}
+.pk .sc{font-family:var(--display);font-size:16px;min-width:46px}
+.c{display:inline-block;min-width:40px;padding:3px 4px;border-radius:5px;font-weight:700;font-size:13px}
+.c.y{background:rgba(63,209,122,.18);color:#7BE3A3}
+.c.n{background:rgba(255,93,93,.14);color:#FF8F8F;text-decoration:line-through;text-decoration-color:rgba(255,143,143,.5)}
+.c.p{background:#1B2A4A;color:#C9D3E0}
+.c.l{background:rgba(179,18,27,.25);color:#FFB3B3}
+.wk-win td{background:rgba(212,175,55,.08)}
+.wk-win .tcol{background:#1A2132}
+.empty{padding:20px;color:var(--mut);text-align:center}
+@media (max-width:640px){.dg{grid-template-columns:repeat(2,1fr)}.st .hide-sm{display:none}}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a href="./" class="brand" aria-label="AAFL home">
+      <img src="assets/icon-180.png" alt="">
+      <div><b>AAFL</b><span>AN AASN POOL</span></div>
+    </a>
+    <nav class="tabs" aria-label="AAFL">
+      <a href="./">Home</a>
+      <a href="picks.html">Picks</a>
+      <a href="standings.html" aria-current="page">Standings</a>
+      <a href="results.html">Results</a>
+      <a href="#">Rules</a>
+      <a href="#">What's New</a>
+    </nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap pg">
+  <h1>STANDINGS</h1>
+  <p class="lead">2026 trial season · 1 point for every correct pick · ties share the spot.</p>
+  <div class="note"><b>Trial league:</b> 10 computer teams making random picks for every game since Week 1, graded against the real NFL results.</div>
+
+  <div class="seg" role="tablist" aria-label="View">
+    <button type="button" role="tab" id="tab-season" aria-selected="true">Season</button>
+    <button type="button" role="tab" id="tab-week" aria-selected="false">Weekly picks</button>
+  </div>
+
+  <section id="v-season">
+    <div class="box" style="margin:0">
+      <table class="st">
+        <thead><tr><th>#</th><th>Team</th><th class="n">Pts</th><th class="n hide-sm">Correct</th><th class="n hide-sm">Wk wins</th><th class="n" id="lw-h">Last wk</th></tr></thead>
+        <tbody id="st-body"><tr><td colspan="6" class="empty">Grading the season…</td></tr></tbody>
+      </table>
+    </div>
+    <p class="legend">Tap a team for its season, week by week.</p>
+  </section>
+
+  <section id="v-week" hidden>
+    <div class="weeks" id="weeks" role="group" aria-label="Choose a week"></div>
+    <div class="gridwrap"><table class="pk" id="pk"></table></div>
+    <p class="legend"><i style="background:rgba(63,209,122,.4)"></i>Correct<i style="background:rgba(255,93,93,.35)"></i>Wrong<i style="background:rgba(179,18,27,.5)"></i>Live<i style="background:#1B2A4A"></i>Not played yet<i style="background:rgba(212,175,55,.35)"></i>Week winner</p>
+  </section>
+</main>
+
+<footer class="wrap ftr">
+  <span>© ANGRY ALPACA SPORTS NETWORK</span>
+  <span>AAFL · <a href="../">AASN HOME</a></span>
+</footer>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/auth.js?v=2"></script>
+<script src="league.js?v=1"></script>
+<script>
+(function () {
+  const L = window.AAFL;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+  let SEASON = [], ST = null, CUR = 1, shownWeek = 0, openId = null;
+
+  // ---- season table ----
+  function seasonTable() {
+    const lw = ST.lastDone ? ST.lastDone.week : null;
+    $('lw-h').textContent = lw ? 'Wk ' + lw : 'Last wk';
+    $('st-body').innerHTML = ST.teams.map(r => {
+      const rk = r.rank <= 3 ? `<span class="md g${r.rank}">${r.rank}</span>` : r.rank;
+      const mv = r.move > 0 ? `<span class="up">▲${r.move}</span>` : r.move < 0 ? `<span class="dn">▼${-r.move}</span>` : '';
+      const last = lw ? r.byWeek[lw] : null;
+      const row = `<tr class="row" tabindex="0" data-id="${r.id}" aria-expanded="${openId === r.id}"><td class="rk">${rk}</td><td class="tn">${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${mv}<span class="caret">${openId === r.id ? '▲' : '▼'}</span></td><td class="n"><b>${r.pts}</b></td><td class="n hide-sm">${(r.pct * 100).toFixed(1)}%</td><td class="n hide-sm">${r.weekWins}</td><td class="n">${last ? last.pts + '/' + last.of : '—'}</td></tr>`;
+      return row + (openId === r.id ? `<tr class="det"><td colspan="6">${detail(r)}</td></tr>` : '');
+    }).join('');
+    $('st-body').querySelectorAll('tr.row').forEach(tr => {
+      const go = () => { openId = openId === tr.dataset.id ? null : tr.dataset.id; seasonTable(); };
+      tr.addEventListener('click', go);
+      tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
+  }
+
+  function detail(r) {
+    const wks = ST.weeks.filter(w => w.graded > 0);
+    if (!wks.length) return '<div class="empty">No games graded yet.</div>';
+    const vals = wks.map(w => r.byWeek[w.week]);
+    const best = Math.max(...vals.map(v => v.pts)), worst = Math.min(...wks.filter(w => w.done).map(w => r.byWeek[w.week].pts));
+    const bestW = wks.find(w => r.byWeek[w.week].pts === best).week;
+    const doneW = wks.filter(w => w.done);
+    const worstW = doneW.length ? doneW.find(w => r.byWeek[w.week].pts === worst).week : null;
+    const max = Math.max(...vals.map(v => v.of), 1);
+    const bars = wks.map(w => {
+      const v = r.byWeek[w.week], won = w.winners.includes(r.id);
+      return `<div title="Week ${w.week}: ${v.pts} of ${v.of}${won ? ' · week winner' : ''}"><em>${v.pts}</em><i class="${won ? 'win' : v.pts === best ? 'best' : ''}" style="height:${Math.max(4, v.pts / max * 80)}px"></i><small>W${w.week}</small></div>`;
+    }).join('');
+    return `<div class="dg">
+      <div><span>RANK</span><b>${ord(r.rank)}</b></div>
+      <div><span>CORRECT</span><b>${(r.pct * 100).toFixed(1)}%</b></div>
+      <div><span>BEST WEEK</span><b>${best}</b><span>Week ${bestW}</span></div>
+      <div><span>WORST WEEK</span><b>${worstW ? worst : '—'}</b><span>${worstW ? 'Week ' + worstW : ''}</span></div>
+    </div>
+    <div class="bars" aria-label="Points per week">${bars}</div>
+    <p class="legend" style="margin:6px 0 0"><i style="background:var(--gold)"></i>Week winner<i style="background:var(--ok)"></i>Best week</p>`;
+  }
+
+  // ---- weekly picks grid ----
+  function weekButtons() {
+    $('weeks').innerHTML = SEASON.map(w => `<button type="button" data-w="${w.week}" aria-pressed="${w.week === shownWeek}">${w.week}</button>`).join('');
+    $('weeks').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { shownWeek = +b.dataset.w; weekButtons(); weekGrid(); }));
+  }
+  function weekGrid() {
+    const w = SEASON.find(x => x.week === shownWeek), wk = ST.weeks.find(x => x.week === shownWeek);
+    if (!w || !w.events.length) { $('pk').innerHTML = '<tr><td class="empty">No games this week.</td></tr>'; return; }
+    const head = w.events.map(e => {
+      const [a, h] = L.sides(e), st = L.state(e);
+      const sc = st === 'pre' ? '' : `<br>${esc(a.score)}-${esc(h.score)}`;
+      return `<th title="${esc(a.team.displayName)} at ${esc(h.team.displayName)}"><img src="${esc(h.team.logo || '')}" alt=""><b>${esc(a.team.abbreviation)}</b><br>@${esc(h.team.abbreviation)}${sc}</th>`;
+    }).join('');
+    const rows = ST.teams.slice().sort((x, y) => wk.scores[y.id] - wk.scores[x.id] || x.rank - y.rank).map(r => {
+      const won = wk.winners.includes(r.id);
+      const cells = w.events.map(e => {
+        const p = L.pick(r, e), st = L.state(e), win = L.winner(e);
+        const cls = st === 'pre' ? 'p' : st === 'in' ? 'l' : p === win ? 'y' : 'n';
+        return `<td><span class="c ${cls}">${esc(p)}</span></td>`;
+      }).join('');
+      return `<tr class="${won ? 'wk-win' : ''}"><td class="tcol">${won ? '🏆 ' : ''}${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}</td><td class="sc">${wk.scores[r.id]}</td>${cells}</tr>`;
+    }).join('');
+    $('pk').innerHTML = `<thead><tr><th class="tcol">Team</th><th>Pts</th>${head}</tr></thead><tbody>${rows}</tbody>`;
+  }
+
+  // ---- tabs ----
+  function tab(which) {
+    $('tab-season').setAttribute('aria-selected', which === 'season');
+    $('tab-week').setAttribute('aria-selected', which === 'week');
+    $('v-season').hidden = which !== 'season';
+    $('v-week').hidden = which !== 'week';
+    try { history.replaceState(null, '', which === 'week' ? '#picks' : '#'); } catch (e) { /* ignore */ }
+  }
+  $('tab-season').addEventListener('click', () => tab('season'));
+  $('tab-week').addEventListener('click', () => tab('week'));
+
+  async function start() {
+    try {
+      CUR = await L.currentWeek();
+      SEASON = await L.loadSeason(CUR);
+      ST = L.standings(SEASON);
+      if (!shownWeek) shownWeek = CUR;
+      seasonTable(); weekButtons(); weekGrid();
+    } catch (e) {
+      $('st-body').innerHTML = '<tr><td colspan="6" class="empty">Standings unavailable right now. Try again in a few minutes.</td></tr>';
+    }
+  }
+  if (location.hash === '#picks') tab('week');
+  start();
+})();
+</script>
+</body>
+</html>

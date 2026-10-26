@@ -24,7 +24,7 @@
     <nav class="tabs" aria-label="AAFL">
       <a href="./" aria-current="page">Home</a>
       <a href="picks.html">Picks</a>
-      <a href="#">Standings</a>
+      <a href="standings.html">Standings</a>
       <a href="results.html">Results</a>
       <a href="#">Rules</a>
       <a href="#">What's New</a>
@@ -56,28 +56,28 @@
     <a class="btn" id="cta-btn" href="picks.html">MAKE PICKS →<small id="cta-sub">Coming soon</small></a>
   </section>
 
-  <section class="stats" aria-label="Your season (sample)">
-    <div><span>Your rank</span><b>4th</b><em>▲ 2 this week</em></div>
-    <div><span>Season points</span><b>72</b><em>66.1% correct</em></div>
-    <div><span>Last week</span><b>11/14</b><em>League avg 8.9</em></div>
-    <div><span>Back of 1st</span><b>−6</b><em>Sample</em></div>
+  <section class="stats" aria-label="League at a glance">
+    <div><span>Leader</span><b id="s-lead">—</b><em id="s-lead2">&nbsp;</em></div>
+    <div><span>Games graded</span><b id="s-graded">—</b><em id="s-graded2">&nbsp;</em></div>
+    <div><span id="s-lw-l">Last week's best</span><b id="s-best">—</b><em id="s-best2">&nbsp;</em></div>
+    <div><span>League correct</span><b id="s-pct">—</b><em>Random picks ≈ 50%</em></div>
   </section>
 
   <div class="cols">
     <div>
       <section class="box" aria-labelledby="st-h">
-        <h3 id="st-h">STANDINGS <span class="sample">SAMPLE</span></h3>
+        <h3 id="st-h">STANDINGS <a href="standings.html">Full table →</a></h3>
         <table>
           <thead><tr><th>#</th><th>Team</th><th class="n">Last wk</th><th class="n">Pts</th></tr></thead>
-          <tbody id="st-body"></tbody>
+          <tbody id="st-body"><tr><td colspan="4" class="empty">Grading the season…</td></tr></tbody>
         </table>
       </section>
     </div>
 
     <div>
       <section class="box" aria-labelledby="win-h">
-        <h3 id="win-h">LAST WEEK'S WINNER <span class="sample">SAMPLE</span></h3>
-        <div class="win"><div class="tr" aria-hidden="true">🏆</div><div><b>Hope's Herd <span class="h">(h)</span></b><span>11 of 14 correct</span></div></div>
+        <h3 id="win-h">LAST WEEK'S WINNER <a href="standings.html#picks">Picks →</a></h3>
+        <div class="win"><div class="tr" aria-hidden="true">🏆</div><div><b id="w-name">—</b><span id="w-sub">&nbsp;</span></div></div>
       </section>
 
       <section class="box" aria-labelledby="gm-h">
@@ -102,22 +102,47 @@
 
 <script src="../shared/config.js"></script>
 <script src="../shared/auth.js?v=2"></script>
+<script src="league.js?v=1"></script>
 <script>
 (function () {
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = id => document.getElementById(id);
 
-  // ---- Sample standings (replaced by Supabase in a later phase) ----
-  const SAMPLE = [
-    ['Gridiron Goats', 10, 78], ['Blitz Llamas', 9, 75, 1], ['Hail Mary Herd', 8, 74], ["Hope's Herd", 11, 72, 1, 'you', 2],
-    ['Spit Happens', 7, 70], ['Fourth & Fluff', 9, 69, 1, '', -1], ['Pack Animals', 8, 67], ['The Woolly Bullies', 6, 64]
-  ];
-  $('st-body').innerHTML = SAMPLE.map((r, i) => {
-    const rk = i < 3 ? `<span class="md g${i + 1}">${i + 1}</span>` : i + 1;
-    const mv = r[5] > 0 ? `<span class="up">▲${r[5]}</span>` : r[5] < 0 ? `<span class="dn">▼${-r[5]}</span>` : '';
-    return `<tr${r[4] ? ' class="you"' : ''}><td class="rk">${rk}</td><td>${esc(r[0])}${r[3] ? '<span class="h">(h)</span>' : ''}${mv}</td><td class="n">${r[1]}</td><td class="n"><b>${r[2]}</b></td></tr>`;
-  }).join('');
+  // ---- League standings (10 computer teams, graded live; see league.js) ----
+  (async function league() {
+    const L = window.AAFL;
+    try {
+      const cur = await L.currentWeek();
+      const ST = L.standings(await L.loadSeason(cur));
+      const lw = ST.lastDone;
+      $('st-body').innerHTML = ST.teams.slice(0, 8).map(r => {
+        const rk = r.rank <= 3 ? `<span class="md g${r.rank}">${r.rank}</span>` : r.rank;
+        const mv = r.move > 0 ? `<span class="up">▲${r.move}</span>` : r.move < 0 ? `<span class="dn">▼${-r.move}</span>` : '';
+        const last = lw ? r.byWeek[lw.week].pts : '—';
+        return `<tr><td class="rk">${rk}</td><td>${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${mv}</td><td class="n">${last}</td><td class="n"><b>${r.pts}</b></td></tr>`;
+      }).join('');
+      const lead = ST.teams.filter(r => r.rank === 1);
+      $('s-lead').textContent = lead.length > 1 ? lead.length + '-way tie' : lead[0].name;
+      $('s-lead').style.fontSize = '20px';
+      $('s-lead2').textContent = lead[0].pts + ' pts';
+      const graded = ST.weeks.reduce((n, w) => n + w.graded, 0);
+      $('s-graded').textContent = graded;
+      $('s-graded2').textContent = 'Weeks 1–' + cur + ' so far';
+      const tot = ST.teams.reduce((n, r) => n + r.pts, 0), of = ST.teams.reduce((n, r) => n + r.graded, 0);
+      $('s-pct').textContent = of ? (tot / of * 100).toFixed(1) + '%' : '—';
+      if (lw) {
+        const names = lw.winners.map(id => ST.teams.find(r => r.id === id).name);
+        $('w-name').textContent = names.join(' & ');
+        $('w-sub').textContent = `Week ${lw.week} · ${lw.top} of ${lw.graded} correct${names.length > 1 ? ' · shared' : ''}`;
+        $('s-lw-l').textContent = `Week ${lw.week} best`;
+        $('s-best').textContent = lw.top + '/' + lw.graded;
+        $('s-best2').textContent = names.length > 1 ? names.length + ' teams tied' : names[0];
+      }
+    } catch (e) {
+      $('st-body').innerHTML = '<tr><td colspan="4" class="empty">Standings unavailable right now.</td></tr>';
+    }
+  })();
 
   // ---- Live NFL schedule from ESPN ----
   const ET = { timeZone: 'America/Toronto' };

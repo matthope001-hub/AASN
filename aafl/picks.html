@@ -98,7 +98,7 @@
     <nav class="tabs" aria-label="AAFL">
       <a href="./">Home</a>
       <a href="picks.html" aria-current="page">Picks</a>
-      <a href="#">Standings</a>
+      <a href="standings.html">Standings</a>
       <a href="results.html">Results</a>
       <a href="#">Rules</a>
       <a href="#">What's New</a>
@@ -134,10 +134,10 @@
 
 <script src="../shared/config.js"></script>
 <script src="../shared/auth.js?v=2"></script>
+<script src="league.js?v=1"></script>
 <script>
 (function () {
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
-  const LEAGUE = 20;   // demo league size for the pick split
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ET = { timeZone: 'America/Toronto' };
@@ -175,10 +175,11 @@
     return 50;
   }
   const favourite = e => { const [a, h] = sides(e); return winPct(e) > 50 ? a.team.abbreviation : h.team.abbreviation; };
+  // League split = how the 10 computer teams picked (league.js).
   function split(e) {
-    const r = seeded('split' + e.id), p = winPct(e) / 100;
-    let a = 0; for (let i = 0; i < LEAGUE; i++) if (r() < p * 0.85 + 0.075) a++;
-    return [a, LEAGUE - a];
+    const [A] = sides(e);
+    const a = window.AAFL.TEAMS.filter(t => window.AAFL.pick(t, e) === A.team.abbreviation).length;
+    return [a, window.AAFL.TEAMS.length - a];
   }
   // For games that kicked off before you picked, the demo fills in a pick (so locked/final cards have something to show).
   function demoPick(e) { const [a, h] = sides(e); return seeded('pick' + e.id)() * 100 < winPct(e) ? a.team.abbreviation : h.team.abbreviation; }
