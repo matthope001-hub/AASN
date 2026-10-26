@@ -37,8 +37,7 @@
   const POOLS = [
     { id: 'aahl', name: 'AAHL', year: '26/27', accent: '#00D4FF', logo: LINKS.aahl + 'aahl-logo.png', round: false },
     { id: 'aabl', name: 'AABL', year: '2027', accent: '#F06A70', logo: BASE + 'aabl/assets/aabl-badge.png', round: true },
-    // hideOn: not shown in the bar on these pools' sites (AAFL stays off theaahl.ca for now).
-    { id: 'aafl', name: 'AAFL', year: '2026', accent: '#869397', logo: BASE + 'aafl/assets/icon-180.png', round: false, hideOn: ['aahl'] },
+    { id: 'aafl', name: 'AAFL', year: '2026', accent: '#869397', logo: BASE + 'aafl/assets/icon-180.png', round: false },
     { id: 'dp', name: 'DEATH POOL', short: 'D.POOL', year: '2026', accent: '#8BE37A', icon: DP_ICON }
   ];
 
