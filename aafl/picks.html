@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../shared/gate.js" data-gate="aafl"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Picks — AAFL 2026</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07101F">
+<link rel="icon" type="image/png" href="assets/icon-180.png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aafl.css?v=1">
+<script src="../shared/switcher.js" data-pool="aafl" defer></script>
+<style>
+.pg{padding:18px 0 110px}
+.demo{background:rgba(255,207,90,.08);border:1px dashed rgba(255,207,90,.5);color:#F3DFA6;border-radius:10px;padding:8px 12px;font-size:14px;margin-bottom:14px}
+.demo b{color:var(--warn)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.top h1{font-family:var(--display);font-weight:400;font-size:32px;margin:0}
+.top .me{font-size:15px;color:var(--mut)}.top .me b{color:#fff}
+.kp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 6px}
+.kp div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.kp span{display:block;font-size:12px;letter-spacing:1px;color:var(--mut);text-transform:uppercase}
+.kp b{font-family:var(--display);font-weight:400;font-size:24px}
+.kp .warn{color:var(--warn)}.kp .live{color:#FF8A8A}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+.tools button{background:var(--panel);border:1px solid var(--line);color:#C9D3E0;border-radius:8px;padding:7px 12px;font:600 15px var(--body);cursor:pointer}
+.tools button:hover{border-color:var(--silver);color:#fff}
+.day-h{font-family:var(--display);font-size:15px;letter-spacing:1px;color:var(--silver);margin:20px 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-items:start}
+
+/* pick card */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.card.right{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
+.card.wrong{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
+.card.in{border-color:#B3121B}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;font-size:13px;color:var(--mut);border-bottom:1px solid var(--line)}
+.hd b{color:var(--txt);font-weight:600}.card.in .hd b{color:#FF8A8A}
+.tag{background:#1B2A4A;border-radius:4px;padding:1px 6px;font-size:12px;white-space:nowrap}
+.mu{display:grid;grid-template-columns:1fr 30px 1fr}
+.tm{position:relative;padding:22px 8px 12px;text-align:center;cursor:pointer;transition:background .18s,opacity .18s,transform .1s;border:0;background:none;color:inherit;font:inherit;min-height:150px}
+.tm:hover{background:rgba(255,255,255,.04)}.tm:active{transform:scale(.98)}
+.tm:focus-visible{outline:2px solid var(--silver);outline-offset:-2px}
+.tm img{width:62px;height:62px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));transition:transform .18s}
+.ab{font-family:var(--display);font-size:20px;margin-top:4px}
+.nm{font-size:13px;color:var(--mut)}
+.score{font-family:var(--display);font-size:28px;line-height:1.1}
+.ha{position:absolute;top:7px;font-size:11px;letter-spacing:1px;color:var(--mut)}
+.tm:first-child .ha{left:10px}.tm:last-child .ha{right:10px}
+.vs{display:flex;align-items:center;justify-content:center;font-family:var(--display);color:var(--mut);font-size:13px}
+.tm.on{background:linear-gradient(180deg,var(--c) 0%,transparent 125%)}
+.tm.on img{transform:scale(1.1)}
+.tm.on::after{content:"✓ YOUR PICK";display:inline-block;margin-top:8px;font-size:11px;font-weight:700;letter-spacing:1px;background:#fff;color:#07101F;border-radius:20px;padding:1px 8px}
+.mu.picked .tm:not(.on){opacity:.42}
+.card.locked .tm{cursor:default}.card.locked .tm:hover{background:none}
+.tm.lose .score{color:#5B6779}
+.prob{display:flex;height:22px;font-size:12px;font-weight:700;line-height:22px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.prob span{padding:0 8px;white-space:nowrap;overflow:hidden}.prob span:last-child{text-align:right}
+.ft{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 12px;border-top:1px solid var(--line);font-size:13px;color:var(--mut)}
+.ft button{background:none;border:0;color:#C9D3E0;font:600 13px var(--body);cursor:pointer;padding:2px 0}
+.ft button:hover{color:#fff}
+.res-ok{color:var(--ok);font-weight:700}.res-no{color:var(--bad);font-weight:700}
+.mx{display:none;padding:10px 12px 12px;border-top:1px solid var(--line);background:#0A1426;font-size:14px}
+.card.open .mx{display:block}
+.mx table{width:100%;border-collapse:collapse}
+.mx td{padding:4px 0;border:0;color:#C9D3E0}.mx td:nth-child(2){text-align:center;color:var(--mut);font-size:12px;letter-spacing:1px}
+.mx td:first-child{text-align:left}.mx td:last-child{text-align:right}
+.mx .flags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.mx .flags span{background:#1B2A4A;border-radius:12px;padding:2px 9px;font-size:12px}
+
+/* submit bar */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(7,16,31,.96);border-top:2px solid var(--silver);backdrop-filter:blur(6px)}
+.bar .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:10px;padding-bottom:10px}
+.bar .pr{flex:1;min-width:0}
+.bar .pr b{font-family:var(--display);font-weight:400;font-size:18px}
+.bar .pr span{display:block;font-size:13px;color:var(--mut)}
+.meter{height:6px;background:#1B2A4A;border-radius:3px;overflow:hidden;margin-top:5px;max-width:360px}
+.meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .25s}
+.sub{background:#fff;color:#07101F;font-family:var(--display);font-size:17px;padding:12px 20px;border-radius:10px;border:0;cursor:pointer;white-space:nowrap}
+.sub:disabled{opacity:.4;cursor:not-allowed}
+.sub.done{background:var(--ok)}
+.toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%) translateY(20px);opacity:0;background:#fff;color:#07101F;font-weight:700;padding:10px 16px;border-radius:10px;transition:.25s;z-index:40;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.empty{padding:20px;color:var(--mut);text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+@media (max-width:420px){.grid{grid-template-columns:1fr}.tm{min-height:138px}.tm img{width:52px;height:52px}.kp b{font-size:20px}}
+@media (prefers-reduced-motion:reduce){.tm,.tm img,.toast{transition:none}}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a href="./" class="brand" aria-label="AAFL home">
+      <img src="assets/icon-180.png" alt="">
+      <div><b>AAFL</b><span>AN AASN POOL</span></div>
+    </a>
+    <nav class="tabs" aria-label="AAFL">
+      <a href="./">Home</a>
+      <a href="picks.html" aria-current="page">Picks</a>
+      <a href="#">Standings</a>
+      <a href="results.html">Results</a>
+      <a href="#">Rules</a>
+      <a href="#">What's New</a>
+    </nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap pg">
+  <div class="demo"><b>DEMO MODE.</b> Real NFL games and odds, but picks are only kept in this browser and don't count toward any standings yet.</div>
+  <div class="top">
+    <h1 id="title">WEEK —</h1>
+    <div class="me">Playing as <b>Hope's Herd</b> <span class="h">(h)</span></div>
+  </div>
+  <div class="kp">
+    <div><span>Picked</span><b id="k-picked">0/0</b></div>
+    <div><span id="k-lock-l">Locks in</span><b id="k-lock" class="warn">—</b></div>
+    <div><span id="k-3-l">Correct</span><b id="k-3">—</b></div>
+  </div>
+  <div class="tools">
+    <button type="button" id="t-fav">Pick all favourites</button>
+    <button type="button" id="t-home">Pick all home teams</button>
+    <button type="button" id="t-clear">Clear my picks</button>
+  </div>
+  <div id="list"><div class="empty" style="margin-top:16px">Loading this week's games…</div></div>
+</main>
+
+<div class="bar"><div class="wrap">
+  <div class="pr"><b id="b-txt">0 of 0 picked</b><span id="b-sub">Tap a team to pick it</span><div class="meter"><i id="b-meter"></i></div></div>
+  <button type="button" class="sub" id="submit" disabled>SUBMIT PICKS</button>
+</div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/auth.js?v=2"></script>
+<script>
+(function () {
+  const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+  const LEAGUE = 20;   // demo league size for the pick split
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ET = { timeZone: 'America/Toronto' };
+  const dayLong = d => d.toLocaleDateString('en-US', { ...ET, weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase();
+  const dayShort = d => d.toLocaleDateString('en-US', { ...ET, weekday: 'short' }).toUpperCase();
+  const time = d => d.toLocaleTimeString('en-US', { ...ET, hour: 'numeric', minute: '2-digit' });
+  const state = e => e.status && e.status.type ? e.status.type.state : 'pre';
+  let WK = 0, EV = [], BYES = new Set(), picks = {}, submitted = false, refreshT = null, lockT = null;
+
+  // ---- demo storage (this browser only) ----
+  const KEY = () => 'aafl-demo-picks-w' + WK;
+  function loadPicks() { try { const v = JSON.parse(localStorage.getItem(KEY()) || 'null'); picks = (v && v.picks) || {}; submitted = !!(v && v.submitted); } catch (e) { picks = {}; } }
+  function savePicks() { try { localStorage.setItem(KEY(), JSON.stringify({ picks, submitted })); } catch (e) { /* ignore */ } }
+
+  // Simple seeded random so demo numbers stay the same on every visit.
+  function seeded(str) { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; }; }
+
+  async function fetchWeek(n) {
+    const r = await fetch(n ? `${ESPN}?seasontype=2&week=${n}&dates=2026` : ESPN);
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  }
+
+  // ---- game helpers ----
+  const sides = e => { const cs = e.competitions[0].competitors; return [cs.find(x => x.homeAway === 'away'), cs.find(x => x.homeAway === 'home')]; };
+  const col = t => '#' + (t.team.color || '22324F');
+  function rec(t, type) { const r = (t.records || []).find(x => x.type === type || x.name === type); return r ? r.summary : '—'; }
+  function winPct(e) {
+    const o = e.competitions[0].odds && e.competitions[0].odds[0];
+    const ml = o && [o.awayTeamOdds && o.awayTeamOdds.moneyLine, o.homeTeamOdds && o.homeTeamOdds.moneyLine];
+    const imp = m => m == null ? null : m < 0 ? -m / (-m + 100) : 100 / (m + 100);
+    if (ml && ml[0] != null && ml[1] != null) { const a = imp(ml[0]), h = imp(ml[1]); return Math.round(a / (a + h) * 100); }
+    // No moneyline: fall back to the spread (about 3% per point), else 50/50.
+    if (o && typeof o.spread === 'number') return Math.max(5, Math.min(95, Math.round(50 + o.spread * 3)));
+    return 50;
+  }
+  const favourite = e => { const [a, h] = sides(e); return winPct(e) > 50 ? a.team.abbreviation : h.team.abbreviation; };
+  function split(e) {
+    const r = seeded('split' + e.id), p = winPct(e) / 100;
+    let a = 0; for (let i = 0; i < LEAGUE; i++) if (r() < p * 0.85 + 0.075) a++;
+    return [a, LEAGUE - a];
+  }
+  // For games that kicked off before you picked, the demo fills in a pick (so locked/final cards have something to show).
+  function demoPick(e) { const [a, h] = sides(e); return seeded('pick' + e.id)() * 100 < winPct(e) ? a.team.abbreviation : h.team.abbreviation; }
+  const myPick = e => picks[e.id] || (state(e) !== 'pre' ? demoPick(e) : null);
+
+  function flags(e, t) {
+    const out = [];
+    if (BYES.has(t.team.abbreviation)) out.push('😴 ' + t.team.abbreviation + ' off bye');
+    return out;
+  }
+
+  // ---- render ----
+  function cardHtml(e) {
+    const c = e.competitions[0], st = state(e), d = new Date(e.date);
+    const [A, H] = sides(e);
+    const pa = winPct(e), ph = 100 - pa;
+    const pick = myPick(e);
+    const locked = st !== 'pre';
+    const odds = c.odds && c.odds[0];
+    let cls = 'card';
+    if (locked) cls += ' locked';
+    if (st === 'in') cls += ' in';
+    let result = '';
+    if (st === 'post' && pick) {
+      const w = (A.winner ? A : H.winner ? H : null);
+      if (w) { const ok = w.team.abbreviation === pick; cls += ok ? ' right' : ' wrong'; result = ok ? '<span class="res-ok">✓ +1 POINT</span>' : '<span class="res-no">✗ 0 POINTS</span>'; }
+      else result = '<span class="res-no">TIE · 0 POINTS</span>';
+    }
+    const head = st === 'pre' ? `${dayShort(d)} ${time(d)} ET` : e.status.type.shortDetail;
+    const tags = [odds && odds.details, odds && odds.overUnder ? 'O/U ' + odds.overUnder : ''].filter(Boolean).map(t => `<span class="tag">${esc(t)}</span>`).join(' ');
+    const side = (t, lbl) => {
+      const ab = t.team.abbreviation;
+      let k = 'tm' + (pick === ab ? ' on' : '');
+      if (st === 'post' && t.winner === false) k += ' lose';
+      const body = locked ? `<div class="score">${esc(t.score)}</div>` : `<div class="nm">${esc(t.team.shortDisplayName || '')}</div><div class="nm">${esc(rec(t, 'total'))}</div>`;
+      return `<button type="button" class="${k}" style="--c:${col(t)}" data-g="${e.id}" data-t="${esc(ab)}" aria-pressed="${pick === ab}" ${locked ? 'aria-disabled="true"' : ''} aria-label="${esc(t.team.displayName || ab)}">
+        <span class="ha">${lbl}</span><img src="${esc(t.team.logo || '')}" alt="" loading="lazy"><div class="ab">${esc(ab)}</div>${body}</button>`;
+    };
+    const sp = locked ? split(e) : null;
+    const left = locked ? `League: ${esc(A.team.abbreviation)} ${sp[0]} · ${esc(H.team.abbreviation)} ${sp[1]}` : 'Picks hidden until lock';
+    const tv = c.broadcasts && c.broadcasts[0] && c.broadcasts[0].names ? c.broadcasts[0].names.join('/') : '';
+    const wx = e.weather ? `${e.weather.displayValue || ''}${e.weather.temperature != null ? ' · ' + e.weather.temperature + '°F' : ''}` : (c.venue && c.venue.indoor ? 'Indoors' : '');
+    const fl = [...flags(e, A), ...flags(e, H)];
+    if (wx) fl.push((c.venue && c.venue.indoor ? '🏟️ ' : '🌤️ ') + wx);
+    if (tv) fl.push('📺 ' + tv);
+    if (!locked && pick && pick !== favourite(e)) fl.push('⚡ Upset pick');
+    return `<article class="${cls}" id="g${e.id}">
+      <div class="hd"><b>${esc(head)}</b><span>${tags}</span></div>
+      <div class="mu${pick ? ' picked' : ''}">${side(A, 'AWAY')}<div class="vs">@</div>${side(H, 'HOME')}</div>
+      <div class="prob" title="Win chance from the betting odds"><span style="width:${pa}%;background:${col(A)}">${pa}%</span><span style="width:${ph}%;background:${col(H)}">${ph}%</span></div>
+      <div class="ft"><span>${result || left}</span><button type="button" data-mx="${e.id}" aria-expanded="false">ⓘ Matchup</button></div>
+      <div class="mx">
+        <table>
+          <tr><td>${esc(rec(A, 'total'))}</td><td>RECORD</td><td>${esc(rec(H, 'total'))}</td></tr>
+          <tr><td>${esc(rec(A, 'road'))}</td><td>AWAY / HOME</td><td>${esc(rec(H, 'home'))}</td></tr>
+          <tr><td>${pa}%</td><td>WIN CHANCE</td><td>${ph}%</td></tr>
+        </table>
+        ${c.venue ? `<div style="margin-top:6px;color:var(--mut);font-size:13px">${esc(c.venue.fullName)}${c.venue.address && c.venue.address.city ? ' · ' + esc(c.venue.address.city) : ''}</div>` : ''}
+        ${fl.length ? `<div class="flags">${fl.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
+      </div>
+    </article>`;
+  }
+
+  function render() {
+    const open = EV.filter(e => state(e) === 'pre');
+    const days = {};
+    EV.forEach(e => { const k = dayLong(new Date(e.date)); (days[k] = days[k] || []).push(e); });
+    const openIds = new Set([...document.querySelectorAll('.card.open')].map(x => x.id));
+    $('list').innerHTML = EV.length ? Object.entries(days).map(([k, g]) => `<div class="day-h">${esc(k)}</div><div class="grid">${g.map(cardHtml).join('')}</div>`).join('') : '<div class="empty">No games this week.</div>';
+    openIds.forEach(id => { const el = document.getElementById(id); if (el) { el.classList.add('open'); const b = el.querySelector('[data-mx]'); if (b) b.setAttribute('aria-expanded', 'true'); } });
+    // header numbers
+    const made = EV.filter(e => myPick(e)).length;
+    $('k-picked').textContent = `${made}/${EV.length}`;
+    const fin = EV.filter(e => state(e) === 'post');
+    const right = fin.filter(e => { const [a, h] = sides(e); const w = a.winner ? a : h.winner ? h : null; return w && w.team.abbreviation === myPick(e); }).length;
+    $('k-3').textContent = fin.length ? `${right}/${fin.length}` : '—';
+    // bottom bar
+    const openMade = open.filter(e => picks[e.id]).length;
+    $('b-meter').style.width = (EV.length ? made / EV.length * 100 : 0) + '%';
+    const btn = $('submit');
+    if (!open.length) {
+      $('b-txt').textContent = `${made} of ${EV.length} picked`;
+      $('b-sub').textContent = 'Picks are locked for this week';
+      btn.disabled = true; btn.textContent = 'LOCKED'; btn.classList.remove('done');
+    } else {
+      $('b-txt').textContent = `${made} of ${EV.length} picked`;
+      $('b-sub').textContent = openMade < open.length ? `${open.length - openMade} game${open.length - openMade === 1 ? '' : 's'} left to pick` : (submitted ? 'Saved. You can still change picks until lock.' : 'All set. Submit to save.');
+      btn.disabled = openMade < open.length;
+      btn.textContent = submitted ? '✓ PICKS SAVED' : 'SUBMIT PICKS';
+      btn.classList.toggle('done', submitted);
+    }
+    $('t-fav').hidden = $('t-home').hidden = $('t-clear').hidden = !open.length;
+  }
+
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); }
+
+  // ---- interactions ----
+  $('list').addEventListener('click', ev => {
+    const mx = ev.target.closest('[data-mx]');
+    if (mx) { const c = mx.closest('.card'); const on = c.classList.toggle('open'); mx.setAttribute('aria-expanded', on); return; }
+    const b = ev.target.closest('.tm');
+    if (!b || b.getAttribute('aria-disabled') === 'true') return;
+    const e = EV.find(x => x.id === b.dataset.g);
+    if (!e || state(e) !== 'pre') return;
+    picks[e.id] = picks[e.id] === b.dataset.t ? undefined : b.dataset.t;
+    if (!picks[e.id]) delete picks[e.id];
+    submitted = false; savePicks(); render();
+  });
+  $('submit').addEventListener('click', () => { submitted = true; savePicks(); render(); toast('✓ Picks saved (demo — this browser only)'); });
+  $('t-fav').addEventListener('click', () => { EV.filter(e => state(e) === 'pre').forEach(e => picks[e.id] = favourite(e)); submitted = false; savePicks(); render(); });
+  $('t-home').addEventListener('click', () => { EV.filter(e => state(e) === 'pre').forEach(e => picks[e.id] = sides(e)[1].team.abbreviation); submitted = false; savePicks(); render(); });
+  $('t-clear').addEventListener('click', () => { EV.filter(e => state(e) === 'pre').forEach(e => delete picks[e.id]); submitted = false; savePicks(); render(); });
+
+  function lockCountdown() {
+    clearInterval(lockT);
+    const pre = EV.filter(e => state(e) === 'pre');
+    const started = EV.some(e => state(e) !== 'pre');
+    if (!pre.length) { $('k-lock-l').textContent = 'Status'; $('k-lock').textContent = EV.some(e => state(e) === 'in') ? 'LIVE' : 'FINAL'; $('k-lock').className = EV.some(e => state(e) === 'in') ? 'live' : ''; return; }
+    if (started) { $('k-lock-l').textContent = 'Next kickoff'; }
+    const first = new Date(Math.min(...pre.map(e => +new Date(e.date))));
+    const tick = () => {
+      const ms = first - Date.now();
+      if (ms <= 0) { $('k-lock').textContent = 'NOW'; return; }
+      const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
+      $('k-lock').textContent = (d ? d + 'd ' : '') + h + 'h ' + m + 'm';
+    };
+    tick(); lockT = setInterval(tick, 30000);
+  }
+
+  async function load() {
+    let live = false;
+    try {
+      const cur = await fetchWeek();
+      let wk = (cur.week && cur.week.number) || 1, data = cur;
+      const ev = cur.events || [];
+      if (ev.length && ev.every(e => state(e) === 'post') && wk < 18) { wk += 1; data = await fetchWeek(wk); }
+      if (wk !== WK) { WK = wk; loadPicks(); }
+      EV = (data.events || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+      live = EV.some(e => state(e) === 'in');
+      $('title').textContent = 'WEEK ' + WK + ' PICKS';
+      if (!BYES.size && WK > 1) {
+        try { const prev = await fetchWeek(WK - 1); ((prev.week && prev.week.teamsOnBye) || []).forEach(t => BYES.add(t.abbreviation)); } catch (e) { /* optional */ }
+      }
+      render(); lockCountdown();
+    } catch (e) {
+      $('list').innerHTML = '<div class="empty" style="margin-top:16px">Games unavailable right now. Try again in a few minutes.</div>';
+    }
+    clearTimeout(refreshT);
+    refreshT = setTimeout(() => { if (!document.hidden) load(); else document.addEventListener('visibilitychange', load, { once: true }); }, live ? 30000 : 300000);
+  }
+  load();
+})();
+</script>
+</body>
+</html>
