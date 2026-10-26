@@ -99,6 +99,28 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
 
 .ftr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;color:var(--mut);font-size:13px;padding:18px 16px 28px;border-top:1px solid var(--line)}
 
+/* live score ticker */
+.ticker{display:flex;align-items:stretch;background:#050B16;border-bottom:1px solid var(--line);height:40px;overflow:hidden}
+.ticker[hidden]{display:none}
+.tk-lbl{flex:none;display:flex;align-items:center;gap:6px;padding:0 14px;background:#B3121B;color:#fff;font:700 14px var(--body);letter-spacing:1.5px}
+.tk-lbl i{width:7px;height:7px;border-radius:50%;background:#fff;animation:tkPulse 1.4s ease-in-out infinite}
+@keyframes tkPulse{50%{opacity:.3}}
+.tk-track{flex:1;overflow:hidden;position:relative;mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent)}
+.tk-run{display:flex;width:max-content;height:100%;animation:tkScroll var(--tk-dur,40s) linear infinite}
+.ticker:hover .tk-run{animation-play-state:paused}
+.tk-set{display:flex;align-items:center}
+.tk-i{display:flex;align-items:center;gap:6px;padding:0 16px;border-right:1px solid var(--line);font-size:15px;white-space:nowrap;height:100%}
+.tk-i img{width:20px;height:20px;object-fit:contain}
+.tk-i b{font-family:var(--display);font-weight:400;font-size:14px}
+.tk-i s{text-decoration:none;font-weight:700;font-size:16px;min-width:16px;text-align:center;font-variant-numeric:tabular-nums}
+.tk-i .lose{opacity:.45}
+.tk-i em{font-style:normal;font-size:13px;color:var(--mut);margin-left:4px}
+.tk-i.in em{color:#FF8A8A}
+.tk-i.flash{animation:tkFlash 2.4s ease-out}
+@keyframes tkFlash{0%,30%{background:rgba(63,209,122,.35)}100%{background:transparent}}
+@keyframes tkScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.tk-run{animation:none}.tk-track{overflow-x:auto}.tk-i.flash{animation:none}}
+
 @media (max-width:820px){
   .cols{grid-template-columns:1fr}
   .stats{grid-template-columns:repeat(2,1fr)}
@@ -127,6 +149,11 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
     <button type="button" class="signin">SIGN IN</button>
   </div>
 </header>
+
+<div class="ticker" id="ticker" hidden aria-label="Live NFL scores">
+  <div class="tk-lbl"><i aria-hidden="true"></i>LIVE</div>
+  <div class="tk-track"><div class="tk-run" id="tk-run"></div></div>
+</div>
 
 <section class="hero" aria-label="Angry Alpaca Football League">
   <div class="wrap">
@@ -256,7 +283,48 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
     return (d ? d + 'd ' : '') + h + 'h ' + m + 'm';
   }
 
+  // ---- Live score ticker ----
+  let lastScores = {};
+  function tickerItem(e) {
+    const c = e.competitions[0], st = state(e);
+    const away = c.competitors.find(x => x.homeAway === 'away'), home = c.competitors.find(x => x.homeAway === 'home');
+    const key = e.id, score = away.score + '-' + home.score;
+    const changed = st === 'in' && lastScores[key] && lastScores[key] !== score;
+    lastScores[key] = score;
+    const tm = t => {
+      const lose = st === 'post' && t.winner === false ? ' class="lose"' : '';
+      return `<span${lose}><img src="${esc(t.team.logo || '')}" alt=""> <b>${esc(t.team.abbreviation)}</b> ${st === 'pre' ? '' : `<s>${esc(t.score)}</s>`}</span>`;
+    };
+    const d = new Date(e.date);
+    const status = st === 'pre' ? `${day(d)} ${time(d)}` : e.status.type.shortDetail;
+    return `<div class="tk-i ${st}${changed ? ' flash' : ''}">${tm(away)} ${tm(home)}<em>${esc(status)}</em></div>`;
+  }
+  function renderTicker(ev) {
+    const live = ev.filter(e => state(e) === 'in');
+    const t = $('ticker');
+    if (!live.length) { t.hidden = true; return false; }
+    // Live games first, then today's finals, then games still to come.
+    const order = { in: 0, post: 1, pre: 2 };
+    const today = new Date().toDateString();
+    const list = ev.filter(e => state(e) === 'in' || (state(e) !== 'in' && new Date(e.date).toDateString() === today))
+      .sort((a, b) => order[state(a)] - order[state(b)] || new Date(a.date) - new Date(b.date));
+    const set = list.map(tickerItem).join('');
+    const run = $('tk-run');
+    run.innerHTML = `<div class="tk-set">${set}</div><div class="tk-set" aria-hidden="true">${set}</div>`;
+    run.style.setProperty('--tk-dur', Math.max(20, list.length * 7) + 's');
+    t.hidden = false;
+    return true;
+  }
+
+  let tickT = null, refreshT = null;
+  function setCountdown(lock, n) {
+    clearInterval(tickT);
+    const tick = () => { $('cta-cd').innerHTML = `Locks ${day(lock)} ${time(lock)} ET · <b>${countdown(lock)}</b> left · ${n} games`; };
+    tick(); tickT = setInterval(tick, 30000);
+  }
+
   async function load() {
+    let live = false;
     try {
       const cur = await week();
       const wk = cur.week && cur.week.number;
@@ -264,6 +332,7 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
       const started = ev.some(e => state(e) !== 'pre');
       const allDone = ev.length && ev.every(e => state(e) === 'post');
       const st = $('cta-st'), h = $('cta-h'), cd = $('cta-cd'), sub = $('cta-sub');
+      live = renderTicker(ev);
 
       if (allDone && wk < 18) {
         // Window is open for next week.
@@ -272,10 +341,10 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
         const lock = new Date(Math.min(...nev.map(e => +new Date(e.date))));
         st.className = 'st ok'; st.textContent = `● WEEK ${wk + 1} PICKS ARE OPEN`;
         h.textContent = `Make your Week ${wk + 1} picks`;
-        const tick = () => { cd.innerHTML = `Locks ${day(lock)} ${time(lock)} ET · <b>${countdown(lock)}</b> left · ${nev.length} games`; };
-        tick(); setInterval(tick, 30000);
+        setCountdown(lock, nev.length);
         sub.textContent = `0 / ${nev.length} picked`;
       } else if (started) {
+        clearInterval(tickT);
         showGames(cur, `WEEK ${wk} · LIVE & FINAL`);
         const left = ev.filter(e => state(e) !== 'post').length;
         st.className = 'st live'; st.textContent = `● WEEK ${wk} IN PROGRESS · PICKS LOCKED`;
@@ -287,8 +356,7 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
         showGames(cur, `WEEK ${wk} GAMES`);
         st.className = 'st ok'; st.textContent = `● WEEK ${wk} PICKS ARE OPEN`;
         h.textContent = `Make your Week ${wk} picks`;
-        const tick = () => { cd.innerHTML = `Locks ${day(lock)} ${time(lock)} ET · <b>${countdown(lock)}</b> left · ${ev.length} games`; };
-        tick(); setInterval(tick, 30000);
+        setCountdown(lock, ev.length);
         sub.textContent = `0 / ${ev.length} picked`;
       }
     } catch (e) {
@@ -296,6 +364,9 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
       $('cta-cd').textContent = 'Try again in a few minutes.';
       $('games').innerHTML = '<div class="empty">Games unavailable right now.</div>';
     }
+    // Refresh every 30 seconds while games are live, otherwise every 5 minutes.
+    clearTimeout(refreshT);
+    refreshT = setTimeout(() => { if (document.hidden) { document.addEventListener('visibilitychange', load, { once: true }); } else load(); }, live ? 30000 : 300000);
   }
   load();
 })();
