@@ -15,6 +15,7 @@
     hub: BASE,
     aahl: 'https://theaahl.ca/',
     aabl: BASE + 'aabl/',
+    aafl: BASE + 'aafl/',
     dp: BASE + 'deathpool/'
   };
   const API = 'https://aasn-api.matt-hope001.workers.dev';
@@ -22,7 +23,7 @@
   const DP_ICON = '<svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#07110A" stroke="#8BE37A" stroke-width="1.5"/><path d="M3.5 12.5h4l1.6-3.2 2.4 6.4 2-8 1.8 4.8h5.2" fill="none" stroke="#8BE37A" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
   // Pools not open to the public yet: shown in the bar but not clickable
   // (except on that pool's own pages). Remove an id here to switch its link on.
-  const LOCKED = ['aabl'];
+  const LOCKED = ['aabl', 'aafl'];
   // Exception: the commissioner, while signed in on the site, can still click through.
   // Emails are stored only as SHA-256 hashes.
   const ADMIN_HASHES = [
@@ -36,6 +37,8 @@
   const POOLS = [
     { id: 'aahl', name: 'AAHL', year: '26/27', accent: '#00D4FF', logo: LINKS.aahl + 'aahl-logo.png', round: false },
     { id: 'aabl', name: 'AABL', year: '2027', accent: '#F06A70', logo: BASE + 'aabl/assets/aabl-badge.png', round: true },
+    // hideOn: not shown in the bar on these pools' sites (AAFL stays off theaahl.ca for now).
+    { id: 'aafl', name: 'AAFL', year: '2026', accent: '#869397', logo: BASE + 'aafl/assets/icon-180.png', round: false, hideOn: ['aahl'] },
     { id: 'dp', name: 'DEATH POOL', short: 'D.POOL', year: '2026', accent: '#8BE37A', icon: DP_ICON }
   ];
 
@@ -84,6 +87,13 @@
     #aasn-bar .ab-st { font-size: 9px; overflow: hidden; text-overflow: ellipsis; }
     #aasn-bar .ab-txt { min-width: 0; }
   }
+  /* 4 pools in the bar (AASN pages): tighten on small phones */
+  @media (max-width: 640px) { #aasn-bar.ab-4 nav { min-width: 0; } }
+  @media (max-width: 440px) {
+    #aasn-bar.ab-4 .ab-pill img, #aasn-bar.ab-4 .ab-ico { display: none; }
+    #aasn-bar.ab-4 .ab-pill { padding: 0 4px; justify-content: center; text-align: center; }
+    #aasn-bar.ab-4 .ab-txt { align-items: center; }
+  }
   @media print { #aasn-bar { display: none; } }`;
 
   const isLocked = id => LOCKED.includes(id) && id !== current && !unlocked;
@@ -97,6 +107,7 @@
     const bar = document.createElement('div');
     bar.id = 'aasn-bar';
     bar.innerHTML = navHtml();
+    if (bar.querySelectorAll('.ab-pill').length >= 4) bar.classList.add('ab-4');
     document.body.insertBefore(bar, document.body.firstChild);
     refresh();
     setInterval(() => { if (!document.hidden) refresh(); }, 120000);
@@ -109,7 +120,7 @@
   function navHtml() {
     return `<div class="ab-in">
       <a class="ab-hub" href="${LINKS.hub}" aria-label="AASN home — Angry Alpaca Sports Network"><img class="ab-badge" src="${BASE}shared/img/aasn-logo.png" alt="" onerror="this.remove()"><b>AASN</b><span>ANGRY ALPACA SPORTS NETWORK</span></a>
-      <nav aria-label="Pools">${POOLS.map(p => {
+      <nav aria-label="Pools">${POOLS.filter(p => !(p.hideOn || []).includes(current)).map(p => {
         const pic = p.icon || `<img src="${p.logo}" alt=""${p.round ? ' class="round"' : ''} onerror="this.style.visibility='hidden'">`;
         const nm = p.short ? `<span class="ab-long">${p.name}</span><span class="ab-short">${p.short}</span>` : p.name;
         const inner = `${pic}
@@ -211,6 +222,7 @@
     else aahlStatus().then(([t, l]) => set('aahl', t, l)).catch(() => set('aahl', 'NHL'));
     if (isLocked('aabl')) set('aabl', 'COMING SOON');
     else aablStatus().then(([t, l]) => set('aabl', t, l)).catch(() => set('aabl', 'MLB'));
+    set('aafl', isLocked('aafl') ? 'COMING SOON' : 'NFL PICK\'EM');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
