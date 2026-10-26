@@ -1,5 +1,13 @@
 [
   {
+    "date": "2026-10-26",
+    "title": "Scores ticker",
+    "items": [
+      "New scrolling MLB scores ticker right under the menu on the Home page, the same look as the other AASN pools.",
+      "Shows every game today: start times, then live scores and finals. The label turns red (LIVE) while games are on."
+    ]
+  },
+  {
     "date": "2026-10-23",
     "title": "Team logos",
     "items": [
