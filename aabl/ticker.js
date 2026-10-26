@@ -14,6 +14,8 @@
   // Shared AASN ticker look (same as AAHL and AAFL).
   const CSS_URL = new URL('../shared/ticker.css?v=1', (document.currentScript && document.currentScript.src) || location.href).href;
 
+  // Same speed on every AASN ticker (AAHL, AABL, AAFL): 45 pixels per second, measured from the real width.
+  const tickerSpeed = run => { const set = () => { const w = run.scrollWidth / 2; if (w > 0) run.style.setProperty('--tk-dur', (w / 45).toFixed(1) + 's'); }; set(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(set); };
   let el, refreshT = null;
   const last = {};
 
@@ -60,7 +62,7 @@
         const run = el.querySelector('.tk-run');
         run.innerHTML = html + html;
         ev.forEach(e => { const cs = e.competitions[0].competitors; last[e.id] = cs.find(x => x.homeAway === 'away').score + '-' + cs.find(x => x.homeAway === 'home').score; });
-        run.style.setProperty('--tk-dur', Math.max(30, Math.round(one.length * ITEM_PX / 45)) + 's');
+        tickerSpeed(run);
         el.hidden = false;
       }
     } catch (e) { el.hidden = true; }

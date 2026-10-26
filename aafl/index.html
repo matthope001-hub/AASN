@@ -197,6 +197,8 @@
   }
 
   // ---- Live score ticker ----
+  // Same speed on every AASN ticker (AAHL, AABL, AAFL): 45 pixels per second, measured from the real width.
+  const tickerSpeed = run => { const set = () => { const w = run.scrollWidth / 2; if (w > 0) run.style.setProperty('--tk-dur', (w / 45).toFixed(1) + 's'); }; set(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(set); };
   let lastScores = {};
   function tickerItem(e) {
     const c = e.competitions[0], st = state(e);
@@ -221,10 +223,12 @@
     const lbl = $('tk-lbl');
     lbl.className = 'tk-lbl' + (live ? ' live' : '');
     lbl.innerHTML = live ? '<i aria-hidden="true"></i>LIVE' : 'WEEK ' + esc(wk);
-    const set = list.map(tickerItem).join('');
+    // Repeat the games until one set is wider than any screen, then double it so the loop has no gap.
+    const copies = Math.max(1, Math.ceil(2400 / (list.length * 220)));
+    const set = Array.from({ length: copies }, () => list.map(tickerItem).join('')).join('');
     const run = $('tk-run');
     run.innerHTML = `<div class="tk-set">${set}</div><div class="tk-set" aria-hidden="true">${set}</div>`;
-    run.style.setProperty('--tk-dur', Math.max(30, list.length * 6) + 's');
+    tickerSpeed(run);
     t.hidden = false;
     return live;
   }
