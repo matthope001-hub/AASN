@@ -115,3 +115,8 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
   .hdr-in{flex-wrap:wrap;padding:6px 0}.tabs{order:3;width:100%;margin:0}
   .signin{margin-left:auto}
 }
+
+/* home standings: top 10 visible, scroll for the rest (sticky header) */
+.st-scroll{max-height:412px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.st-scroll thead th{position:sticky;top:0;z-index:1;background:var(--panel);box-shadow:0 1px 0 var(--line)}
+.st-scroll:focus-visible{outline:2px solid var(--silver);outline-offset:-2px}
