@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../shared/gate.js" data-gate="aafl"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Results — AAFL 2026</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07101F">
+<link rel="icon" type="image/png" href="assets/icon-180.png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aafl.css?v=1">
+<script src="../shared/switcher.js" data-pool="aafl" defer></script>
+<style>
+.pg{padding:20px 0 28px}
+.pg h1{font-family:var(--display);font-weight:400;font-size:32px;margin:0}
+.pg .lead{color:var(--mut);margin:2px 0 14px}
+.weeks{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.weeks button{flex:none;min-width:46px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:#C9D3E0;font:700 16px var(--body);cursor:pointer}
+.weeks button:hover{border-color:var(--silver)}
+.weeks button[aria-pressed=true]{background:var(--navy);border-color:var(--silver);color:#fff}
+.weeks button.future{opacity:.55}
+.weeks button.now{box-shadow:inset 0 -3px 0 var(--ok)}
+.sum{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.sum span{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:14px;color:#C9D3E0}
+.sum b{color:#fff}
+.day-h{font-family:var(--display);font-size:15px;letter-spacing:1px;color:var(--silver);margin:18px 0 8px}
+.games{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+.gc{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.gc.in{border-color:#B3121B}
+.gc-h{display:flex;justify-content:space-between;gap:8px;padding:7px 12px;font-size:13px;color:var(--mut);border-bottom:1px solid var(--line)}
+.gc-h b{color:var(--txt);font-weight:600}.gc.in .gc-h b{color:#FF8A8A}
+.tr{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;padding:8px 12px}
+.tr+.tr{border-top:1px solid rgba(34,50,79,.6)}
+.tr img{width:34px;height:34px;object-fit:contain}
+.tr .nm{line-height:1.1}.tr .nm b{font-family:var(--display);font-weight:400;font-size:17px;display:block}
+.tr .nm span{font-size:13px;color:var(--mut)}
+.tr .sc{font-family:var(--display);font-size:26px;min-width:34px;text-align:right}
+.tr.lose{opacity:.45}
+.tr.win .sc::after{content:"◀";font-size:11px;color:var(--ok);margin-left:6px;vertical-align:5px}
+.bye{margin-top:16px;font-size:14px;color:var(--mut)}
+.bye b{color:#C9D3E0}
+.empty{padding:20px;color:var(--mut);text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a href="./" class="brand" aria-label="AAFL home">
+      <img src="assets/icon-180.png" alt="">
+      <div><b>AAFL</b><span>AN AASN POOL</span></div>
+    </a>
+    <nav class="tabs" aria-label="AAFL">
+      <a href="./">Home</a>
+      <a href="#">Picks</a>
+      <a href="#">Standings</a>
+      <a href="results.html" aria-current="page">Results</a>
+      <a href="#">Rules</a>
+      <a href="#">What's New</a>
+    </nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap pg">
+  <h1>NFL RESULTS</h1>
+  <p class="lead">Every game of the 2026 regular season, week by week. Scores are official, from ESPN.</p>
+  <div class="weeks" id="weeks" role="group" aria-label="Choose a week"></div>
+  <div class="sum" id="sum" aria-live="polite"></div>
+  <div id="list"><div class="empty">Loading…</div></div>
+  <div class="bye" id="bye"></div>
+</main>
+
+<footer class="wrap ftr">
+  <span>© ANGRY ALPACA SPORTS NETWORK</span>
+  <span>AAFL · <a href="../">AASN HOME</a></span>
+</footer>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/auth.js?v=2"></script>
+<script>
+(function () {
+  const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+  const WEEKS = 18;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ET = { timeZone: 'America/Toronto' };
+  const dayLong = d => d.toLocaleDateString('en-US', { ...ET, weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase();
+  const time = d => d.toLocaleTimeString('en-US', { ...ET, hour: 'numeric', minute: '2-digit' });
+  const state = e => e.status && e.status.type ? e.status.type.state : 'pre';
+  const cache = {};
+  let current = 1, shown = 0, refreshT = null;
+
+  async function fetchWeek(n) {
+    const r = await fetch(n ? `${ESPN}?seasontype=2&week=${n}&dates=2026` : ESPN);
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  }
+
+  function weekButtons() {
+    $('weeks').innerHTML = Array.from({ length: WEEKS }, (_, i) => {
+      const n = i + 1;
+      const cls = (n > current ? 'future' : '') + (n === current ? ' now' : '');
+      return `<button type="button" class="${cls.trim()}" data-w="${n}" aria-pressed="${n === shown}" title="Week ${n}${n === current ? ' (this week)' : ''}">${n}</button>`;
+    }).join('');
+    $('weeks').querySelectorAll('button').forEach(b => b.addEventListener('click', () => show(+b.dataset.w)));
+    const on = $('weeks').querySelector('[aria-pressed=true]');
+    if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
+
+  function team(t, st) {
+    const rec = t.records && t.records[0] ? t.records[0].summary : '';
+    const cls = st === 'post' ? (t.winner ? ' win' : ' lose') : '';
+    return `<div class="tr${cls}"><img src="${esc(t.team.logo || '')}" alt="" loading="lazy">
+      <div class="nm"><b>${esc(t.team.abbreviation)}</b><span>${esc(t.team.shortDisplayName || t.team.name || '')}${rec ? ' · ' + esc(rec) : ''}</span></div>
+      <div class="sc">${st === 'pre' ? '' : esc(t.score)}</div></div>`;
+  }
+
+  function card(e) {
+    const c = e.competitions[0], st = state(e), d = new Date(e.date);
+    const away = c.competitors.find(x => x.homeAway === 'away'), home = c.competitors.find(x => x.homeAway === 'home');
+    const odds = c.odds && c.odds[0];
+    const left = st === 'pre' ? time(d) + ' ET' : e.status.type.shortDetail;
+    const tv = c.broadcasts && c.broadcasts[0] && c.broadcasts[0].names ? c.broadcasts[0].names.join('/') : '';
+    const right = st === 'pre' ? [odds && odds.details, tv].filter(Boolean).join(' · ') : (c.venue ? c.venue.fullName : '');
+    return `<article class="gc ${st}"><div class="gc-h"><b>${esc(left)}</b><span>${esc(right || '')}</span></div>${team(away, st)}${team(home, st)}</article>`;
+  }
+
+  function render(data, n) {
+    const ev = (data.events || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (!ev.length) { $('list').innerHTML = '<div class="empty">No games found for this week.</div>'; $('sum').innerHTML = ''; $('bye').innerHTML = ''; return false; }
+    // summary
+    const fin = ev.filter(e => state(e) === 'post');
+    const live = ev.filter(e => state(e) === 'in').length;
+    let home = 0, pts = 0;
+    fin.forEach(e => {
+      const cs = e.competitions[0].competitors;
+      const h = cs.find(x => x.homeAway === 'home');
+      if (h.winner) home++;
+      pts += cs.reduce((s, x) => s + (+x.score || 0), 0);
+    });
+    const chips = [`<span><b>WEEK ${n}</b></span>`, `<span><b>${ev.length}</b> games</span>`, `<span><b>${fin.length}</b> final</span>`];
+    if (live) chips.push(`<span style="border-color:#B3121B"><b>${live}</b> live</span>`);
+    if (ev.length - fin.length - live) chips.push(`<span><b>${ev.length - fin.length - live}</b> to play</span>`);
+    if (fin.length) chips.push(`<span>Home teams <b>${home}–${fin.length - home}</b></span>`, `<span>Avg total <b>${(pts / fin.length).toFixed(1)}</b> pts</span>`);
+    $('sum').innerHTML = chips.join('');
+    // games grouped by day
+    const days = {};
+    ev.forEach(e => { const k = dayLong(new Date(e.date)); (days[k] = days[k] || []).push(e); });
+    $('list').innerHTML = Object.entries(days).map(([k, g]) => `<div class="day-h">${esc(k)}</div><div class="games">${g.map(card).join('')}</div>`).join('');
+    // byes
+    const byes = data.week && data.week.teamsOnBye;
+    $('bye').innerHTML = byes && byes.length ? `<b>On bye:</b> ${byes.map(t => esc(t.abbreviation || t.shortDisplayName)).join(', ')}` : '';
+    return live > 0;
+  }
+
+  async function show(n, force) {
+    shown = n;
+    weekButtons();
+    try { history.replaceState(null, '', '#w' + n); } catch (e) { /* ignore */ }
+    clearTimeout(refreshT);
+    if (!cache[n] || force) {
+      if (!cache[n]) $('list').innerHTML = '<div class="empty">Loading week ' + n + '…</div>';
+      try { cache[n] = await fetchWeek(n); }
+      catch (e) { $('list').innerHTML = '<div class="empty">Results unavailable right now. Try again in a few minutes.</div>'; return; }
+    }
+    if (shown !== n) return;
+    const live = render(cache[n], n);
+    // Keep the current week fresh: every 30s while live, otherwise every 5 minutes.
+    if (n === current) refreshT = setTimeout(() => { if (!document.hidden) show(n, true); }, live ? 30000 : 300000);
+  }
+
+  async function start() {
+    try {
+      const cur = await fetchWeek();
+      current = (cur.week && cur.week.number) || 1;
+      if (cur.season && cur.season.type !== 2) current = cur.season.type === 3 ? WEEKS : 1;
+      else cache[current] = cur;
+    } catch (e) { /* fall back to week 1 */ }
+    const m = /^#w(\d+)$/.exec(location.hash);
+    const want = m ? Math.min(WEEKS, Math.max(1, +m[1])) : current;
+    show(want);
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && shown === current) show(current, true); });
+  start();
+})();
+</script>
+</body>
+</html>
