@@ -102,7 +102,8 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
 /* live score ticker */
 .ticker{display:flex;align-items:stretch;background:#050B16;border-bottom:1px solid var(--line);height:40px;overflow:hidden}
 .ticker[hidden]{display:none}
-.tk-lbl{flex:none;display:flex;align-items:center;gap:6px;padding:0 14px;background:#B3121B;color:#fff;font:700 14px var(--body);letter-spacing:1.5px}
+.tk-lbl{flex:none;display:flex;align-items:center;gap:6px;padding:0 14px;background:var(--navy);color:#fff;font:700 14px var(--body);letter-spacing:1.5px}
+.tk-lbl.live{background:#B3121B}
 .tk-lbl i{width:7px;height:7px;border-radius:50%;background:#fff;animation:tkPulse 1.4s ease-in-out infinite}
 @keyframes tkPulse{50%{opacity:.3}}
 .tk-track{flex:1;overflow:hidden;position:relative;mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent)}
@@ -150,8 +151,8 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
   </div>
 </header>
 
-<div class="ticker" id="ticker" hidden aria-label="Live NFL scores">
-  <div class="tk-lbl"><i aria-hidden="true"></i>LIVE</div>
+<div class="ticker" id="ticker" hidden aria-label="NFL scores this week">
+  <div class="tk-lbl" id="tk-lbl">NFL</div>
   <div class="tk-track"><div class="tk-run" id="tk-run"></div></div>
 </div>
 
@@ -299,21 +300,21 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
     const status = st === 'pre' ? `${day(d)} ${time(d)}` : e.status.type.shortDetail;
     return `<div class="tk-i ${st}${changed ? ' flash' : ''}">${tm(away)} ${tm(home)}<em>${esc(status)}</em></div>`;
   }
-  function renderTicker(ev) {
-    const live = ev.filter(e => state(e) === 'in');
+  // Always on: the whole week in kickoff order (finals, live, upcoming).
+  function renderTicker(ev, wk) {
     const t = $('ticker');
-    if (!live.length) { t.hidden = true; return false; }
-    // Live games first, then today's finals, then games still to come.
-    const order = { in: 0, post: 1, pre: 2 };
-    const today = new Date().toDateString();
-    const list = ev.filter(e => state(e) === 'in' || (state(e) !== 'in' && new Date(e.date).toDateString() === today))
-      .sort((a, b) => order[state(a)] - order[state(b)] || new Date(a.date) - new Date(b.date));
+    if (!ev.length) { t.hidden = true; return false; }
+    const list = ev.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+    const live = list.some(e => state(e) === 'in');
+    const lbl = $('tk-lbl');
+    lbl.className = 'tk-lbl' + (live ? ' live' : '');
+    lbl.innerHTML = live ? '<i aria-hidden="true"></i>LIVE' : 'WEEK ' + esc(wk);
     const set = list.map(tickerItem).join('');
     const run = $('tk-run');
     run.innerHTML = `<div class="tk-set">${set}</div><div class="tk-set" aria-hidden="true">${set}</div>`;
-    run.style.setProperty('--tk-dur', Math.max(20, list.length * 7) + 's');
+    run.style.setProperty('--tk-dur', Math.max(30, list.length * 6) + 's');
     t.hidden = false;
-    return true;
+    return live;
   }
 
   let tickT = null, refreshT = null;
@@ -332,12 +333,12 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
       const started = ev.some(e => state(e) !== 'pre');
       const allDone = ev.length && ev.every(e => state(e) === 'post');
       const st = $('cta-st'), h = $('cta-h'), cd = $('cta-cd'), sub = $('cta-sub');
-      live = renderTicker(ev);
 
       if (allDone && wk < 18) {
         // Window is open for next week.
         const nxt = await week(wk + 1);
         const nev = showGames(nxt, `WEEK ${wk + 1} GAMES`);
+        live = renderTicker(nev, wk + 1);
         const lock = new Date(Math.min(...nev.map(e => +new Date(e.date))));
         st.className = 'st ok'; st.textContent = `● WEEK ${wk + 1} PICKS ARE OPEN`;
         h.textContent = `Make your Week ${wk + 1} picks`;
@@ -346,6 +347,7 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
       } else if (started) {
         clearInterval(tickT);
         showGames(cur, `WEEK ${wk} · LIVE & FINAL`);
+        live = renderTicker(ev, wk);
         const left = ev.filter(e => state(e) !== 'post').length;
         st.className = 'st live'; st.textContent = `● WEEK ${wk} IN PROGRESS · PICKS LOCKED`;
         h.textContent = `Week ${wk + 1} picks open after the last game`;
@@ -354,6 +356,7 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
       } else {
         const lock = new Date(Math.min(...ev.map(e => +new Date(e.date))));
         showGames(cur, `WEEK ${wk} GAMES`);
+        live = renderTicker(ev, wk);
         st.className = 'st ok'; st.textContent = `● WEEK ${wk} PICKS ARE OPEN`;
         h.textContent = `Make your Week ${wk} picks`;
         setCountdown(lock, ev.length);
