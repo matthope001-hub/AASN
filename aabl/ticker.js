@@ -11,37 +11,16 @@
   // ESPN's dark-background logos (navy/black logos stay visible on dark panels); falls back to the regular logo.
   const dl = u => String(u || '').replace('/500/', '/500-dark/');
 
-  const css = `
-  #aabl-ticker { display: flex; align-items: stretch; height: 40px; overflow: hidden; background: #081A30; border-bottom: 1px solid #25446E; font-family: 'Barlow Condensed', system-ui, sans-serif; color: #E8EDF1; }
-  #aabl-ticker[hidden] { display: none; }
-  #aabl-ticker .tk-lbl { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 14px; background: #25446E; color: #fff; font-weight: 700; font-size: 14px; letter-spacing: 1.5px; }
-  #aabl-ticker .tk-lbl.live { background: #B3121B; }
-  #aabl-ticker .tk-lbl i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: aablTkPulse 1.4s ease-in-out infinite; }
-  @keyframes aablTkPulse { 50% { opacity: .3; } }
-  #aabl-ticker .tk-track { flex: 1; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
-  #aabl-ticker .tk-run { display: flex; width: max-content; height: 100%; animation: aablTkScroll var(--tk-dur, 40s) linear infinite; }
-  @media (hover: hover) and (pointer: fine) { #aabl-ticker:hover .tk-run { animation-play-state: paused; } }
-  @keyframes aablTkScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  #aabl-ticker .tk-i { display: flex; align-items: center; gap: 8px; padding: 0 16px; border-right: 1px solid #25446E; white-space: nowrap; font-size: 15px; height: 100%; }
-  #aabl-ticker .tk-t { display: inline-flex; align-items: center; gap: 5px; }
-  #aabl-ticker .tk-t img { width: 22px; height: 22px; object-fit: contain; filter: drop-shadow(0 0 1px rgba(255,255,255,.55)) drop-shadow(0 0 3px rgba(255,255,255,.12)); }
-  #aabl-ticker .tk-t b { font-weight: 700; letter-spacing: .5px; }
-  #aabl-ticker .tk-t s { text-decoration: none; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; min-width: 14px; text-align: center; }
-  #aabl-ticker .tk-lose b, #aabl-ticker .tk-lose s { opacity: .45; }
-  #aabl-ticker .tk-lose img { opacity: .7; }
-  #aabl-ticker em { font-style: normal; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9B8CC; margin-left: 2px; }
-  #aabl-ticker .tk-i.in em { color: #FF8A8A; }
-  #aabl-ticker .tk-i.flash { animation: aablTkFlash 2.4s ease-out; }
-  @keyframes aablTkFlash { 0%, 30% { background: rgba(63,209,122,.35); } 100% { background: transparent; } }
-  @media (prefers-reduced-motion: reduce) { #aabl-ticker .tk-run { animation: none; } #aabl-ticker .tk-track { overflow-x: auto; } #aabl-ticker .tk-i.flash { animation: none; } }`;
+  // Shared AASN ticker look (same as AAHL and AAFL).
+  const CSS_URL = new URL('../shared/ticker.css?v=1', (document.currentScript && document.currentScript.src) || location.href).href;
 
   let el, refreshT = null;
   const last = {};
 
   function build() {
-    const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+    if (!document.querySelector('link[href*="shared/ticker.css"]')) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = CSS_URL; document.head.appendChild(l); }
     el = document.createElement('div');
-    el.id = 'aabl-ticker'; el.hidden = true; el.setAttribute('aria-label', "Today's MLB games");
+    el.id = 'aabl-ticker'; el.className = 'aasn-tk'; el.style.setProperty('--tk-accent', '#BD3039'); el.hidden = true; el.setAttribute('aria-label', "Today's MLB games");
     el.innerHTML = '<div class="tk-lbl">MLB</div><div class="tk-track"><div class="tk-run"></div></div>';
     const hdr = document.querySelector('header');
     if (hdr) hdr.after(el); else document.body.prepend(el);
@@ -54,7 +33,7 @@
     const away = c.competitors.find(x => x.homeAway === 'away'), home = c.competitors.find(x => x.homeAway === 'home');
     const score = away.score + '-' + home.score;
     const flash = st === 'in' && last[e.id] && last[e.id] !== score;
-    const team = t => `<span class="tk-t${st === 'post' && t.winner === false ? ' tk-lose' : ''}"><img src="${esc(dl(t.team.logo))}" data-o="${esc(t.team.logo || '')}" onerror="if(this.dataset.o&&this.src!==this.dataset.o){this.src=this.dataset.o}else{this.style.visibility='hidden'}" alt=""><b>${esc(t.team.abbreviation)}</b>${st === 'pre' ? '' : `<s>${esc(t.score)}</s>`}</span>`;
+    const team = t => `<span class="${st === 'post' && t.winner === false ? 'lose' : ''}"><img src="${esc(dl(t.team.logo))}" data-o="${esc(t.team.logo || '')}" onerror="if(this.dataset.o&&this.src!==this.dataset.o){this.src=this.dataset.o}else{this.style.visibility='hidden'}" alt=""><b>${esc(t.team.abbreviation)}</b>${st === 'pre' ? '' : `<s>${esc(t.score)}</s>`}</span>`;
     const status = st === 'pre'
       ? new Date(e.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       : e.status.type.shortDetail;

@@ -1,0 +1,46 @@
+/* AASN scores ticker — one look for every pool (AAHL, AABL, AAFL).
+ * Load: <link rel="stylesheet" href="https://aasn.theaahl.ca/shared/ticker.css">
+ * Markup:
+ *   <div class="aasn-tk" style="--tk-accent:#003594">
+ *     <div class="tk-lbl">NFL</div>                         (add class "live" -> red ● LIVE)
+ *     <div class="tk-track"><div class="tk-run" style="--tk-dur:40s">
+ *       <div class="tk-i [pre|in|live|post|final]">
+ *         <span class="[lose]"><img src="logo"><b>ABR</b><s>21</s></span>  (away, then home)
+ *         <em>Q3 6:12</em>
+ *       </div> ... (items twice, so the loop has no gap)
+ *     </div></div>
+ *   </div>
+ * Only --tk-accent (the label colour) changes per pool. */
+@import url('https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap');
+
+.aasn-tk { --tk-accent: #003594; display: flex; align-items: stretch; height: 40px; overflow: hidden; background: #050B16; border-bottom: 1px solid #22324F; color: #E8EDF3; font-family: 'Saira Condensed', system-ui, sans-serif; }
+.aasn-tk[hidden] { display: none !important; }
+.aasn-tk * { box-sizing: border-box; }
+
+.aasn-tk .tk-lbl { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 14px; background: var(--tk-accent); color: #fff; font: 700 14px/1 'Saira Condensed', system-ui, sans-serif; letter-spacing: 1.5px; text-transform: uppercase; }
+.aasn-tk .tk-lbl.live { background: #B3121B; }
+.aasn-tk .tk-lbl i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: aasnTkPulse 1.4s ease-in-out infinite; }
+
+.aasn-tk .tk-track { flex: 1; min-width: 0; overflow: hidden; position: relative; -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+.aasn-tk .tk-run { display: flex; gap: 0; width: max-content; height: 100%; animation: aasnTkScroll var(--tk-dur, 40s) linear infinite; }
+@media (hover: hover) and (pointer: fine) { .aasn-tk:hover .tk-run { animation-play-state: paused; } }
+.aasn-tk:focus-within .tk-run { animation-play-state: paused; }
+.aasn-tk .tk-set { display: flex; align-items: center; }
+
+.aasn-tk .tk-i { flex: none; display: flex; align-items: center; gap: 6px; height: 100%; min-width: 0; margin: 0; padding: 0 16px; background: none; border: 0; border-right: 1px solid #22324F; border-radius: 0; white-space: nowrap; font-size: 15px; color: #E8EDF3; }
+.aasn-tk .tk-i[role="button"] { cursor: pointer; }
+.aasn-tk .tk-i[role="button"]:hover, .aasn-tk .tk-i[role="button"]:focus-visible { background: rgba(255,255,255,.05); outline: none; }
+.aasn-tk .tk-i > span { display: inline-flex; align-items: center; gap: 6px; }
+.aasn-tk .tk-i img { width: 22px; height: 22px; object-fit: contain; filter: drop-shadow(0 0 1px rgba(255,255,255,.55)) drop-shadow(0 0 3px rgba(255,255,255,.12)); }
+.aasn-tk .tk-i b { font-family: 'Graduate', serif; font-weight: 400; font-size: 14px; letter-spacing: .5px; }
+.aasn-tk .tk-i s { text-decoration: none; font-family: 'Saira Condensed', system-ui, sans-serif; font-weight: 700; font-size: 16px; min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+.aasn-tk .tk-i .lose b, .aasn-tk .tk-i .lose s { opacity: .45; }
+.aasn-tk .tk-i .lose img { opacity: .7; }
+.aasn-tk .tk-i em { font-style: normal; font-family: 'Saira Condensed', system-ui, sans-serif; font-size: 13px; color: #93A1B3; margin-left: 4px; letter-spacing: 0; }
+.aasn-tk .tk-i.in em, .aasn-tk .tk-i.live em { color: #FF8A8A; }
+.aasn-tk .tk-i.flash { animation: aasnTkFlash 2.4s ease-out; }
+
+@keyframes aasnTkPulse { 50% { opacity: .3; } }
+@keyframes aasnTkScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes aasnTkFlash { 0%, 30% { background: rgba(63,209,122,.35); } 100% { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .aasn-tk .tk-run { animation: none; } .aasn-tk .tk-track { overflow-x: auto; } .aasn-tk .tk-i.flash { animation: none; } }
