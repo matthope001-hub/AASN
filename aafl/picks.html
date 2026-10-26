@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="aafl.css?v=2">
+<link rel="stylesheet" href="aafl.css?v=3">
 <script src="../shared/switcher.js" data-pool="aafl" defer></script>
 <style>
 .pg{padding:18px 0 110px}
@@ -43,7 +43,7 @@
 .tm{position:relative;padding:22px 8px 12px;text-align:center;cursor:pointer;transition:background .18s,opacity .18s,transform .1s;border:0;background:none;color:inherit;font:inherit;min-height:150px}
 .tm:hover{background:rgba(255,255,255,.04)}.tm:active{transform:scale(.98)}
 .tm:focus-visible{outline:2px solid var(--silver);outline-offset:-2px}
-.tm img{width:62px;height:62px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));transition:transform .18s}
+.tm img{width:62px;height:62px;object-fit:contain;filter:drop-shadow(0 0 1px rgba(255,255,255,.5)) drop-shadow(0 2px 6px rgba(0,0,0,.5));transition:transform .18s}
 .ab{font-family:var(--display);font-size:20px;margin-top:4px}
 .nm{font-size:13px;color:var(--mut)}
 .score{font-family:var(--display);font-size:28px;line-height:1.1}
@@ -139,6 +139,8 @@
 (function () {
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
   const $ = id => document.getElementById(id);
+  // ESPN's dark-background logos (navy/black logos stay visible on dark panels); falls back to the regular logo.
+  const dl = u => String(u || '').replace('/500/', '/500-dark/');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ET = { timeZone: 'America/Toronto' };
   const dayLong = d => d.toLocaleDateString('en-US', { ...ET, weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase();
@@ -216,7 +218,7 @@
       if (st === 'post' && t.winner === false) k += ' lose';
       const body = locked ? `<div class="score">${esc(t.score)}</div>` : `<div class="nm">${esc(t.team.shortDisplayName || '')}</div><div class="nm">${esc(rec(t, 'total'))}</div>`;
       return `<button type="button" class="${k}" style="--c:${col(t)}" data-g="${e.id}" data-t="${esc(ab)}" aria-pressed="${pick === ab}" ${locked ? 'aria-disabled="true"' : ''} aria-label="${esc(t.team.displayName || ab)}">
-        <span class="ha">${lbl}</span><img src="${esc(t.team.logo || '')}" alt="" loading="lazy"><div class="ab">${esc(ab)}</div>${body}</button>`;
+        <span class="ha">${lbl}</span><img src="${esc(dl(t.team.logo))}" data-o="${esc(t.team.logo || '')}" onerror="if(this.dataset.o&&this.src!==this.dataset.o){this.src=this.dataset.o}else{this.style.visibility='hidden'}" alt="" loading="lazy"><div class="ab">${esc(ab)}</div>${body}</button>`;
     };
     const sp = locked ? split(e) : null;
     const left = locked ? `League: ${esc(A.team.abbreviation)} ${sp[0]} · ${esc(H.team.abbreviation)} ${sp[1]}` : 'Picks hidden until lock';

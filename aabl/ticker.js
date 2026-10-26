@@ -8,6 +8,8 @@
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const state = e => (e.status && e.status.type ? e.status.type.state : 'pre');
+  // ESPN's dark-background logos (navy/black logos stay visible on dark panels); falls back to the regular logo.
+  const dl = u => String(u || '').replace('/500/', '/500-dark/');
 
   const css = `
   #aabl-ticker { display: flex; align-items: stretch; height: 40px; overflow: hidden; background: #081A30; border-bottom: 1px solid #25446E; font-family: 'Barlow Condensed', system-ui, sans-serif; color: #E8EDF1; }
@@ -22,10 +24,11 @@
   @keyframes aablTkScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   #aabl-ticker .tk-i { display: flex; align-items: center; gap: 8px; padding: 0 16px; border-right: 1px solid #25446E; white-space: nowrap; font-size: 15px; height: 100%; }
   #aabl-ticker .tk-t { display: inline-flex; align-items: center; gap: 5px; }
-  #aabl-ticker .tk-t img { width: 20px; height: 20px; object-fit: contain; }
+  #aabl-ticker .tk-t img { width: 22px; height: 22px; object-fit: contain; filter: drop-shadow(0 0 1px rgba(255,255,255,.55)) drop-shadow(0 0 3px rgba(255,255,255,.12)); }
   #aabl-ticker .tk-t b { font-weight: 700; letter-spacing: .5px; }
   #aabl-ticker .tk-t s { text-decoration: none; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; min-width: 14px; text-align: center; }
-  #aabl-ticker .tk-lose { opacity: .45; }
+  #aabl-ticker .tk-lose b, #aabl-ticker .tk-lose s { opacity: .45; }
+  #aabl-ticker .tk-lose img { opacity: .7; }
   #aabl-ticker em { font-style: normal; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9B8CC; margin-left: 2px; }
   #aabl-ticker .tk-i.in em { color: #FF8A8A; }
   #aabl-ticker .tk-i.flash { animation: aablTkFlash 2.4s ease-out; }
@@ -51,7 +54,7 @@
     const away = c.competitors.find(x => x.homeAway === 'away'), home = c.competitors.find(x => x.homeAway === 'home');
     const score = away.score + '-' + home.score;
     const flash = st === 'in' && last[e.id] && last[e.id] !== score;
-    const team = t => `<span class="tk-t${st === 'post' && t.winner === false ? ' tk-lose' : ''}"><img src="${esc(t.team.logo || '')}" alt="" onerror="this.style.visibility='hidden'"><b>${esc(t.team.abbreviation)}</b>${st === 'pre' ? '' : `<s>${esc(t.score)}</s>`}</span>`;
+    const team = t => `<span class="tk-t${st === 'post' && t.winner === false ? ' tk-lose' : ''}"><img src="${esc(dl(t.team.logo))}" data-o="${esc(t.team.logo || '')}" onerror="if(this.dataset.o&&this.src!==this.dataset.o){this.src=this.dataset.o}else{this.style.visibility='hidden'}" alt=""><b>${esc(t.team.abbreviation)}</b>${st === 'pre' ? '' : `<s>${esc(t.score)}</s>`}</span>`;
     const status = st === 'pre'
       ? new Date(e.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       : e.status.type.shortDetail;

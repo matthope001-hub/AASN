@@ -99,7 +99,8 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
 .tk-i img{width:20px;height:20px;object-fit:contain}
 .tk-i b{font-family:var(--display);font-weight:400;font-size:14px}
 .tk-i s{text-decoration:none;font-weight:700;font-size:16px;min-width:16px;text-align:center;font-variant-numeric:tabular-nums}
-.tk-i .lose{opacity:.45}
+.tk-i .lose b,.tk-i .lose s{opacity:.45}
+.tk-i .lose img{opacity:.7}
 .tk-i em{font-style:normal;font-size:13px;color:var(--mut);margin-left:4px}
 .tk-i.in em{color:#FF8A8A}
 .tk-i.flash{animation:tkFlash 2.4s ease-out}
@@ -120,3 +121,7 @@ tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3
 .st-scroll{max-height:412px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 .st-scroll thead th{position:sticky;top:0;z-index:1;background:var(--panel);box-shadow:0 1px 0 var(--line)}
 .st-scroll:focus-visible{outline:2px solid var(--silver);outline-offset:-2px}
+
+/* Logo legibility on dark backgrounds: thin light outline so dark logos never disappear */
+.tk-i img,.gm img,.tr img,.tm img,.pk thead th img{filter:drop-shadow(0 0 1px rgba(255,255,255,.55)) drop-shadow(0 0 3px rgba(255,255,255,.12))}
+.tk-i img{width:22px;height:22px}
