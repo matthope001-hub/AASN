@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../shared/gate.js" data-gate="aafl"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AAFL 2026 — Angry Alpaca Football League</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07101F">
+<link rel="icon" type="image/png" href="assets/icon-180.png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="../shared/switcher.js" data-pool="aafl" defer></script>
+<style>
+:root{--bg:#07101F;--panel:#0E1A30;--navy:#003594;--silver:#869397;--line:#22324F;--txt:#E8EDF3;--mut:#93A1B3;--ok:#3FD17A;--warn:#FFCF5A;--bad:#FF5D5D;--gold:#D4AF37;--sil2:#C0C7CF;--brz:#CD7F32;
+--display:'Graduate',serif;--body:'Saira Condensed',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--body)}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+
+/* header */
+.hdr{position:sticky;top:0;z-index:20;background:#0A1630;border-bottom:3px solid var(--silver)}
+.hdr-in{display:flex;align-items:center;gap:14px;min-height:60px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{width:42px;height:42px;object-fit:contain}
+.brand b{font-family:var(--display);font-size:22px;font-weight:400;letter-spacing:1px;display:block;line-height:1}
+.brand span{font-size:11px;letter-spacing:2px;color:var(--mut)}
+.tabs{display:flex;gap:2px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+.tabs a{padding:7px 12px;border-radius:6px;font-weight:600;font-size:16px;color:#C9D3E0;white-space:nowrap}
+.tabs a[aria-current],.tabs a:hover{background:var(--navy);color:#fff}
+.signin{background:transparent;color:var(--txt);border:1px solid var(--silver);border-radius:6px;padding:7px 14px;font:700 15px var(--body);letter-spacing:1px;cursor:pointer;white-space:nowrap}
+.signin:hover{background:var(--navy)}
+
+/* hero */
+.hero{position:relative;height:320px;background:#0A1426 url(assets/aafl-hero.jpg) center 40%/cover}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(7,16,31,.85) 0%,rgba(7,16,31,.35) 55%,rgba(7,16,31,0) 80%),linear-gradient(180deg,rgba(7,16,31,0) 40%,rgba(7,16,31,.97))}
+.hero .wrap{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:46px}
+.hero h1{font-family:var(--display);font-weight:400;font-size:42px;line-height:1;margin:0;text-shadow:0 2px 12px #000}
+.hero p{margin:6px 0 0;font-size:18px;color:#D6DDE6}
+.pill{align-self:flex-start;margin-top:10px;border:1px dashed var(--silver);border-radius:20px;padding:2px 12px;font-size:13px;letter-spacing:1px;background:rgba(7,16,31,.75)}
+
+/* picks call-to-action */
+.cta{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;background:linear-gradient(90deg,var(--navy),#0A2A6E);border:2px solid var(--silver);border-radius:14px;padding:16px 18px;margin-top:-30px;position:relative;z-index:2;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.cta .st{font-size:13px;letter-spacing:1px;font-weight:700;color:var(--warn)}
+.cta .st.ok{color:var(--ok)}.cta .st.live{color:var(--bad)}
+.cta h2{font-family:var(--display);font-weight:400;margin:3px 0;font-size:26px}
+.cta .cd{font-size:17px;color:#D6DDE6}.cta .cd b{font-size:22px;color:#fff}
+.btn{display:inline-block;background:#fff;color:#07101F;font-family:var(--display);font-size:18px;padding:14px 22px;border-radius:10px;text-align:center;border:0;cursor:pointer}
+.btn small{display:block;font-family:var(--body);font-size:13px;color:#5B6779}
+.btn[aria-disabled=true]{opacity:.55;cursor:default}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+.stats div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+.stats span{display:block;font-size:12px;letter-spacing:1px;color:var(--mut);text-transform:uppercase}
+.stats b{font-family:var(--display);font-weight:400;font-size:26px}
+.stats em{display:block;font-style:normal;font-size:13px;color:var(--ok)}
+
+/* panels */
+.cols{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;margin-bottom:24px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:16px}
+.box h3{font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:1px;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.box h3 a,.box h3 small{font-family:var(--body);font-size:14px;color:var(--mut);font-weight:600;letter-spacing:0}
+.sample{font-size:11px;letter-spacing:1px;color:var(--warn);border:1px solid rgba(255,207,90,.4);border-radius:4px;padding:0 5px}
+
+table{width:100%;border-collapse:collapse;font-size:16px}
+th{font-size:12px;letter-spacing:1px;color:var(--mut);text-align:left;padding:7px 14px;font-weight:600}
+td{padding:8px 14px;border-top:1px solid var(--line)}
+.n{text-align:right;font-variant-numeric:tabular-nums}
+.rk{width:44px;font-family:var(--display)}
+.md{display:inline-block;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:13px;color:#07101F}
+.g1{background:var(--gold)}.g2{background:var(--sil2)}.g3{background:var(--brz)}
+.h{font-size:12px;color:var(--ok);font-weight:700;margin-left:4px}
+tr.you td{background:rgba(0,53,148,.35)}tr.you td:first-child{box-shadow:inset 3px 0 var(--silver)}
+.up{color:var(--ok);font-size:13px;margin-left:4px}.dn{color:var(--bad);font-size:13px;margin-left:4px}
+
+/* games */
+.gm{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;padding:9px 14px;border-top:1px solid var(--line)}
+.gm:first-of-type{border-top:0}
+.gm .t{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:16px}
+.gm .t.r{justify-content:flex-end}
+.gm .t s{text-decoration:none;font-family:var(--body);font-size:18px;font-weight:700;min-width:22px;text-align:center}
+.gm .t.lose{opacity:.45}
+.gm img{width:28px;height:28px;object-fit:contain}
+.gm .w{font-size:13px;color:var(--mut);text-align:center;min-width:88px;line-height:1.25}
+.gm .w b{display:block;color:var(--txt)}
+.gm .w b.live{color:var(--bad)}
+.empty{padding:14px;color:var(--mut)}
+
+.win{display:flex;gap:14px;align-items:center;padding:14px}
+.win .tr{font-size:40px;line-height:1}
+.win b{font-family:var(--display);font-weight:400;font-size:20px;display:block}
+.win span{color:var(--mut);font-size:14px}
+.news{padding:2px 14px 14px}
+.news p{margin:12px 0 0;font-size:15px;color:#C9D3E0;line-height:1.35}
+.news p b{color:#fff}.news time{display:block;font-size:12px;color:var(--mut)}
+
+.ftr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;color:var(--mut);font-size:13px;padding:18px 16px 28px;border-top:1px solid var(--line)}
+
+@media (max-width:820px){
+  .cols{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .cta{grid-template-columns:1fr}.btn{width:100%}
+  .hero{height:260px}.hero::after{background:linear-gradient(180deg,rgba(7,16,31,.55),rgba(7,16,31,.97))}.hero h1{font-size:30px}.hero p{font-size:16px}.pill{font-size:11px}
+  .hdr-in{flex-wrap:wrap;padding:6px 0}.tabs{order:3;width:100%;margin:0}
+  .signin{margin-left:auto}
+}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a href="./" class="brand" aria-label="AAFL home">
+      <img src="assets/icon-180.png" alt="">
+      <div><b>AAFL</b><span>AN AASN POOL</span></div>
+    </a>
+    <nav class="tabs" aria-label="AAFL">
+      <a href="./" aria-current="page">Home</a>
+      <a href="#">Picks</a>
+      <a href="#">Standings</a>
+      <a href="#">Results</a>
+      <a href="#">Rules</a>
+      <a href="#">What's New</a>
+    </nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<section class="hero" aria-label="Angry Alpaca Football League">
+  <div class="wrap">
+    <h1>ANGRY ALPACA<br>FOOTBALL LEAGUE</h1>
+    <p>NFL Pick'em · Pick every game, every week</p>
+    <span class="pill">2026 TRIAL SEASON · NO PRIZES · INVITE ONLY</span>
+  </div>
+</section>
+
+<main class="wrap">
+  <section class="cta" aria-live="polite">
+    <div>
+      <div class="st" id="cta-st">● LOADING THE NFL SCHEDULE…</div>
+      <h2 id="cta-h">Weekly picks</h2>
+      <div class="cd" id="cta-cd">&nbsp;</div>
+    </div>
+    <a class="btn" id="cta-btn" href="#" aria-disabled="true">MAKE PICKS →<small id="cta-sub">Coming soon</small></a>
+  </section>
+
+  <section class="stats" aria-label="Your season (sample)">
+    <div><span>Your rank</span><b>4th</b><em>▲ 2 this week</em></div>
+    <div><span>Season points</span><b>72</b><em>66.1% correct</em></div>
+    <div><span>Last week</span><b>11/14</b><em>League avg 8.9</em></div>
+    <div><span>Back of 1st</span><b>−6</b><em>Sample</em></div>
+  </section>
+
+  <div class="cols">
+    <div>
+      <section class="box" aria-labelledby="st-h">
+        <h3 id="st-h">STANDINGS <span class="sample">SAMPLE</span></h3>
+        <table>
+          <thead><tr><th>#</th><th>Team</th><th class="n">Last wk</th><th class="n">Pts</th></tr></thead>
+          <tbody id="st-body"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <div>
+      <section class="box" aria-labelledby="win-h">
+        <h3 id="win-h">LAST WEEK'S WINNER <span class="sample">SAMPLE</span></h3>
+        <div class="win"><div class="tr" aria-hidden="true">🏆</div><div><b>Hope's Herd <span class="h">(h)</span></b><span>11 of 14 correct</span></div></div>
+      </section>
+
+      <section class="box" aria-labelledby="gm-h">
+        <h3 id="gm-h"><span id="gm-title">THIS WEEK'S GAMES</span> <small id="gm-count"></small></h3>
+        <div id="games"><div class="empty">Loading games…</div></div>
+      </section>
+
+      <section class="box" aria-labelledby="wn-h">
+        <h3 id="wn-h">WHAT'S NEW</h3>
+        <div class="news">
+          <p><time>Oct 2026</time><b>The AAFL is coming.</b> A free, invite-only trial for the rest of the 2026 season: pick the winner of every game, every week.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="wrap ftr">
+  <span>© ANGRY ALPACA SPORTS NETWORK</span>
+  <span>AAFL · <a href="../">AASN HOME</a></span>
+</footer>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/auth.js?v=2"></script>
+<script>
+(function () {
+  const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = id => document.getElementById(id);
+
+  // ---- Sample standings (replaced by Supabase in a later phase) ----
+  const SAMPLE = [
+    ['Gridiron Goats', 10, 78], ['Blitz Llamas', 9, 75, 1], ['Hail Mary Herd', 8, 74], ["Hope's Herd", 11, 72, 1, 'you', 2],
+    ['Spit Happens', 7, 70], ['Fourth & Fluff', 9, 69, 1, '', -1], ['Pack Animals', 8, 67], ['The Woolly Bullies', 6, 64]
+  ];
+  $('st-body').innerHTML = SAMPLE.map((r, i) => {
+    const rk = i < 3 ? `<span class="md g${i + 1}">${i + 1}</span>` : i + 1;
+    const mv = r[5] > 0 ? `<span class="up">▲${r[5]}</span>` : r[5] < 0 ? `<span class="dn">▼${-r[5]}</span>` : '';
+    return `<tr${r[4] ? ' class="you"' : ''}><td class="rk">${rk}</td><td>${esc(r[0])}${r[3] ? '<span class="h">(h)</span>' : ''}${mv}</td><td class="n">${r[1]}</td><td class="n"><b>${r[2]}</b></td></tr>`;
+  }).join('');
+
+  // ---- Live NFL schedule from ESPN ----
+  const ET = { timeZone: 'America/Toronto' };
+  const day = d => d.toLocaleDateString('en-US', { ...ET, weekday: 'short' }).toUpperCase();
+  const time = d => d.toLocaleTimeString('en-US', { ...ET, hour: 'numeric', minute: '2-digit' });
+
+  async function week(n) {
+    const url = n ? `${ESPN}?seasontype=2&week=${n}&dates=2026` : ESPN;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  }
+  const state = e => e.status && e.status.type ? e.status.type.state : 'pre';   // pre | in | post
+
+  function gameRow(e) {
+    const c = e.competitions[0];
+    const away = c.competitors.find(x => x.homeAway === 'away'), home = c.competitors.find(x => x.homeAway === 'home');
+    const st = state(e), d = new Date(e.date);
+    const odds = c.odds && c.odds[0];
+    let mid;
+    if (st === 'pre') mid = `<b>${day(d)} ${time(d)}</b>${esc(odds && odds.details ? odds.details : '')}`;
+    else mid = `<b class="${st === 'in' ? 'live' : ''}">${esc(e.status.type.shortDetail)}</b>`;
+    const side = (t, right) => {
+      const ab = esc(t.team.abbreviation), logo = esc(t.team.logo || '');
+      const sc = st === 'pre' ? '' : `<s>${esc(t.score)}</s>`;
+      const lose = st === 'post' && t.winner === false ? ' lose' : '';
+      return right
+        ? `<div class="t r${lose}">${sc}${ab}<img src="${logo}" alt="" loading="lazy"></div>`
+        : `<div class="t${lose}"><img src="${logo}" alt="" loading="lazy">${ab}${sc}</div>`;
+    };
+    return `<div class="gm">${side(away)}<div class="w">${mid}</div>${side(home, true)}</div>`;
+  }
+
+  function showGames(data, title) {
+    const ev = (data.events || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+    $('gm-title').textContent = title;
+    $('gm-count').textContent = ev.length ? ev.length + ' games' : '';
+    $('games').innerHTML = ev.length ? ev.map(gameRow).join('') : '<div class="empty">No games this week.</div>';
+    return ev;
+  }
+
+  function countdown(to) {
+    const ms = to - Date.now();
+    if (ms <= 0) return 'now';
+    const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
+    return (d ? d + 'd ' : '') + h + 'h ' + m + 'm';
+  }
+
+  async function load() {
+    try {
+      const cur = await week();
+      const wk = cur.week && cur.week.number;
+      const ev = cur.events || [];
+      const started = ev.some(e => state(e) !== 'pre');
+      const allDone = ev.length && ev.every(e => state(e) === 'post');
+      const st = $('cta-st'), h = $('cta-h'), cd = $('cta-cd'), sub = $('cta-sub');
+
+      if (allDone && wk < 18) {
+        // Window is open for next week.
+        const nxt = await week(wk + 1);
+        const nev = showGames(nxt, `WEEK ${wk + 1} GAMES`);
+        const lock = new Date(Math.min(...nev.map(e => +new Date(e.date))));
+        st.className = 'st ok'; st.textContent = `● WEEK ${wk + 1} PICKS ARE OPEN`;
+        h.textContent = `Make your Week ${wk + 1} picks`;
+        const tick = () => { cd.innerHTML = `Locks ${day(lock)} ${time(lock)} ET · <b>${countdown(lock)}</b> left · ${nev.length} games`; };
+        tick(); setInterval(tick, 30000);
+        sub.textContent = `0 / ${nev.length} picked`;
+      } else if (started) {
+        showGames(cur, `WEEK ${wk} · LIVE & FINAL`);
+        const left = ev.filter(e => state(e) !== 'post').length;
+        st.className = 'st live'; st.textContent = `● WEEK ${wk} IN PROGRESS · PICKS LOCKED`;
+        h.textContent = `Week ${wk + 1} picks open after the last game`;
+        cd.textContent = `${left} game${left === 1 ? '' : 's'} still to finish this week`;
+        sub.textContent = 'Picks locked';
+      } else {
+        const lock = new Date(Math.min(...ev.map(e => +new Date(e.date))));
+        showGames(cur, `WEEK ${wk} GAMES`);
+        st.className = 'st ok'; st.textContent = `● WEEK ${wk} PICKS ARE OPEN`;
+        h.textContent = `Make your Week ${wk} picks`;
+        const tick = () => { cd.innerHTML = `Locks ${day(lock)} ${time(lock)} ET · <b>${countdown(lock)}</b> left · ${ev.length} games`; };
+        tick(); setInterval(tick, 30000);
+        sub.textContent = `0 / ${ev.length} picked`;
+      }
+    } catch (e) {
+      $('cta-st').textContent = '● SCHEDULE UNAVAILABLE RIGHT NOW';
+      $('cta-cd').textContent = 'Try again in a few minutes.';
+      $('games').innerHTML = '<div class="empty">Games unavailable right now.</div>';
+    }
+  }
+  load();
+})();
+</script>
+</body>
+</html>
