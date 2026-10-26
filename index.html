@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#0B0D10">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="shared/aasn.css?v=3">
+<link rel="stylesheet" href="shared/aasn.css?v=4">
 </head>
 <body>
 <header class="hdr">
@@ -34,7 +34,7 @@
       <div class="eyebrow mono">ONE NETWORK · EVERY SEASON</div>
       <h1>ANGRY ALPACA <span class="ice">SPORTS NETWORK</span></h1>
     </div>
-    <p>Home of the AAHL, the AABL and the Death Pool. One account, every pool, and a wall of champions that keeps growing.</p>
+    <p>Home of the AAHL, the AABL, the AAFL and the Death Pool. One account, every pool, and a wall of champions that keeps growing.</p>
   </section>
 
   <section id="leagues" class="pools" aria-label="Pools">
@@ -67,6 +67,22 @@
       <div class="card-logo"><img class="round" src="aabl/assets/aabl-badge.png" alt="AABL logo"></div>
       <a href="aabl/" class="btn-ghost" id="aabl-btn" hidden>PREVIEW THE AABL →</a>
       <span class="btn-ghost" id="aabl-soon" aria-disabled="true" style="cursor:default;opacity:.7">OPENS BEFORE THE 2027 SEASON</span>
+    </article>
+
+    <article class="league" style="--c:#9FB3C8">
+      <div class="league-top">
+        <div><div class="league-abbr">AAFL</div><div class="league-name">ANGRY ALPACA FOOTBALL LEAGUE</div></div>
+        <span class="tag tag-soon mono">TRIAL 2026</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><span class="mono dim">SEASON</span><b class="mono">2026</b></div>
+        <div class="stat"><span class="mono dim">FORMAT</span><b class="mono">PICK'EM</b></div>
+        <div class="stat"><span class="mono dim">ENTRY</span><b class="mono">FREE</b></div>
+      </div>
+      <p class="card-note">NFL pick'em. Pick the winner of every game, every week. Invite-only trial for the rest of the 2026 season.</p>
+      <div class="card-logo"><img src="aafl/assets/aafl-logo.png" alt="AAFL logo" style="border-radius:0"></div>
+      <a href="aafl/" class="btn-ghost" id="aafl-btn" hidden>PREVIEW THE AAFL →</a>
+      <span class="btn-ghost" id="aafl-soon" aria-disabled="true" style="cursor:default;opacity:.7">TRIAL · COMING SOON</span>
     </article>
 
     <a href="deathpool/" class="dp-flat" id="deathpool">
@@ -104,7 +120,7 @@
 
 <footer class="wrap ftr mono">
   <span>© ANGRY ALPACA SPORTS NETWORK</span>
-  <span>AAHL · AABL · DEATH POOL</span>
+  <span>AAHL · AABL · AAFL · DEATH POOL</span>
 </footer>
 
 <script src="shared/gate.js"></script>
@@ -168,12 +184,14 @@
 })();
 </script>
 <script>
-// AABL is commissioner-only until launch: show its link only to the commissioner.
+// AABL and AAFL are commissioner-only until launch: show its link only to the commissioner.
 (function () {
   async function paint() {
     const ok = window.aasnIsAdmin ? await aasnIsAdmin() : false;
     document.getElementById('aabl-btn').hidden = !ok;
     document.getElementById('aabl-soon').hidden = ok;
+    document.getElementById('aafl-btn').hidden = !ok;
+    document.getElementById('aafl-soon').hidden = ok;
   }
   paint();
   if (window.aasnAuth) aasnAuth.onChange(paint);

@@ -45,7 +45,7 @@ a { color: var(--ice); }
 .hero p { max-width: 520px; font-size: 15px; line-height: 1.45; color: #B4BDC7; }
 
 /* Pool cards: AAHL · AABL · Death Pool in one row */
-.pools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.pools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .league { background: var(--panel); border: 1px solid var(--border); border-top: 4px solid var(--c); border-radius: 6px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .league-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .league-abbr { font-family: var(--font-display); font-weight: 800; font-size: 44px; line-height: 1; color: var(--c); }
@@ -118,13 +118,13 @@ a { color: var(--ice); }
 .ftr { padding-top: 10px; padding-bottom: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--dim); border-top: 1px solid var(--border); }
 
 /* One screen on desktop/laptop: header + hero + cards + hall + footer fill the viewport. */
-@media (min-width: 900px) and (min-height: 620px) {
+@media (min-width: 1200px) and (min-height: 620px) {
   body { height: 100vh; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
   .main, .ftr { width: 100%; }
   .main { min-height: 0; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
   .champs { max-height: 132px; }
 }
-@media (min-width: 900px) and (min-height: 620px) and (max-height: 820px) {
+@media (min-width: 1200px) and (min-height: 620px) and (max-height: 820px) {
   .hero { min-height: 104px; }
   .main { gap: 12px; padding-top: 12px; padding-bottom: 12px; }
   .hero p { display: none; }
@@ -138,6 +138,7 @@ a { color: var(--ice); }
   .hero { align-items: flex-start; }
   /* Phones: active pools first — Death Pool moves above the AABL (2nd card). */
   .pools > :nth-child(2) { order: 3; }
+  .pools > :nth-child(3) { order: 2; }
 }
 @media (max-width: 520px) {
   .champ-places { grid-template-columns: 1fr; }
@@ -165,3 +166,14 @@ a { color: var(--ice); }
 @media (max-width: 899px) {
   .hero { background: linear-gradient(180deg, rgba(11,13,16,0) 0%, rgba(11,13,16,0) 38%, rgba(11,13,16,.95) 62%), url(img/aasn-hero.jpg) center top / 100% auto no-repeat, #0B0D10; padding: 175px 18px 16px; }
 }
+
+/* Four pool cards: tighter type on desktop; 2 x 2 on small laptops/tablets */
+@media (min-width: 900px) {
+  .league-abbr, .dp-title { font-size: 38px; }
+  .stat-row, .dp-stats { gap: 6px; }
+  .stat { padding: 8px 7px; }
+  .stat b { font-size: 14px; letter-spacing: -.3px; }
+  .card-logo { min-height: 60px; }
+  .btn-solid, .btn-ghost, .dp-btn { font-size: 15px; letter-spacing: 1px; text-align: center; padding: 6px 8px; line-height: 1.15; }
+}
+@media (min-width: 900px) and (max-width: 1199px) { .pools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
