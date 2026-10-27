@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Join the AAFL</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07101F">
+<link rel="icon" type="image/png" href="assets/icon-180.png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aafl.css?v=4">
+<style>
+body{min-height:100vh;display:flex;flex-direction:column}
+.jn{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 16px}
+.card{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--silver);border-radius:14px;padding:26px 22px;text-align:center}
+.card img{width:120px;height:120px;object-fit:contain}
+.card h1{font-family:var(--display);font-weight:400;font-size:28px;margin:8px 0 6px}
+.card p{color:#C9D3E0;font-size:17px;line-height:1.4;margin:0 0 16px}
+.card small{display:block;color:var(--mut);font-size:14px;margin-top:12px}
+.fld{display:flex;flex-direction:column;gap:6px;text-align:left;margin:4px 0 14px}
+.fld label{font-size:13px;letter-spacing:1px;color:var(--mut);text-transform:uppercase}
+.fld input{font:600 20px var(--body);padding:12px 14px;border-radius:10px;border:2px solid var(--line);background:#07101F;color:#fff}
+.fld input:focus{outline:none;border-color:var(--silver)}
+.go{width:100%;background:#fff;color:#07101F;font-family:var(--display);font-size:18px;padding:14px;border-radius:10px;border:0;cursor:pointer}
+.go:disabled{opacity:.5;cursor:default}
+.ghost{background:none;border:1px solid var(--line);color:#C9D3E0;font:600 15px var(--body);padding:9px 14px;border-radius:8px;cursor:pointer;margin-top:10px}
+.err{color:#FF8F8F;font-weight:600;min-height:20px;margin-top:10px}
+.ok{color:var(--ok)}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a href="./" class="brand" aria-label="AAFL home">
+      <img src="assets/icon-180.png" alt="">
+      <div><b>AAFL</b><span>AN AASN POOL</span></div>
+    </a>
+    <button type="button" class="signin" style="margin-left:auto">SIGN IN</button>
+  </div>
+</header>
+
+<main class="jn">
+  <section class="card" aria-live="polite">
+    <img src="assets/aafl-logo.png" alt="AAFL logo">
+    <div id="body"><p>Loading your invite…</p></div>
+  </section>
+</main>
+
+<footer class="wrap ftr">
+  <span>© ANGRY ALPACA SPORTS NETWORK</span>
+  <span>AAFL · <a href="../">AASN HOME</a></span>
+</footer>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/auth.js?v=3"></script>
+<script src="league.js?v=2"></script>
+<script>
+(function () {
+  const L = window.AAFL;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const KEY = 'aafl-invite';
+
+  // The invite code survives the sign-in round trip (sign-in returns to this page without the ?code=).
+  const fromUrl = new URLSearchParams(location.search).get('code');
+  if (fromUrl) { try { localStorage.setItem(KEY, fromUrl); } catch (e) { /* ignore */ } }
+  let code = fromUrl; try { code = code || localStorage.getItem(KEY); } catch (e) { /* ignore */ }
+
+  const body = html => { $('body').innerHTML = html; };
+
+  async function render() {
+    const s = window.aasnAuth && aasnAuth.session();
+    if (!code) { body('<h1>NO INVITE FOUND</h1><p>Open the invite link from your email. If you\'ve already joined, <a href="picks.html">go to your picks</a>.</p>'); return; }
+    if (!s || !s.user) {
+      body(`<h1>YOU'RE INVITED</h1><p>Join the <b>Angry Alpaca Football League</b> 2026 trial: pick the winner of every NFL game, every week. Free, no prizes.</p>
+        <button type="button" class="go" id="sign">SIGN IN TO JOIN</button>
+        <small>Use the email your invite was sent to.</small>`);
+      $('sign').addEventListener('click', () => aasnAuth.open());
+      return;
+    }
+    const email = s.user.email || '';
+    try {
+      const me = await L.myTeam();
+      if (me) { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } body(`<h1>YOU'RE IN</h1><p>Your team <b>${esc(me.name)}</b> is already in the AAFL.</p><a class="go" style="display:block;text-decoration:none" href="picks.html">MAKE YOUR PICKS →</a>`); return; }
+      const inv = await L.db(`aafl_invites?select=code,email,used_at,revoked&code=eq.${encodeURIComponent(code)}`);
+      if (!inv.length) {
+        body(`<h1>WRONG ACCOUNT?</h1><p>This invite isn't for <b>${esc(email)}</b>. Sign in with the email the invite was sent to.</p><button type="button" class="ghost" id="out">Sign out and switch account</button>`);
+        $('out').addEventListener('click', () => aasnAuth.signOut());
+        return;
+      }
+      if (inv[0].used_at) { body('<h1>INVITE ALREADY USED</h1><p>This invite has already been used to join. <a href="picks.html">Go to your picks</a>.</p>'); return; }
+    } catch (e) {
+      body('<h1>SOMETHING WENT WRONG</h1><p>We couldn\'t check your invite right now. Try again in a minute.</p>'); return;
+    }
+    body(`<h1>NAME YOUR TEAM</h1><p>Signed in as <b>${esc(email)}</b>.</p>
+      <form id="f"><div class="fld"><label for="nm">Team name</label><input id="nm" maxlength="40" minlength="2" required autocomplete="off" placeholder="e.g. Hope's Herd"></div>
+      <button class="go" id="go">JOIN THE AAFL</button></form>
+      <div class="err" id="err"></div>
+      <small>If you're joining mid-season you get the league average for every week you missed, and start picking with the next week that hasn't kicked off.</small>`);
+    $('nm').focus();
+    $('f').addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const name = $('nm').value.trim();
+      if (name.length < 2) { $('err').textContent = 'Pick a team name (2–40 characters).'; return; }
+      $('go').disabled = true; $('go').textContent = 'JOINING…'; $('err').textContent = '';
+      try {
+        await L.join(code, name);
+        try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+        body(`<h1 class="ok">WELCOME TO THE AAFL</h1><p><b>${esc(name)}</b> is in. Taking you to your picks…</p>`);
+        setTimeout(() => { location.href = 'picks.html'; }, 1500);
+      } catch (err) {
+        const m = /duplicate key|aafl_teams_season_name/.test(err.message) ? 'That team name is taken. Try another.' : err.message;
+        $('err').textContent = m; $('go').disabled = false; $('go').textContent = 'JOIN THE AAFL';
+      }
+    });
+  }
+
+  if (window.aasnAuth) { aasnAuth.onChange(render); aasnAuth.ready().then(render); } else render();
+})();
+</script>
+</body>
+</html>

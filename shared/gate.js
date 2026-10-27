@@ -11,7 +11,7 @@
   // Lock-screen text per pool.
   const POOLS = {
     aabl: { title: 'AABL · COMING 2027', text: 'The Angry Alpaca Baseball League opens before the 2027 MLB season. Check back soon.', badge: 'aabl/assets/aabl-badge.png', who: 'the AABL', bg: '#0C2340', btn: '#BD3039' },
-    aafl: { title: 'AAFL · COMING SOON', text: 'The Angry Alpaca Football League trial season opens soon, by invite only. Check back soon.', badge: 'aafl/assets/aafl-logo.png', who: 'the AAFL', bg: '#07101F', btn: '#003594' }
+    aafl: { title: 'AAFL · COMING SOON', text: 'The Angry Alpaca Football League 2026 trial is invite only. Got an invite? Open the link from your email, or sign in with the email it was sent to.', badge: 'aafl/assets/aafl-logo.png', who: 'the AAFL', bg: '#07101F', btn: '#003594' }
   };
   const ADMIN_HASHES = [
     '151d5c340cdf9463eb6a300de214c14dcbd2d6924ecae1711be2c870147b36f8',
@@ -43,6 +43,29 @@
   window.aasnIsAdmin = isAdmin;
   if (!gate || OPEN[gate]) return;
 
+  // AAFL trial: invited players who have joined (have a team) can get in too.
+  function signedInUserId() {
+    for (const k of AUTH_KEYS) {
+      try {
+        const v = JSON.parse(localStorage.getItem(k) || 'null');
+        const u = v && (v.user || (v.currentSession && v.currentSession.user));
+        if (u && u.id) return String(u.id);
+      } catch (e) { /* ignore */ }
+    }
+    return '';
+  }
+  async function isMember() {
+    if (gate !== 'aafl') return false;
+    const uid = signedInUserId();
+    if (!uid || !/^[0-9a-f-]{36}$/i.test(uid)) return false;
+    try {
+      const SB = 'https://tetgrmgurobacdohhiby.supabase.co';
+      const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldGdybWd1cm9iYWNkb2hoaWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5Njc4MTYsImV4cCI6MjEwNDU0MzgxNn0.Jn0MdAdYslGv7znS0DFiSUjlZ6rpw0qsvQwiNq63vWk';
+      const r = await fetch(`${SB}/rest/v1/aafl_teams?select=id&user_id=eq.${uid}`, { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } });
+      return r.ok && (await r.json()).length > 0;
+    } catch (e) { return false; }
+  }
+
   // Hide the page until we know who's looking.
   const root = document.documentElement;
   root.classList.add('aasn-gate-wait');
@@ -72,7 +95,7 @@
       <img src="${base}${P.badge}" alt="" onerror="this.remove()">
       <h1>${P.title}</h1>
       <p>${P.text}</p>
-      <div class="g-row"><a href="${base}">AASN HOME</a><button type="button" id="aasn-gate-signin">COMMISSIONER SIGN IN</button></div>
+      <div class="g-row"><a href="${base}">AASN HOME</a><button type="button" id="aasn-gate-signin">${gate === 'aafl' ? 'SIGN IN' : 'COMMISSIONER SIGN IN'}</button></div>
       <small id="aasn-gate-msg"></small></div>`;
     document.body.appendChild(g);
     g.querySelector('#aasn-gate-signin').addEventListener('click', () => {
@@ -84,7 +107,7 @@
     root.classList.remove('aasn-gate-wait');
   }
   async function check() {
-    if (await isAdmin()) { unlock(); return true; }
+    if (await isAdmin() || await isMember()) { unlock(); return true; }
     return false;
   }
 
@@ -97,13 +120,13 @@
       aasnAuth.onChange(async () => {
         if (!(await check())) {
           const m = document.getElementById('aasn-gate-msg');
-          if (m && signedInEmail()) m.textContent = 'Signed in as ' + signedInEmail() + ' — ' + P.who + ' is commissioner-only for now.';
+          if (m && signedInEmail()) m.textContent = 'Signed in as ' + signedInEmail() + (gate === 'aafl' ? ' — no AAFL team on this account yet. Use your invite link to join.' : ' — ' + P.who + ' is commissioner-only for now.');
         }
       });
     }
     showLock();
     const m = document.getElementById('aasn-gate-msg');
-    if (m && signedInEmail()) m.textContent = 'Signed in as ' + signedInEmail() + ' — ' + P.who + ' is commissioner-only for now.';
+    if (m && signedInEmail()) m.textContent = 'Signed in as ' + signedInEmail() + (gate === 'aafl' ? ' — no AAFL team on this account yet. Use your invite link to join.' : ' — ' + P.who + ' is commissioner-only for now.');
   }
   // auth.js loads near the end of <body>; wait for the page to finish parsing.
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();

@@ -82,7 +82,7 @@
 <main class="wrap pg">
   <h1>STANDINGS</h1>
   <p class="lead">2026 trial season · 1 point for every correct pick · ties share the spot.</p>
-  <div class="note"><b>Trial league:</b> 10 computer teams making random picks for every game since Week 1, graded against the real NFL results.</div>
+  <div class="note"><b>Trial league:</b> 10 computer teams (random picks since Week 1) plus invited players <span class="h">(h)</span>, graded against the real NFL results. Everyone's picks are revealed when each week locks at its first kickoff.</div>
 
   <div class="seg" role="tablist" aria-label="View">
     <button type="button" role="tab" id="tab-season" aria-selected="true">Season</button>
@@ -102,7 +102,7 @@
   <section id="v-week" hidden>
     <div class="weeks" id="weeks" role="group" aria-label="Choose a week"></div>
     <div class="gridwrap"><table class="pk" id="pk"></table></div>
-    <p class="legend"><i style="background:rgba(63,209,122,.4)"></i>Correct<i style="background:rgba(255,93,93,.35)"></i>Wrong<i style="background:rgba(179,18,27,.5)"></i>Live<i style="background:#1B2A4A"></i>Not played yet<i style="background:rgba(212,175,55,.35)"></i>Week winner</p>
+    <p class="legend"><i style="background:rgba(63,209,122,.4)"></i>Correct<i style="background:rgba(255,93,93,.35)"></i>Wrong<i style="background:rgba(179,18,27,.5)"></i>Live<i style="background:#1B2A4A"></i>Not played yet · 🔒 hidden until lock<i style="background:rgba(212,175,55,.35)"></i>Week winner</p>
   </section>
 </main>
 
@@ -112,8 +112,8 @@
 </footer>
 
 <script src="../shared/config.js"></script>
-<script src="../shared/auth.js?v=2"></script>
-<script src="league.js?v=1"></script>
+<script src="../shared/auth.js?v=3"></script>
+<script src="league.js?v=2"></script>
 <script>
 (function () {
   const L = window.AAFL;
@@ -182,6 +182,7 @@
       const won = wk.winners.includes(r.id);
       const cells = w.events.map(e => {
         const p = L.pick(r, e), st = L.state(e), win = L.winner(e);
+        if (!p) return `<td><span class="c p" title="${st === 'pre' ? 'Hidden until the week locks' : 'No pick'}">${st === 'pre' ? '🔒' : '—'}</span></td>`;
         const cls = st === 'pre' ? 'p' : st === 'in' ? 'l' : p === win ? 'y' : 'n';
         return `<td><span class="c ${cls}">${esc(p)}</span></td>`;
       }).join('');
@@ -205,6 +206,7 @@
     try {
       CUR = await L.currentWeek();
       SEASON = await L.loadSeason(CUR);
+      await L.loadLeague();
       ST = L.standings(SEASON);
       if (!shownWeek) shownWeek = CUR;
       seasonTable(); weekButtons(); weekGrid();

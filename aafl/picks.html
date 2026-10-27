@@ -108,10 +108,10 @@
 </header>
 
 <main class="wrap pg">
-  <div class="demo"><b>DEMO MODE.</b> Real NFL games and odds, but picks are only kept in this browser and don't count toward any standings yet.</div>
+  <div class="demo" id="mode"><b>DEMO MODE.</b> Real NFL games and odds, but picks are only kept in this browser. Got an invite? Open your invite link to join, or <a href="#" id="mode-signin">sign in</a>.</div>
   <div class="top">
     <h1 id="title">WEEK —</h1>
-    <div class="me">Playing as <b>Hope's Herd</b> <span class="h">(h)</span></div>
+    <div class="me" id="me">Demo picks</div>
   </div>
   <div class="kp">
     <div><span>Picked</span><b id="k-picked">0/0</b></div>
@@ -133,8 +133,8 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script src="../shared/config.js"></script>
-<script src="../shared/auth.js?v=2"></script>
-<script src="league.js?v=1"></script>
+<script src="../shared/auth.js?v=3"></script>
+<script src="league.js?v=2"></script>
 <script>
 (function () {
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
@@ -148,11 +148,14 @@
   const time = d => d.toLocaleTimeString('en-US', { ...ET, hour: 'numeric', minute: '2-digit' });
   const state = e => e.status && e.status.type ? e.status.type.state : 'pre';
   let WK = 0, EV = [], BYES = new Set(), picks = {}, submitted = false, refreshT = null, lockT = null;
+  let MEMBER = null, saved = {}, WLOCK = null, saving = false;   // MEMBER = your AAFL team when signed in
+  const weekLocked = () => !!WLOCK && Date.now() >= WLOCK;
+  const openGames = () => weekLocked() ? [] : EV.filter(e => state(e) === 'pre');
 
   // ---- demo storage (this browser only) ----
   const KEY = () => 'aafl-demo-picks-w' + WK;
-  function loadPicks() { try { const v = JSON.parse(localStorage.getItem(KEY()) || 'null'); picks = (v && v.picks) || {}; submitted = !!(v && v.submitted); } catch (e) { picks = {}; } }
-  function savePicks() { try { localStorage.setItem(KEY(), JSON.stringify({ picks, submitted })); } catch (e) { /* ignore */ } }
+  function loadPicks() { if (MEMBER) { picks = { ...saved }; submitted = true; return; } try { const v = JSON.parse(localStorage.getItem(KEY()) || 'null'); picks = (v && v.picks) || {}; submitted = !!(v && v.submitted); } catch (e) { picks = {}; } }
+  function savePicks() { if (MEMBER) return; try { localStorage.setItem(KEY(), JSON.stringify({ picks, submitted })); } catch (e) { /* ignore */ } }
 
   // Simple seeded random so demo numbers stay the same on every visit.
   function seeded(str) { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; }; }
@@ -179,13 +182,12 @@
   const favourite = e => { const [a, h] = sides(e); return winPct(e) > 50 ? a.team.abbreviation : h.team.abbreviation; };
   // League split = how the 10 computer teams picked (league.js).
   function split(e) {
-    const [A] = sides(e);
-    const a = window.AAFL.TEAMS.filter(t => window.AAFL.pick(t, e) === A.team.abbreviation).length;
-    return [a, window.AAFL.TEAMS.length - a];
+    const [A, H] = sides(e), T = window.AAFL.TEAMS;
+    return [T.filter(t => window.AAFL.pick(t, e) === A.team.abbreviation).length, T.filter(t => window.AAFL.pick(t, e) === H.team.abbreviation).length];
   }
   // For games that kicked off before you picked, the demo fills in a pick (so locked/final cards have something to show).
   function demoPick(e) { const [a, h] = sides(e); return seeded('pick' + e.id)() * 100 < winPct(e) ? a.team.abbreviation : h.team.abbreviation; }
-  const myPick = e => picks[e.id] || (state(e) !== 'pre' ? demoPick(e) : null);
+  const myPick = e => MEMBER ? (picks[e.id] || null) : (picks[e.id] || (state(e) !== 'pre' ? demoPick(e) : null));
 
   function flags(e, t) {
     const out = [];
@@ -199,7 +201,7 @@
     const [A, H] = sides(e);
     const pa = winPct(e), ph = 100 - pa;
     const pick = myPick(e);
-    const locked = st !== 'pre';
+    const locked = weekLocked() || st !== 'pre';
     const odds = c.odds && c.odds[0];
     let cls = 'card';
     if (locked) cls += ' locked';
@@ -246,7 +248,7 @@
   }
 
   function render() {
-    const open = EV.filter(e => state(e) === 'pre');
+    const open = openGames();
     const days = {};
     EV.forEach(e => { const k = dayLong(new Date(e.date)); (days[k] = days[k] || []).push(e); });
     const openIds = new Set([...document.querySelectorAll('.card.open')].map(x => x.id));
@@ -264,13 +266,14 @@
     const btn = $('submit');
     if (!open.length) {
       $('b-txt').textContent = `${made} of ${EV.length} picked`;
-      $('b-sub').textContent = 'Picks are locked for this week';
+      $('b-sub').textContent = MEMBER ? 'Picks are locked. Everyone\'s picks are now on Standings → Weekly picks.' : 'Picks are locked for this week';
       btn.disabled = true; btn.textContent = 'LOCKED'; btn.classList.remove('done');
     } else {
       $('b-txt').textContent = `${made} of ${EV.length} picked`;
       $('b-sub').textContent = openMade < open.length ? `${open.length - openMade} game${open.length - openMade === 1 ? '' : 's'} left to pick` : (submitted ? 'Saved. You can still change picks until lock.' : 'All set. Submit to save.');
       btn.disabled = openMade < open.length;
-      btn.textContent = submitted ? '✓ PICKS SAVED' : 'SUBMIT PICKS';
+      btn.textContent = saving ? 'SAVING…' : submitted ? '✓ PICKS SAVED' : 'SUBMIT PICKS';
+      if (saving) btn.disabled = true;
       btn.classList.toggle('done', submitted);
     }
     $('t-fav').hidden = $('t-home').hidden = $('t-clear').hidden = !open.length;
@@ -285,23 +288,37 @@
     const b = ev.target.closest('.tm');
     if (!b || b.getAttribute('aria-disabled') === 'true') return;
     const e = EV.find(x => x.id === b.dataset.g);
-    if (!e || state(e) !== 'pre') return;
+    if (!e || state(e) !== 'pre' || weekLocked()) return;
     picks[e.id] = picks[e.id] === b.dataset.t ? undefined : b.dataset.t;
     if (!picks[e.id]) delete picks[e.id];
     submitted = false; savePicks(); render();
   });
-  $('submit').addEventListener('click', () => { submitted = true; savePicks(); render(); toast('✓ Picks saved (demo — this browser only)'); });
-  $('t-fav').addEventListener('click', () => { EV.filter(e => state(e) === 'pre').forEach(e => picks[e.id] = favourite(e)); submitted = false; savePicks(); render(); });
-  $('t-home').addEventListener('click', () => { EV.filter(e => state(e) === 'pre').forEach(e => picks[e.id] = sides(e)[1].team.abbreviation); submitted = false; savePicks(); render(); });
-  $('t-clear').addEventListener('click', () => { EV.filter(e => state(e) === 'pre').forEach(e => delete picks[e.id]); submitted = false; savePicks(); render(); });
+  $('submit').addEventListener('click', async () => {
+    if (!MEMBER) { submitted = true; savePicks(); render(); toast('✓ Picks saved (demo — this browser only)'); return; }
+    saving = true; render();
+    try {
+      const ids = new Set(openGames().map(e => e.id));
+      const keep = {}; Object.entries(picks).forEach(([g, t]) => { if (ids.has(g)) keep[g] = t; });
+      await window.AAFL.savePicks(MEMBER.id, keep);
+      const gone = Object.keys(saved).filter(g => ids.has(g) && !keep[g]);
+      await window.AAFL.deletePicks(MEMBER.id, gone);
+      saved = { ...saved, ...keep }; gone.forEach(g => delete saved[g]);
+      submitted = true; toast('✓ Picks saved');
+    } catch (err) {
+      toast('Could not save: ' + (err.message || 'try again'));
+    }
+    saving = false; render();
+  });
+  $('t-fav').addEventListener('click', () => { openGames().forEach(e => picks[e.id] = favourite(e)); submitted = false; savePicks(); render(); });
+  $('t-home').addEventListener('click', () => { openGames().forEach(e => picks[e.id] = sides(e)[1].team.abbreviation); submitted = false; savePicks(); render(); });
+  $('t-clear').addEventListener('click', () => { openGames().forEach(e => delete picks[e.id]); submitted = false; savePicks(); render(); });
 
   function lockCountdown() {
     clearInterval(lockT);
-    const pre = EV.filter(e => state(e) === 'pre');
-    const started = EV.some(e => state(e) !== 'pre');
+    const pre = openGames();
     if (!pre.length) { $('k-lock-l').textContent = 'Status'; $('k-lock').textContent = EV.some(e => state(e) === 'in') ? 'LIVE' : 'FINAL'; $('k-lock').className = EV.some(e => state(e) === 'in') ? 'live' : ''; return; }
-    if (started) { $('k-lock-l').textContent = 'Next kickoff'; }
-    const first = new Date(Math.min(...pre.map(e => +new Date(e.date))));
+    $('k-lock-l').textContent = 'Locks in';
+    const first = new Date(WLOCK);
     const tick = () => {
       const ms = first - Date.now();
       if (ms <= 0) { $('k-lock').textContent = 'NOW'; return; }
@@ -318,8 +335,20 @@
       let wk = (cur.week && cur.week.number) || 1, data = cur;
       const ev = cur.events || [];
       if (ev.length && ev.every(e => state(e) === 'post') && wk < 18) { wk += 1; data = await fetchWeek(wk); }
-      if (wk !== WK) { WK = wk; loadPicks(); }
       EV = (data.events || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+      WLOCK = EV.length ? Math.min(...EV.map(e => +new Date(e.date))) : null;   // the whole week locks at its first kickoff
+      // League picks (computer teams + invited players) and, when signed in, your own team.
+      try {
+        const L = window.AAFL;
+        const [, me] = await Promise.all([L.loadLeague(true), L.myTeam().catch(() => null)]);
+        const was = MEMBER && MEMBER.id;
+        MEMBER = me;
+        saved = {};
+        if (MEMBER) { EV.forEach(e => { const p = L.pick({ id: MEMBER.id }, e); if (p) saved[e.id] = p; }); }
+        if (wk !== WK || was !== (MEMBER && MEMBER.id)) { WK = wk; loadPicks(); }
+        else if (MEMBER && submitted) picks = { ...saved };
+      } catch (err) { if (wk !== WK) { WK = wk; loadPicks(); } }
+      paintMode();
       live = EV.some(e => state(e) === 'in');
       $('title').textContent = 'WEEK ' + WK + ' PICKS';
       if (!BYES.size && WK > 1) {
@@ -332,6 +361,17 @@
     clearTimeout(refreshT);
     refreshT = setTimeout(() => { if (!document.hidden) load(); else document.addEventListener('visibilitychange', load, { once: true }); }, live ? 30000 : 300000);
   }
+  function paintMode() {
+    const m = $('mode');
+    if (MEMBER) {
+      m.innerHTML = '<b>YOU\'RE IN.</b> Pick a winner for every game, then submit. You can change picks until the week locks at the first kickoff.';
+      $('me').innerHTML = 'Playing as <b>' + esc(MEMBER.name) + '</b> <span class="h">(h)</span>';
+    } else {
+      $('me').textContent = 'Demo picks';
+    }
+  }
+  document.addEventListener('click', ev => { if (ev.target && ev.target.id === 'mode-signin') { ev.preventDefault(); if (window.aasnAuth) aasnAuth.open(); } });
+  if (window.aasnAuth) aasnAuth.onChange(() => load());
   load();
 })();
 </script>

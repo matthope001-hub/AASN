@@ -18,18 +18,21 @@
   ];
   const SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
   // Each site gets the sign-in box and menu in its own colours, with its own "my team" link.
-  const SITE = /\/aabl\//.test(location.pathname) ? 'aabl' : /\/deathpool\//.test(location.pathname) ? 'dp' : 'hub';
+  const SITE = /\/aabl\//.test(location.pathname) ? 'aabl' : /\/deathpool\//.test(location.pathname) ? 'dp' : /\/aafl\//.test(location.pathname) ? 'aafl' : 'hub';
   const THEMES = {
     aabl: { bg: '#0C2340', panel: '#132E52', line: '#25446E', accent: '#BD3039', hi: '#F06A70', dim: '#A9B8CC', hover: '#1A3860', goText: '#FFFFFF' },
     dp:   { bg: '#07110A', panel: '#0B0D10', line: '#1E3A24', accent: '#8BE37A', hi: '#8BE37A', dim: '#9AA4AF', hover: '#12161B', goText: '#07110A' },
+    aafl: { bg: '#07101F', panel: '#0E1A30', line: '#22324F', accent: '#869397', hi: '#C9D3E0', dim: '#93A1B3', hover: '#1B2A4A', goText: '#07101F' },
     hub:  { bg: '#12161B', panel: '#0B0D10', line: '#2E353D', accent: '#00D4FF', hi: '#00D4FF', dim: '#9AA4AF', hover: '#161B21', goText: '#0B0D10' }
   };
   const T = THEMES[SITE];
   const MY_LINK = SITE === 'aabl' ? { href: 'myteam.html', label: '⚾ My Teams' }
     : SITE === 'dp' ? { href: '#mine', label: '☠ My Cemetery' }
+    : SITE === 'aafl' ? { href: 'picks.html', label: '🏈 My Picks' }
     : { href: 'deathpool/#mine', label: '☠ Death Pool · My Cemetery' };
   const INTRO = SITE === 'dp' ? 'Sign in with the email from your Death Pool entry to see your cemetery and add your logo.'
     : SITE === 'aabl' ? 'Optional — see every team on your email in one place. Use the account with the email you entered with.'
+    : SITE === 'aafl' ? 'Sign in with the email your AAFL invite was sent to.'
     : 'One AASN account for every pool. Use the account with the email you entered with.';
 
   let client = null, session = null;

@@ -104,8 +104,8 @@
 </footer>
 
 <script src="../shared/config.js"></script>
-<script src="../shared/auth.js?v=2"></script>
-<script src="league.js?v=1"></script>
+<script src="../shared/auth.js?v=3"></script>
+<script src="league.js?v=2"></script>
 <script>
 (function () {
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
@@ -119,7 +119,8 @@
     const L = window.AAFL;
     try {
       const cur = await L.currentWeek();
-      const ST = L.standings(await L.loadSeason(cur));
+      const [season] = await Promise.all([L.loadSeason(cur), L.loadLeague()]);
+      const ST = L.standings(season);
       const lw = ST.lastDone;
       $('st-body').innerHTML = ST.teams.map(r => {
         const rk = r.rank <= 3 ? `<span class="md g${r.rank}">${r.rank}</span>` : r.rank;
