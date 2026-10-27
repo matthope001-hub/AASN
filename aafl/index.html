@@ -27,8 +27,9 @@
       <a href="picks.html">Picks</a>
       <a href="standings.html">Standings</a>
       <a href="results.html">Results</a>
-      <a href="#">Rules</a>
-      <a href="#">What's New</a>
+      <a href="rules.html">Rules</a>
+      <a href="whatsnew.html">What's New</a>
+      <a href="admin.html" class="nav-admin" hidden>⚙️ Admin</a>
     </nav>
     <button type="button" class="signin">SIGN IN</button>
   </div>
@@ -89,10 +90,8 @@
       </section>
 
       <section class="box" aria-labelledby="wn-h">
-        <h3 id="wn-h">WHAT'S NEW</h3>
-        <div class="news">
-          <p><time>Oct 2026</time><b>The AAFL is coming.</b> A free, invite-only trial for the rest of the 2026 season: pick the winner of every game, every week.</p>
-        </div>
+        <h3 id="wn-h">WHAT'S NEW <a href="whatsnew.html">All →</a></h3>
+        <div class="news" id="news"></div>
       </section>
     </div>
   </div>
@@ -104,8 +103,9 @@
 </footer>
 
 <script src="../shared/config.js"></script>
+<script src="nav.js?v=1" defer></script>
 <script src="../shared/auth.js?v=3"></script>
-<script src="league.js?v=2"></script>
+<script src="league.js?v=3"></script>
 <script>
 (function () {
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
@@ -113,6 +113,12 @@
   const $ = id => document.getElementById(id);
   // ESPN's dark-background logos (navy/black logos stay visible on dark panels); falls back to the regular logo.
   const dl = u => String(u || '').replace('/500/', '/500-dark/');
+
+  // ---- What's New (latest 2 from whatsnew.json) ----
+  fetch('whatsnew.json?v=' + Date.now()).then(r => r.json()).then(list => {
+    const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    $('news').innerHTML = list.slice(0, 2).map(x => `<p><time>${fmt(x.date)}</time><b>${esc(x.title)}.</b> ${esc(x.items[0])}</p>`).join('');
+  }).catch(() => {});
 
   // ---- League standings (10 computer teams, graded live; see league.js) ----
   (async function league() {

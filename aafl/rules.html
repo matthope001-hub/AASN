@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="../shared/gate.js" data-gate="aafl"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rules — AAFL 2026</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07101F">
+<link rel="icon" type="image/png" href="assets/icon-180.png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aafl.css?v=4">
+<script src="../shared/switcher.js" data-pool="aafl" defer></script>
+<style>
+.pg{padding:20px 0 28px}
+.pg h1{font-family:var(--display);font-weight:400;font-size:32px;margin:0}
+.lead{color:var(--mut);margin:2px 0 16px}
+.rules{display:grid;gap:12px;max-width:820px}
+.rules section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+.rules h2{font-family:var(--display);font-weight:400;font-size:18px;letter-spacing:1px;margin:0 0 6px;color:#fff}
+.rules ul{margin:0;padding-left:20px;color:#C9D3E0;font-size:16px;line-height:1.5}
+.rules b{color:#fff}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a href="./" class="brand" aria-label="AAFL home">
+      <img src="assets/icon-180.png" alt="">
+      <div><b>AAFL</b><span>AN AASN POOL</span></div>
+    </a>
+    <nav class="tabs" aria-label="AAFL">
+      <a href="./">Home</a>
+      <a href="picks.html">Picks</a>
+      <a href="standings.html">Standings</a>
+      <a href="results.html">Results</a>
+      <a href="rules.html" aria-current="page">Rules</a>
+      <a href="whatsnew.html">What's New</a>
+      <a href="admin.html" class="nav-admin" hidden>⚙️ Admin</a>
+    </nav>
+    <button type="button" class="signin">SIGN IN</button>
+  </div>
+</header>
+
+<main class="wrap pg">
+  <h1>RULES</h1>
+  <p class="lead">2026 trial season · free · invite only · no prizes</p>
+  <div class="rules">
+    <section><h2>🏈 THE GAME</h2><ul>
+      <li>Pick the <b>winner of every NFL game, every week</b> (regular season, Weeks 1–18).</li>
+      <li><b>1 point</b> for every correct pick. No point spreads.</li>
+      <li>A game that ends in a <b>tie</b> scores 0 for everyone. A game with <b>no pick</b> scores 0.</li>
+    </ul></section>
+    <section><h2>⏱️ PICK WINDOW</h2><ul>
+      <li>Picks for a week <b>open</b> when the last game of the previous week is final (usually after Monday night).</li>
+      <li>The whole week <b>locks at its first kickoff</b> (usually Thursday night). After that, no picks can be added or changed.</li>
+      <li>You can change your picks as often as you like before the lock. Tap <b>Submit picks</b> to save.</li>
+    </ul></section>
+    <section><h2>👀 PICK REVEAL</h2><ul>
+      <li>Your picks are private until the week locks.</li>
+      <li>Once it locks, everyone's picks are shown on <b>Standings → Weekly picks</b>, and marked right or wrong as games finish.</li>
+    </ul></section>
+    <section><h2>🏆 STANDINGS</h2><ul>
+      <li>Season standings are total points. The <b>weekly winner</b> is whoever gets the most right that week.</li>
+      <li><b>No tiebreaker:</b> tied teams share the spot. Tied for a top-3 place, they split that place's prize (no prizes this trial).</li>
+      <li>1st, 2nd and 3rd are marked at the end of the season.</li>
+    </ul></section>
+    <section><h2>✉️ JOINING</h2><ul>
+      <li>The 2026 trial is <b>invite only</b>, up to 10 players, alongside 10 computer teams that pick at random.</li>
+      <li>Open your invite link and sign in with the email it was sent to, then name your team.</li>
+      <li>Joining mid-season? You get the <b>league average</b> for every week you missed, and start with the next week that hasn't kicked off.</li>
+      <li>Human players are marked <b>(h)</b> in the standings.</li>
+    </ul></section>
+    <section><h2>📊 SCORES &amp; ODDS</h2><ul>
+      <li>Official scores and odds come from ESPN and update every 15 minutes (the score ticker is live).</li>
+      <li>Win chances on the pick cards come from the betting odds. They're a guide, not a guarantee.</li>
+    </ul></section>
+  </div>
+</main>
+
+<footer class="wrap ftr">
+  <span>© ANGRY ALPACA SPORTS NETWORK</span>
+  <span>AAFL · <a href="../">AASN HOME</a></span>
+</footer>
+
+<script src="../shared/config.js"></script>
+<script src="nav.js?v=1" defer></script>
+<script src="../shared/auth.js?v=3"></script>
+</body>
+</html>

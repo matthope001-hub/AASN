@@ -1,0 +1,38 @@
+name: AAFL reminders
+
+# Tuesday ~9am ET: picks are open. Thursday ~noon ET: picks lock tonight (only players missing picks).
+# Times are UTC for Eastern Standard Time (from Nov 1); during daylight time they run an hour later.
+on:
+  schedule:
+    - cron: '7 14 * * 2'
+    - cron: '7 17 * * 4'
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: 'open or lock'
+        required: true
+        default: 'open'
+      dry_run:
+        description: '1 = list who would get it, send nothing'
+        required: false
+        default: '1'
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Send reminders
+        env:
+          SUPABASE_URL: https://tetgrmgurobacdohhiby.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          AAFL_FROM: ${{ secrets.AAFL_FROM }}
+          KIND: ${{ inputs.kind || (github.event.schedule == '7 14 * * 2' && 'open' || 'lock') }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          SEASON: '2026'
+        run: node scripts/aafl-reminders.mjs

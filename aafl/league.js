@@ -87,7 +87,7 @@ window.AAFL = (function () {
     const s = window.aasnAuth && aasnAuth.session && aasnAuth.session();
     const uid = s && s.user && s.user.id;
     if (!uid) return null;
-    const rows = await db(`aafl_teams?select=id,name,joined_week&season=eq.${SEASON}&user_id=eq.${uid}`);
+    const rows = await db(`aafl_teams?select=id,name,joined_week,email_reminders&season=eq.${SEASON}&user_id=eq.${uid}`);
     return rows[0] || null;
   }
 

@@ -1,0 +1,21 @@
+[
+  {
+    "date": "2026-10-27",
+    "title": "Real picks and invites",
+    "items": [
+      "Invited players can join with their invite link, name their team and make real picks.",
+      "Picks save to your account and lock at the first kickoff of each week.",
+      "Everyone's picks are revealed on Standings → Weekly picks once the week locks.",
+      "Rules page, plus optional email reminders when picks open and before they lock."
+    ]
+  },
+  {
+    "date": "2026-10-26",
+    "title": "The AAFL is here",
+    "items": [
+      "NFL pick'em for the 2026 trial season: pick the winner of every game, every week.",
+      "Live scores ticker, Results for every week, Standings with team summaries and weekly picks.",
+      "10 computer teams have been picking at random since Week 1."
+    ]
+  }
+]
