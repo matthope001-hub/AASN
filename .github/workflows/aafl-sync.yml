@@ -1,0 +1,28 @@
+name: AAFL sync
+
+# NFL games from ESPN -> Supabase (scores, live status, odds) and the computer teams' picks.
+# Every 15 minutes, so live scores and grading stay close to real time.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: aafl-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Sync NFL games and bot picks
+        env:
+          SUPABASE_URL: https://tetgrmgurobacdohhiby.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SEASON: '2026'
+        run: node scripts/aafl-sync.mjs
