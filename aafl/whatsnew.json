@@ -1,21 +1,85 @@
 [
   {
     "date": "2026-10-27",
-    "title": "Real picks and invites",
+    "title": "Form and injuries on the pick cards",
     "items": [
-      "Invited players can join with their invite link, name their team and make real picks.",
-      "Picks save to your account and lock at the first kickoff of each week.",
-      "Everyone's picks are revealed on Standings → Weekly picks once the week locks.",
-      "Rules page, plus optional email reminders when picks open and before they lock."
+      "Open ⓘ Matchup on any game to see each team's last 5 results (W/L) and key injuries (Out, Doubtful, Questionable), from ESPN.",
+      "Joined players can now get to the AAFL straight from the AASN bar at the top of every pool, and from the AASN home page."
+    ]
+  },
+  {
+    "date": "2026-10-27",
+    "title": "Rules, What's New and email reminders",
+    "items": [
+      "New Rules page: how picks, the weekly lock, the pick reveal, standings and joining work.",
+      "New What's New page (this one), with the latest updates on the AAFL home page.",
+      "Email reminders: one on Tuesday when picks open, and one on Thursday if you still have games to pick. Turn them off any time on the Picks page."
+    ]
+  },
+  {
+    "date": "2026-10-27",
+    "title": "Real picks, invites and the pick reveal",
+    "items": [
+      "The AAFL is invite only: open your invite link, sign in with the email it was sent to, and name your team.",
+      "Joining mid-season? You get the league average for every week you missed, and start with the next week that hasn't kicked off.",
+      "Your picks now save to your account. Change them as often as you like until the week locks at its first kickoff.",
+      "Picks stay private until the week locks. Then everyone's picks show on Standings → Weekly picks, marked right or wrong as games finish.",
+      "Human players are marked (h) in the standings."
+    ]
+  },
+  {
+    "date": "2026-10-27",
+    "title": "Live league data",
+    "items": [
+      "Every NFL game, score and line is saved for the AAFL and refreshed every 15 minutes.",
+      "Picks are graded automatically the moment each game goes final.",
+      "The 10 computer teams pick for each new week as soon as it opens."
+    ]
+  },
+  {
+    "date": "2026-10-26",
+    "title": "Ticker look, logos and speed",
+    "items": [
+      "The scores ticker now looks and scrolls exactly the same on the AAHL, AABL and AAFL.",
+      "Clearer team logos on dark backgrounds, and a losing team's logo no longer fades away.",
+      "The AAFL now has its own pill in the AASN bar at the top of every pool, and a card on the AASN home page."
+    ]
+  },
+  {
+    "date": "2026-10-26",
+    "title": "Standings and the computer teams",
+    "items": [
+      "10 computer teams join the 2026 trial, each making random picks for every game since Week 1.",
+      "New Standings page: season table with 1st, 2nd and 3rd marked, % correct, weekly wins and movement since last week.",
+      "Tap any team for its season: best and worst week, and points for every week.",
+      "Weekly picks view: every team's pick for every game of a week.",
+      "The home page standings show the top 10, and scroll for the rest."
+    ]
+  },
+  {
+    "date": "2026-10-26",
+    "title": "Picks page and Results",
+    "items": [
+      "Picks page: tap a team to pick it, with each game's line, over/under and win chance from the betting odds.",
+      "ⓘ Matchup shows records, home and road form, the stadium, weather, TV channel and teams coming off a bye.",
+      "Quick buttons to pick every favourite or every home team.",
+      "New Results page: every game from Week 1 to Week 18, with scores, records, byes and a summary for each week."
     ]
   },
   {
     "date": "2026-10-26",
     "title": "The AAFL is here",
     "items": [
-      "NFL pick'em for the 2026 trial season: pick the winner of every game, every week.",
-      "Live scores ticker, Results for every week, Standings with team summaries and weekly picks.",
-      "10 computer teams have been picking at random since Week 1."
+      "The Angry Alpaca Football League home page: this week's games, the picks countdown, standings and the latest news.",
+      "Live scores ticker under the menu: every game of the week, with live scores and finals. The label turns red while games are on."
+    ]
+  },
+  {
+    "date": "2026-10-23",
+    "title": "Kickoff",
+    "items": [
+      "The Angry Alpaca Football League is announced: an NFL pick'em where you pick the winner of every game, every week.",
+      "2026 is a free trial season, with the new AAFL logo and Cowboys navy and silver look."
     ]
   }
 ]
