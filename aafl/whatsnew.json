@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-10-27",
+    "title": "Better emails",
+    "items": [
+      "AAFL emails now have a big button to open the site, plus a clickable link.",
+      "Every AAFL email has an Unsubscribe link: one tap turns all AAFL emails off, no sign-in needed, and you can turn them back on from the same page."
+    ]
+  },
+  {
+    "date": "2026-10-27",
     "title": "More than one entry",
     "items": [
       "You can now play more than one team if your invite allows it: tap + Add entry at the top of the Picks page.",
