@@ -6,7 +6,7 @@
 // 1. Games: weeks 1..(current week + 1) from ESPN -> public.aafl_games
 //    (schedule, scores, live status, winner, odds). Grading is automatic: the
 //    aafl_week_scores view counts a pick as correct once its game is final.
-// 2. Computer teams: once a week's pick window opens (previous week all final),
+// 2. Computer teams: once a week's pick window opens (previous week has kicked off),
 //    each bot gets a random pick for every game that week that it hasn't picked yet.
 //    Existing picks are never changed. The random pick is seeded by bot + game, the
 //    same formula the website used for the demo, so the standings stay the same.
@@ -102,12 +102,14 @@ async function main() {
   console.log(`Games: ${all.length} saved (weeks 1-${last}), current week ${current}.`);
 
   // 2. Computer team picks for every week whose pick window is open.
-  //    Week N opens once week N-1 is all final (week 1 is always open).
+  //    Week N opens as soon as week N-1 locks at its first kickoff (week 1 is always open).
   const bots = await sb(`aafl_teams?select=id,bot_key&season=eq.${SEASON}&is_bot=eq.true`);
   const openWeeks = [];
   for (let w = 1; w <= last; w++) {
-    const prevDone = w === 1 || ((weeks[w - 1] || []).length > 0 && weeks[w - 1].every(g => g.state === 'post'));
-    if (prevDone && (weeks[w] || []).length) openWeeks.push(w);
+    // Week N opens as soon as week N-1 locks (its first kickoff), so players get the whole week to pick.
+    const prev = weeks[w - 1] || [];
+    const prevLocked = w === 1 || (prev.length > 0 && Date.now() >= Math.min(...prev.map(g => +new Date(g.kickoff))));
+    if (prevLocked && (weeks[w] || []).length) openWeeks.push(w);
   }
   const games = openWeeks.flatMap(w => weeks[w]);
   if (!games.length || !bots.length) { console.log('No open weeks or no bots.'); return; }

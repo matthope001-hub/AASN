@@ -271,11 +271,21 @@
         clearInterval(tickT);
         showGames(cur, `WEEK ${wk} · LIVE & FINAL`);
         live = renderTicker(ev, wk);
-        const left = ev.filter(e => state(e) !== 'post').length;
-        st.className = 'st live'; st.textContent = `● WEEK ${wk} IN PROGRESS · PICKS LOCKED`;
-        h.textContent = `Week ${wk + 1} picks open after the last game`;
-        cd.textContent = `${left} game${left === 1 ? '' : 's'} still to finish this week`;
-        sub.textContent = 'Picks locked';
+        // Week N is under way, so week N+1 is already open for picks.
+        if (wk < 18) {
+          const nxt = await week(wk + 1);
+          const nev = (nxt.events || []);
+          const lock = new Date(Math.min(...nev.map(e => +new Date(e.date))));
+          st.className = 'st ok'; st.textContent = `● WEEK ${wk + 1} PICKS ARE OPEN · WEEK ${wk} IN PROGRESS`;
+          h.textContent = `Make your Week ${wk + 1} picks`;
+          setCountdown(lock, nev.length);
+          sub.textContent = `${nev.length} games`;
+        } else {
+          st.className = 'st live'; st.textContent = `● WEEK ${wk} IN PROGRESS · PICKS LOCKED`;
+          h.textContent = 'Final week of the season';
+          cd.textContent = 'Picks are locked';
+          sub.textContent = 'Picks locked';
+        }
       } else {
         const lock = new Date(Math.min(...ev.map(e => +new Date(e.date))));
         showGames(cur, `WEEK ${wk} GAMES`);

@@ -19,6 +19,7 @@
 .demo b{color:var(--warn)}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .top h1{font-family:var(--display);font-weight:400;font-size:32px;margin:0}
+.wk-switch{margin:6px 0 0;font-size:15px;color:#C9D3E0}.wk-switch a{color:#fff;font-weight:700}
 .top .me{font-size:15px;color:var(--mut)}
 .add-entry{margin-left:8px;background:none;border:1px dashed var(--silver);color:#fff;border-radius:8px;padding:7px 12px;font:700 15px var(--body);cursor:pointer}
 .add-entry:hover{background:var(--navy);border-style:solid}
@@ -137,6 +138,7 @@
     <h1 id="title">WEEK —</h1>
     <div class="me" id="me">Demo picks</div>
   </div>
+  <div class="wk-switch" id="wk-switch" hidden></div>
   <div class="kp">
     <div><span>Picked</span><b id="k-picked">0/0</b></div>
     <div><span id="k-lock-l">Locks in</span><b id="k-lock" class="warn">—</b></div>
@@ -183,7 +185,8 @@
   const time = d => d.toLocaleTimeString('en-US', { ...ET, hour: 'numeric', minute: '2-digit' });
   const state = e => e.status && e.status.type ? e.status.type.state : 'pre';
   let WK = 0, EV = [], BYES = new Set(), picks = {}, submitted = false, refreshT = null, lockT = null;
-  let MEMBER = null, MINE = [], saved = {}, WLOCK = null, saving = false;   // MEMBER = your AAFL team when signed in
+  let MEMBER = null, MINE = [], saved = {}, WLOCK = null, saving = false;
+  let VIEW = 0, LIVEWK = 0;   // VIEW = the in-progress week, when you tap to look at it   // MEMBER = your AAFL team when signed in
   const weekLocked = () => !!WLOCK && Date.now() >= WLOCK;
   const openGames = () => weekLocked() ? [] : EV.filter(e => state(e) === 'pre');
 
@@ -420,7 +423,12 @@
       const cur = await fetchWeek();
       let wk = (cur.week && cur.week.number) || 1, data = cur;
       const ev = cur.events || [];
-      if (ev.length && ev.every(e => state(e) === 'post') && wk < 18) { wk += 1; data = await fetchWeek(wk); }
+      // The next week opens as soon as this week kicks off (its lock), so you always have a full week to pick.
+      const curLocked = ev.length && Date.now() >= Math.min(...ev.map(e => +new Date(e.date)));
+      LIVEWK = curLocked && wk < 18 && !ev.every(e => state(e) === 'post') ? wk : 0;
+      if (curLocked && wk < 18) {
+        if (VIEW !== wk) { wk += 1; data = await fetchWeek(wk); }
+      }
       EV = (data.events || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
       WLOCK = EV.length ? Math.min(...EV.map(e => +new Date(e.date))) : null;   // the whole week locks at its first kickoff
       // League picks (computer teams + invited players) and, when signed in, your own team.
@@ -440,6 +448,10 @@
       paintMode();
       live = EV.some(e => state(e) === 'in');
       $('title').textContent = 'WEEK ' + WK + ' PICKS';
+      const sw = $('wk-switch');
+      if (LIVEWK && VIEW !== LIVEWK) { sw.hidden = false; sw.innerHTML = `Week ${LIVEWK} is in progress · <a href="#" data-view="${LIVEWK}">See your Week ${LIVEWK} picks →</a>`; }
+      else if (VIEW) { sw.hidden = false; sw.innerHTML = `Week ${VIEW} is locked · <a href="#" data-view="0">Back to Week ${VIEW + 1} picks (open) →</a>`; }
+      else sw.hidden = true;
       if (!BYES.size && WK > 1) {
         try { const prev = await fetchWeek(WK - 1); ((prev.week && prev.week.teamsOnBye) || []).forEach(t => BYES.add(t.abbreviation)); } catch (e) { /* optional */ }
       }
@@ -532,6 +544,13 @@
     go.disabled = false; go.textContent = 'ADD ENTRY';
   });
 
+  document.addEventListener('click', ev => {
+    const v = ev.target && ev.target.closest && ev.target.closest('[data-view]');
+    if (!v) return;
+    ev.preventDefault();
+    if (!submitted && MEMBER && Object.keys(picks).length && !confirm('You have unsaved picks. Switch weeks anyway?')) return;
+    VIEW = +v.dataset.view; WK = 0; load();
+  });
   document.addEventListener('click', ev => { if (ev.target && ev.target.id === 'mode-signin') { ev.preventDefault(); if (window.aasnAuth) aasnAuth.open(); } });
   if (window.aasnAuth) aasnAuth.onChange(() => load());
   load();
