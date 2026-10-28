@@ -34,10 +34,14 @@ async function send(to, subject, text) {
   if (USE_GMAIL) {
     if (!mailer) {
       const nodemailer = (await import('nodemailer')).default;
-      mailer = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD.replace(/\s+/g, '') } });
+      mailer = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GMAIL_USER.trim(), pass: GMAIL_APP_PASSWORD.replace(/[^A-Za-z0-9]/g, '') } });
     }
-    try { await mailer.sendMail({ from: `AAFL <${GMAIL_USER}>`, to, subject, text }); console.log(`::notice::Sent to ${to} (Gmail)`); }
-    catch (e) { console.log(`::error::Send to ${to} failed (Gmail): ${e.message}`); process.exitCode = 1; }
+    try { await mailer.sendMail({ from: `AAFL <${GMAIL_USER.trim()}>`, to, subject, text }); console.log(`::notice::Sent to ${to} (Gmail)`); }
+    catch (e) {
+      const pw = GMAIL_APP_PASSWORD.replace(/[^A-Za-z0-9]/g, '');
+      console.log(`::error::Send to ${to} failed (Gmail): ${e.message.split('\n')[0]} | user looks like an email: ${/^[^@\s]+@[^@\s]+\.[a-z]+$/i.test(GMAIL_USER.trim())} | app password length: ${pw.length} (should be 16)`);
+      process.exitCode = 1;
+    }
     return;
   }
   const res = await fetch('https://api.resend.com/emails', {
