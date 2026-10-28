@@ -69,6 +69,17 @@
 .mx td:first-child{text-align:left}.mx td:last-child{text-align:right}
 .mx .flags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .mx .flags span{background:#1B2A4A;border-radius:12px;padding:2px 9px;font-size:12px}
+.mx-x{margin-top:10px}
+.mx-x .xh{font-size:11px;letter-spacing:1px;color:var(--mut);margin:8px 0 4px}
+.form{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px}
+.form div{display:flex;gap:3px}.form div:last-child{justify-content:flex-end}
+.form i{font-style:normal;display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:4px;font-size:11px;font-weight:700}
+.form i.W{background:rgba(63,209,122,.25);color:#7BE3A3}.form i.L{background:rgba(255,93,93,.2);color:#FF8F8F}.form i.T{background:#1B2A4A;color:#C9D3E0}
+.form em{font-style:normal;font-size:11px;letter-spacing:1px;color:var(--mut)}
+.inj{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;color:#C9D3E0}
+.inj b{display:block;font-size:12px;color:#fff;margin-bottom:2px}
+.inj span{display:block;line-height:1.35}.inj .o{color:#FF8F8F}.inj .q{color:var(--warn)}
+.mx-x .none{color:var(--mut);font-size:13px}
 
 /* submit bar */
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(7,16,31,.96);border-top:2px solid var(--silver);backdrop-filter:blur(6px)}
@@ -245,6 +256,7 @@
         </table>
         ${c.venue ? `<div style="margin-top:6px;color:var(--mut);font-size:13px">${esc(c.venue.fullName)}${c.venue.address && c.venue.address.city ? ' · ' + esc(c.venue.address.city) : ''}</div>` : ''}
         ${fl.length ? `<div class="flags">${fl.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
+        <div class="mx-x" data-x="${e.id}">${XTRA[e.id] || ''}</div>
       </div>
     </article>`;
   }
@@ -283,10 +295,60 @@
 
   function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); }
 
+  // ---- Matchup extras: last-5 form + key injuries (ESPN game summary, loaded when a card opens) ----
+  const XTRA = {}, XLOAD = {};
+  const KEY_POS = ['QB', 'RB', 'WR', 'TE', 'OT', 'OL', 'EDGE', 'DE', 'LB', 'CB', 'S', 'DT', 'K'];
+  async function extras(id) {
+    if (XTRA[id] || XLOAD[id]) return;
+    XLOAD[id] = true;
+    const slot = () => document.querySelector(`.mx-x[data-x="${id}"]`);
+    if (slot()) slot().innerHTML = '<div class="none">Loading form and injuries…</div>';
+    try {
+      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${encodeURIComponent(id)}`);
+      if (!r.ok) throw new Error(r.status);
+      const j = await r.json();
+      const e = EV.find(x => x.id === id); if (!e) return;
+      const [A, H] = sides(e);
+      const pickTeam = (arr, t) => (arr || []).find(x => x.team && (x.team.abbreviation === t.team.abbreviation || String(x.team.id) === String(t.team.id)));
+      // Last 5 results (oldest -> newest).
+      const five = t => {
+        const f = pickTeam(j.lastFiveGames, t);
+        const evs = (f && f.events) || [];
+        const dated = evs.every(x => x.gameDate);
+        const list = dated ? evs.slice().sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate)).slice(-5) : evs.slice(0, 5);
+        return list.map(x => { const g = String(x.gameResult || '').toUpperCase().charAt(0); return g ? `<i class="${g}" title="${esc(x.score || '')}${x.opponent && x.opponent.abbreviation ? ' vs ' + esc(x.opponent.abbreviation) : ''}">${g}</i>` : ''; }).join('');
+      };
+      const fa = five(A), fh = five(H);
+      // Key injuries: Out / Doubtful / IR first, skill positions first, max 4 per team.
+      const hurt = t => {
+        const g = pickTeam(j.injuries, t);
+        const list = ((g && g.injuries) || []).map(x => ({
+          name: (x.athlete && (x.athlete.shortName || x.athlete.displayName)) || '',
+          pos: (x.athlete && x.athlete.position && x.athlete.position.abbreviation) || '',
+          st: x.status || (x.type && x.type.description) || ''
+        })).filter(x => x.name && /out|doubt|reserve|ir|questionable/i.test(x.st));
+        const rank = x => (/out|reserve|ir/i.test(x.st) ? 0 : /doubt/i.test(x.st) ? 1 : 2) * 100 + (KEY_POS.indexOf(x.pos) < 0 ? 50 : KEY_POS.indexOf(x.pos));
+        list.sort((a, b) => rank(a) - rank(b));
+        if (!list.length) return '<span class="none">No key injuries listed</span>';
+        return list.slice(0, 4).map(x => `<span class="${/questionable|doubt/i.test(x.st) ? 'q' : 'o'}">${esc(x.pos)} ${esc(x.name)} · ${esc(x.st)}</span>`).join('');
+      };
+      let html = '';
+      if (fa || fh) html += `<div class="xh">LAST 5 GAMES</div><div class="form"><div>${fa || '<span class="none">—</span>'}</div><em>FORM</em><div>${fh || '<span class="none">—</span>'}</div></div>`;
+      if (j.injuries) html += `<div class="xh">KEY INJURIES</div><div class="inj"><div><b>${esc(A.team.abbreviation)}</b>${hurt(A)}</div><div><b>${esc(H.team.abbreviation)}</b>${hurt(H)}</div></div>`;
+      XTRA[id] = html || '<div class="none">No form or injury report yet.</div>';
+    } catch (err) {
+      XTRA[id] = '';
+      if (slot()) slot().innerHTML = '<div class="none">Form and injuries unavailable right now.</div>';
+      XLOAD[id] = false;
+      return;
+    }
+    if (slot()) slot().innerHTML = XTRA[id];
+  }
+
   // ---- interactions ----
   $('list').addEventListener('click', ev => {
     const mx = ev.target.closest('[data-mx]');
-    if (mx) { const c = mx.closest('.card'); const on = c.classList.toggle('open'); mx.setAttribute('aria-expanded', on); return; }
+    if (mx) { const c = mx.closest('.card'); const on = c.classList.toggle('open'); mx.setAttribute('aria-expanded', on); if (on) extras(mx.dataset.mx); return; }
     const b = ev.target.closest('.tm');
     if (!b || b.getAttribute('aria-disabled') === 'true') return;
     const e = EV.find(x => x.id === b.dataset.g);

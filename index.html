@@ -82,7 +82,7 @@
       <p class="card-note">NFL pick'em. Pick the winner of every game, every week. Invite-only trial for the rest of the 2026 season.</p>
       <div class="card-logo"><img src="aafl/assets/aafl-logo.png" alt="AAFL logo" style="border-radius:0"></div>
       <a href="aafl/" class="btn-ghost" id="aafl-btn" hidden>PREVIEW THE AAFL →</a>
-      <span class="btn-ghost" id="aafl-soon" aria-disabled="true" style="cursor:default;opacity:.7">TRIAL · COMING SOON</span>
+      <span class="btn-ghost" id="aafl-soon" aria-disabled="true" style="cursor:default;opacity:.7">INVITE-ONLY TRIAL</span>
     </article>
 
     <a href="deathpool/" class="dp-flat" id="deathpool">
@@ -190,8 +190,15 @@
     const ok = window.aasnIsAdmin ? await aasnIsAdmin() : false;
     document.getElementById('aabl-btn').hidden = !ok;
     document.getElementById('aabl-soon').hidden = ok;
-    document.getElementById('aafl-btn').hidden = !ok;
-    document.getElementById('aafl-soon').hidden = ok;
+    // AAFL: the commissioner, plus invited players who have joined.
+    let member = false;
+    const sess = window.aasnAuth && aasnAuth.session && aasnAuth.session();
+    const uid = sess && sess.user && sess.user.id;
+    if (!ok && uid) { try { member = (await aasnSelect('aafl_teams', `select=id&user_id=eq.${uid}&limit=1`)).length > 0; } catch (e) { /* keep hidden */ } }
+    const aafl = document.getElementById('aafl-btn');
+    aafl.hidden = !(ok || member);
+    aafl.textContent = member && !ok ? 'ENTER THE AAFL →' : 'PREVIEW THE AAFL →';
+    document.getElementById('aafl-soon').hidden = ok || member;
   }
   paint();
   if (window.aasnAuth) aasnAuth.onChange(paint);

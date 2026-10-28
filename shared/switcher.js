@@ -32,6 +32,7 @@
   ];
   const AUTH_KEYS = ['aahl-auth', 'aasn-auth'];   // supabase-js session keys (AAHL, AASN sites)
   let unlocked = false;
+  let aaflMember = false, memberUid = null;   // joined AAFL players can click the AAFL pill
   const SB_URL = 'https://tetgrmgurobacdohhiby.supabase.co';
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldGdybWd1cm9iYWNkb2hoaWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5Njc4MTYsImV4cCI6MjEwNDU0MzgxNn0.Jn0MdAdYslGv7znS0DFiSUjlZ6rpw0qsvQwiNq63vWk';
   const POOLS = [
@@ -95,7 +96,7 @@
   }
   @media print { #aasn-bar { display: none; } }`;
 
-  const isLocked = id => LOCKED.includes(id) && id !== current && !unlocked;
+  const isLocked = id => LOCKED.includes(id) && id !== current && !unlocked && !(id === 'aafl' && aaflMember);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function build() {
@@ -143,6 +144,17 @@
     }
     return '';
   }
+  function signedInUserId() {
+    for (const k of AUTH_KEYS) {
+      try {
+        const v = JSON.parse(localStorage.getItem(k) || 'null');
+        const u = v && (v.user || (v.currentSession && v.currentSession.user));
+        if (u && u.id) return String(u.id);
+      } catch (e) { /* ignore */ }
+    }
+    return '';
+  }
+
   async function applyGate() {
     let ok = false;
     const email = signedInEmail();
@@ -152,8 +164,16 @@
         ok = ADMIN_HASHES.includes([...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''));
       }
     } catch (e) { ok = false; }
-    if (ok === unlocked) return;
-    unlocked = ok;
+    let member = aaflMember;
+    if (!ok) {
+      const uid = signedInUserId();
+      if (!uid) member = false;
+      else if (uid !== memberUid && /^[0-9a-f-]{36}$/i.test(uid)) {   // look up once per signed-in account
+        try { member = (await sb(`aafl_teams?select=id&user_id=eq.${uid}&limit=1`)).length > 0; memberUid = uid; } catch (e) { /* keep */ }
+      }
+    }
+    if (ok === unlocked && member === aaflMember) return;
+    unlocked = ok; aaflMember = member;
     const bar = document.getElementById('aasn-bar');
     if (bar) { bar.innerHTML = navHtml(); refresh(); }
   }
