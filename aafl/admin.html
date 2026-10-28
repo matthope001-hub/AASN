@@ -40,6 +40,14 @@
 .pg-games button{font:700 15px var(--body);padding:8px;border-radius:6px;border:1px solid var(--line);background:none;color:#C9D3E0;cursor:pointer}
 .pg-games button.on{background:var(--navy);border-color:var(--silver);color:#fff}
 .pg-games em{font-style:normal;color:var(--mut);font-size:12px;text-align:center}
+.msg-dlg{background:var(--panel);color:var(--txt);border:1px solid var(--silver);border-radius:14px;padding:18px;width:min(560px,calc(100vw - 24px))}
+.msg-dlg::backdrop{background:rgba(0,0,0,.65)}
+.msg-dlg h2{font-family:var(--display);font-weight:400;font-size:20px;margin:0 0 4px}
+.msg-dlg label{display:block;font-size:12px;letter-spacing:1px;color:var(--mut);text-transform:uppercase;margin:10px 0 4px}
+.msg-dlg input,.msg-dlg textarea{width:100%;font:500 15px var(--body);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#07101F;color:#fff;box-sizing:border-box}
+.msg-dlg textarea{resize:vertical;line-height:1.4}
+.cprow{display:flex;gap:8px;align-items:center}.cprow input{flex:1}
+.cprow.end{justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
 .lockmsg{padding:30px;text-align:center;color:var(--mut)}
 </style>
 </head>
@@ -112,6 +120,14 @@
     </section>
   </div>
 </main>
+<dialog id="msg-dlg" class="msg-dlg" aria-labelledby="msg-h">
+  <h2 id="msg-h">INVITE EMAIL</h2>
+  <p class="hint">Copy each part into a new email in any mail app, then send.</p>
+  <label for="m-to">To</label><div class="cprow"><input id="m-to" readonly><button type="button" class="btn3" data-cp="m-to">Copy</button></div>
+  <label for="m-sub">Subject</label><div class="cprow"><input id="m-sub" readonly><button type="button" class="btn3" data-cp="m-sub">Copy</button></div>
+  <label for="m-body">Message</label><textarea id="m-body" readonly rows="11"></textarea>
+  <div class="cprow end"><button type="button" class="btn3" data-cp="m-body">Copy message</button><button type="button" class="btn2" data-cp="all">Copy all</button><button type="button" class="btn3" onclick="this.closest('dialog').close()">Close</button></div>
+</dialog>
 
 <footer class="wrap ftr">
   <span>© ANGRY ALPACA SPORTS NETWORK</span>
@@ -133,11 +149,28 @@
   const msg = (id, t, ok) => { const m = $(id); m.textContent = t || ''; m.className = 'msg ' + (ok ? 'ok' : 'err'); };
   let TEAMS = [], INVITES = [], CFG = null, GAMES = [];
 
-  function mailto(email, code) {
-    const sub = "You're invited to the AAFL (2026 trial)";
-    const body = "You're invited to the Angry Alpaca Football League 2026 trial: pick the winner of every NFL game, every week. Free, no prizes.\n\nJoin here:\n" + link(code) + "\n\nSign in with this email (" + email + "), then name your team.";
-    return 'mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent(sub) + '&body=' + encodeURIComponent(body);
+  // The invite email, ready to send (also used by the copy-and-paste box).
+  function inviteText(email, code, entries) {
+    const sub = "You're invited to the AAFL (Angry Alpaca Football League)";
+    const body = "Hey,\n\nYou're invited to the Angry Alpaca Football League, the NFL pick'em on the AASN. It's a free trial for the rest of the 2026 season: each week you pick the winner of every NFL game, 1 point per correct pick.\n\n"
+      + "Join here:\n" + link(code) + "\n\n"
+      + "Sign in with this email (" + email + "), then name your team. If you're joining mid-season you get the league average for the weeks you missed."
+      + (entries > 1 ? "\n\nYou can play up to " + entries + " teams: after joining, tap + Add entry on the Picks page." : "")
+      + "\n\nPicks for each week lock at that week's first kickoff (usually Thursday night).";
+    return { sub, body };
   }
+  function mailto(email, code, entries) {
+    const t = inviteText(email, code, entries);
+    return 'mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent(t.sub) + '&body=' + encodeURIComponent(t.body);
+  }
+  function showMsg(code) {
+    const i = INVITES.find(x => x.code === code) || NEWINV;
+    if (!i) return;
+    const t = inviteText(i.email, i.code, i.entries || 1);
+    $('m-to').value = i.email; $('m-sub').value = t.sub; $('m-body').value = t.body;
+    $('msg-dlg').showModal();
+  }
+  let NEWINV = null;
 
   async function load() {
     [TEAMS, INVITES, CFG] = await Promise.all([
@@ -159,7 +192,7 @@
         : teams.length ? `<span class="st-ok">Joined ${teams.length}/${n} · ${names}</span>${left > 0 ? ' <span class="st-wait">· ' + left + ' left</span>' : ''}`
         : `<span class="st-wait">Waiting${n > 1 ? ' · ' + n + ' entries' : ''}</span>`;
       const ent = !i.revoked ? `<button class="btn3" data-entries="${i.code}" title="Change how many teams this invite allows">Entries: ${n}</button> ` : '';
-      const acts = ent + (!i.revoked && left > 0 ? `<button class="btn3" data-copy="${i.code}">Copy link</button> <a class="btn3" href="${mailto(i.email, i.code)}">Email</a> <button class="btn3 red" data-revoke="${i.code}">Revoke</button>` : '');
+      const acts = ent + (!i.revoked && left > 0 ? `<button class="btn3" data-copy="${i.code}">Copy link</button> <button class="btn3" data-msg="${i.code}">Copy email</button> <a class="btn3" href="${mailto(i.email, i.code, n)}">Open in mail app</a> <button class="btn3 red" data-revoke="${i.code}">Revoke</button>` : '');
       return `<tr><td>${esc(i.email)}</td><td>${st}</td><td>${day(i.created_at)}</td><td class="act">${acts}</td></tr>`;
     }).join('') : '<tr><td colspan="4" class="st-off">No invites yet.</td></tr>';
   }
@@ -204,8 +237,8 @@
     const entries = Math.max(1, Math.min(10, +$('inv-n').value || 1));
     try {
       const r = await L.db('aafl_invites', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ email, season: S, entries }) });
-      const code = r[0].code;
-      $('inv-new').innerHTML = `<div class="newlink">Invite for <b>${esc(email)}</b>:<br>${esc(link(code))}<div class="row" style="margin-top:8px"><button class="btn3" data-copy="${code}">Copy link</button><a class="btn3" href="${mailto(email, code)}">Email it</a></div></div>`;
+      const code = r[0].code; NEWINV = r[0];
+      $('inv-new').innerHTML = `<div class="newlink">Invite for <b>${esc(email)}</b>:<br>${esc(link(code))}<div class="row" style="margin-top:8px"><button class="btn3" data-copy="${code}">Copy link</button><button class="btn3" data-msg="${code}">Copy email</button><a class="btn3" href="${mailto(email, code, entries)}">Open in mail app</a></div></div>`;
       $('inv-email').value = ''; msg('inv-msg', '');
       await load();
     } catch (e) { msg('inv-msg', /duplicate|aafl_invites_email/.test(e.message) ? 'That email already has an invite.' : 'Could not create: ' + e.message); }
@@ -215,6 +248,13 @@
     const t = ev.target;
     if (t.dataset.copy) {
       try { await navigator.clipboard.writeText(link(t.dataset.copy)); t.textContent = 'Copied ✓'; setTimeout(() => { t.textContent = 'Copy link'; }, 1500); } catch (e) { prompt('Copy this link:', link(t.dataset.copy)); }
+    }
+    if (t.dataset.msg) { showMsg(t.dataset.msg); return; }
+    if (t.dataset.cp) {
+      const v = t.dataset.cp === 'all' ? `To: ${$('m-to').value}\nSubject: ${$('m-sub').value}\n\n${$('m-body').value}` : $(t.dataset.cp).value;
+      try { await navigator.clipboard.writeText(v); } catch (e) { $(t.dataset.cp === 'all' ? 'm-body' : t.dataset.cp).select(); document.execCommand('copy'); }
+      const was = t.textContent; t.textContent = 'Copied ✓'; setTimeout(() => { t.textContent = was; }, 1500);
+      return;
     }
     if (t.dataset.entries) {
       const i = INVITES.find(x => x.code === t.dataset.entries);
