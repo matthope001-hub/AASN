@@ -30,21 +30,21 @@ const fmt = d => new Date(d).toLocaleString('en-US', { timeZone: 'America/Toront
 
 let mailer = null;
 async function send(to, subject, text) {
-  if (DRY || !CAN_SEND) { console.log(`[not sent] ${to}: ${subject}`); return; }
+  if (DRY || !CAN_SEND) { console.log(`::warning::Not sent (${DRY ? 'dry run' : 'email secrets not set'}): ${to}: ${subject}`); return; }
   if (USE_GMAIL) {
     if (!mailer) {
       const nodemailer = (await import('nodemailer')).default;
       mailer = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD.replace(/\s+/g, '') } });
     }
-    try { await mailer.sendMail({ from: `AAFL <${GMAIL_USER}>`, to, subject, text }); console.log(`Sent to ${to}`); }
-    catch (e) { console.error(`Send to ${to} failed: ${e.message}`); }
+    try { await mailer.sendMail({ from: `AAFL <${GMAIL_USER}>`, to, subject, text }); console.log(`::notice::Sent to ${to} (Gmail)`); }
+    catch (e) { console.log(`::error::Send to ${to} failed (Gmail): ${e.message}`); process.exitCode = 1; }
     return;
   }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: AAFL_FROM, to: [to], subject, text })
   });
-  if (!res.ok) console.error(`Send to ${to} failed: ${res.status} ${await res.text()}`); else console.log(`Sent to ${to}`);
+  if (!res.ok) { console.log(`::error::Send to ${to} failed (Resend): ${res.status} ${await res.text()}`); process.exitCode = 1; } else console.log(`::notice::Sent to ${to} (Resend)`);
 }
 
 async function main() {
