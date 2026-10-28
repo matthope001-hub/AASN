@@ -1,3 +1,5 @@
+import { htmlEmail, textEmail } from './aafl-email.mjs';
+
 // AAFL email reminders (GitHub Actions: .github/workflows/aafl-reminders.yml).
 //   KIND=open  Tuesday morning: "Week N picks are open" to every human player.
 //   KIND=lock  Thursday noon:   "Picks lock tonight" to players still missing picks.
@@ -29,14 +31,16 @@ async function sb(path, opts = {}) {
 const fmt = d => new Date(d).toLocaleString('en-US', { timeZone: 'America/Toronto', weekday: 'long', hour: 'numeric', minute: '2-digit' }) + ' ET';
 
 let mailer = null;
-async function send(to, subject, text) {
+async function send(to, subject, msg) {
+  const text = typeof msg === 'string' ? msg : textEmail(msg);
+  const html = typeof msg === 'string' ? undefined : htmlEmail(msg);
   if (DRY || !CAN_SEND) { console.log(`::warning::Not sent (${DRY ? 'dry run' : 'email secrets not set'}): ${to}: ${subject}`); return; }
   if (USE_GMAIL) {
     if (!mailer) {
       const nodemailer = (await import('nodemailer')).default;
       mailer = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GMAIL_USER.trim(), pass: GMAIL_APP_PASSWORD.replace(/[^A-Za-z0-9]/g, '') } });
     }
-    try { await mailer.sendMail({ from: `AAFL <${GMAIL_USER.trim()}>`, to, subject, text }); console.log(`::notice::Sent to ${to} (Gmail)`); }
+    try { await mailer.sendMail({ from: `AAFL <${GMAIL_USER.trim()}>`, to, subject, text, html }); console.log(`::notice::Sent to ${to} (Gmail)`); }
     catch (e) {
       const pw = GMAIL_APP_PASSWORD.replace(/[^A-Za-z0-9]/g, '');
       console.log(`::error::Send to ${to} failed (Gmail): ${e.message.split('\n')[0]} | user looks like an email: ${/^[^@\s]+@[^@\s]+\.[a-z]+$/i.test(GMAIL_USER.trim())} | app password length: ${pw.length} (should be 16)`);
@@ -46,7 +50,7 @@ async function send(to, subject, text) {
   }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: AAFL_FROM, to: [to], subject, text })
+    body: JSON.stringify({ from: AAFL_FROM, to: [to], subject, text, html })
   });
   if (!res.ok) { console.log(`::error::Send to ${to} failed (Resend): ${res.status} ${await res.text()}`); process.exitCode = 1; } else console.log(`::notice::Sent to ${to} (Resend)`);
 }
@@ -56,7 +60,7 @@ async function main() {
   else console.log('Sending with ' + (USE_GMAIL ? 'Gmail' : 'Resend') + (DRY ? ' (dry run)' : ''));
   if (KIND === 'test') {
     const to = process.env.TEST_TO || GMAIL_USER;
-    await send(to, 'AAFL: test email', `This is a test from the AAFL reminder job. If you can read this, email reminders are working.\n\n${SITE}`);
+    await send(to, 'AAFL: test email', { title: 'Test email', paras: ['This is a test from the AAFL reminder job. If you can read this, email reminders are working.'], button: 'Open the AAFL', url: SITE });
     return;
   }
   const week = await sb(`rpc/aafl_current_week`, { method: 'POST', body: JSON.stringify({ p_season: SEASON }) });
@@ -82,15 +86,17 @@ async function main() {
   for (const [email, list] of Object.entries(byEmail)) {
     const hi = list.length === 1 ? list[0].name : 'there';
     if (KIND === 'open') {
-      const lines = list.length > 1 ? `\nYour teams: ${list.map(t => t.name).join(', ')}\n` : '';
-      await send(email, `AAFL: Week ${week} picks are open`,
-        `Hi ${hi},\n\nWeek ${week} picks are open: ${n} games.${lines}\nPicks lock at the first kickoff: ${fmt(lock)}.\n\nMake your picks: ${SITE}picks.html\n\n(Turn these emails off on the Picks page.)`);
+      await send(email, `AAFL: Week ${week} picks are open`, {
+        title: `Week ${week} picks are open`,
+        paras: [`Hi ${hi},`, `Week ${week} has ${n} games. Picks lock at the first kickoff: ${fmt(lock)}.`, ...(list.length > 1 ? [list.map(t => '- ' + t.name).join('\n')] : [])],
+        button: 'Make your picks', url: `${SITE}picks.html`, footer: 'Turn these emails off on the Picks page.' });
     } else if (KIND === 'lock') {
       const missing = list.filter(t => t.have < n);
       if (!missing.length) continue;
-      const lines = missing.map(t => `- ${t.name}: ${t.have} of ${n} picked`).join('\n');
-      await send(email, `AAFL: Week ${week} picks lock tonight`,
-        `Hi ${hi},\n\nStill to pick for Week ${week}:\n${lines}\n\nPicks lock at ${fmt(lock)}.\n\nFinish your picks: ${SITE}picks.html\n\n(Turn these emails off on the Picks page.)`);
+      await send(email, `AAFL: Week ${week} picks lock tonight`, {
+        title: `Week ${week} picks lock tonight`,
+        paras: [`Hi ${hi},`, `Still to pick for Week ${week}:`, missing.map(t => `- ${t.name}: ${t.have} of ${n} picked`).join('\n'), `Picks lock at ${fmt(lock)}.`],
+        button: 'Finish your picks', url: `${SITE}picks.html`, footer: 'Turn these emails off on the Picks page.' });
     }
   }
 }

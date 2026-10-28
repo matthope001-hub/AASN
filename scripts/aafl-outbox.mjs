@@ -3,6 +3,8 @@
 // Sends from Matt's Gmail (GitHub secrets GMAIL_USER + GMAIL_APP_PASSWORD, same as reminders).
 // Env: SUPABASE_URL, SUPABASE_SERVICE_KEY, GMAIL_USER, GMAIL_APP_PASSWORD
 
+import { htmlEmail, textEmail } from './aafl-email.mjs';
+
 const { SUPABASE_URL, SUPABASE_SERVICE_KEY: KEY, GMAIL_USER, GMAIL_APP_PASSWORD } = process.env;
 const JOIN = 'https://aasn.theaahl.ca/aafl/join.html?code=';
 if (!SUPABASE_URL || !KEY) { console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY'); process.exit(1); }
@@ -15,15 +17,20 @@ async function sb(path, opts = {}) {
   const t = await res.text(); return t ? JSON.parse(t) : null;
 }
 
-// Same wording as the Admin page's copy-and-paste email.
-function inviteText(email, code, entries) {
-  const subject = "You're invited to the AAFL (Angry Alpaca Football League)";
-  const text = "Hey,\n\nYou're invited to the Angry Alpaca Football League, the NFL pick'em on the AASN. It's a free trial for the rest of the 2026 season: each week you pick the winner of every NFL game, 1 point per correct pick.\n\n"
-    + "Join here:\n" + JOIN + code + "\n\n"
-    + "Sign in with this email (" + email + "), then name your team. If you're joining mid-season you get the league average for the weeks you missed."
-    + (entries > 1 ? "\n\nYou can play up to " + entries + " teams: after joining, tap + Add entry on the Picks page." : "")
-    + "\n\nPicks for each week lock at that week's first kickoff (usually Thursday night).";
-  return { subject, text };
+// Same wording as the Admin page's copy-and-paste email, as a branded HTML email with a button.
+function inviteEmail(email, code, entries) {
+  const msg = {
+    title: "You're invited to the AAFL",
+    paras: [
+      "You're invited to the Angry Alpaca Football League, the NFL pick'em on the AASN. It's a free trial for the rest of the 2026 season: each week you pick the winner of every NFL game, 1 point per correct pick.",
+      "Sign in with this email (" + email + "), then name your team. If you're joining mid-season you get the league average for the weeks you missed."
+        + (entries > 1 ? " You can play up to " + entries + " teams: after joining, tap + Add entry on the Picks page." : ""),
+      "Picks for each week lock at that week's first kickoff (usually Thursday night)."
+    ],
+    button: 'Join the AAFL', url: JOIN + code,
+    footer: 'Invite only · this link works for ' + email + '.'
+  };
+  return { subject: "You're invited to the AAFL (Angry Alpaca Football League)", html: htmlEmail(msg), text: textEmail(msg) };
 }
 
 async function main() {
@@ -34,9 +41,9 @@ async function main() {
   const nodemailer = (await import('nodemailer')).default;
   const mailer = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GMAIL_USER.trim(), pass: GMAIL_APP_PASSWORD.replace(/[^A-Za-z0-9]/g, '') } });
   for (const i of queued) {
-    const { subject, text } = inviteText(i.email, i.code, i.entries || 1);
+    const { subject, text, html } = inviteEmail(i.email, i.code, i.entries || 1);
     try {
-      await mailer.sendMail({ from: `AAFL <${GMAIL_USER.trim()}>`, to: i.email, subject, text });
+      await mailer.sendMail({ from: `AAFL <${GMAIL_USER.trim()}>`, to: i.email, subject, text, html });
       await sb(`aafl_invites?code=eq.${i.code}`, { method: 'PATCH', body: JSON.stringify({ sent_at: new Date().toISOString(), send_error: null }) });
       console.log(`::notice::Invite emailed to ${i.email}`);
     } catch (e) {
