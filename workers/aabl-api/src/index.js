@@ -114,7 +114,9 @@ export default {
       ctx.waitUntil(aaflOutbox(env, sendAs).catch(err => console.log('AAFL outbox failed: ' + (err && err.stack || err))));
       if (tick.getUTCMinutes() % 10 === 4) ctx.waitUntil(aaflSync(env).catch(err => console.log('AAFL sync failed: ' + (err && err.stack || err))));
     }
-    if (event.cron === AAFL_CRON) return;   // morning ticks are only for the AAFL
+    // Live points only run noon-3:59am Eastern (16:00-07:59 UTC), as before; mornings are AAFL-only.
+    const h = tick.getUTCHours();
+    if (event.cron !== DIGEST_CRON && h >= 8 && h < 16) return;
     if (event.cron === DIGEST_CRON) {
       ctx.waitUntil(sendWeeklyDigest(env).catch(err => console.log('Digest failed: ' + (err && err.stack || err))));
       return;
@@ -956,7 +958,6 @@ async function addDeathPoolHistory(env, out) {
 // the 4am nightly run stays the official count. Off: variable LIVE_POINTS = off.
 
 const DIGEST_CRON = '13 12 * * 1';
-const AAFL_CRON = '*/2 8-15 * * *';   // fills the morning gap in the live cron, for AAFL emails + sync
 // AAFL emails come from the same Gmail as the worker, named "AAFL".
 const aaflFrom = env => 'AAFL <' + (String(env.GMAIL_FROM || '').match(/<([^>]+)>/) || [null, env.GMAIL_FROM])[1] + '>';
 const MLB_API = 'https://statsapi.mlb.com/api/v1';
