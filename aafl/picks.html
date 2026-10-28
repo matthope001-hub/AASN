@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="aafl.css?v=4">
+<link rel="stylesheet" href="aafl.css?v=5">
 <script src="../shared/switcher.js" data-pool="aafl" defer></script>
 <style>
 .pg{padding-top:18px;padding-bottom:110px}
@@ -134,6 +134,7 @@
 
 <main class="wrap pg">
   <div class="demo" id="mode"><b>DEMO MODE.</b> Real NFL games and odds, but picks are only kept in this browser. Got an invite? Open your invite link to join, or <a href="#" id="mode-signin">sign in</a>.</div>
+  <div id="paybox"></div>
   <div class="top">
     <h1 id="title">WEEK —</h1>
     <div class="me" id="me">Demo picks</div>
@@ -171,7 +172,7 @@
 <script src="../shared/config.js"></script>
 <script src="nav.js?v=1" defer></script>
 <script src="../shared/auth.js?v=3"></script>
-<script src="league.js?v=4"></script>
+<script src="league.js?v=5"></script>
 <script>
 (function () {
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
@@ -486,10 +487,27 @@
         $('me').innerHTML = 'Playing as <b>' + esc(MEMBER.name) + '</b> <span class="h">(h)</span>';
       }
       addEntryButton();
+      payBox();
     } else {
       $('me').textContent = 'Demo picks';
     }
   }
+  // ---- Entry fee: how to pay by Interac e-Transfer (picks don't count until it's marked paid) ----
+  function payBox() {
+    const cfg = window.AAFL.CONFIG || {}, fee = +cfg.entry_fee || 0, box = $('paybox');
+    const owe = fee > 0 ? MINE.filter(t => !t.paid) : [];
+    if (!owe.length) { box.innerHTML = ''; return; }
+    const total = (fee * owe.length).toFixed(2).replace(/\.00$/, '');
+    const names = owe.map(t => t.name).join(', ');
+    box.innerHTML = `<div class="paybox"><b>💲 Entry fee owing: $${total}</b> ($${fee} × ${owe.length} ${owe.length === 1 ? 'team' : 'teams'}: ${esc(names)}).
+      Your picks save, but <b>they don't count in the standings until your fee is marked paid.</b>
+      <div class="row">Send an Interac e-Transfer to <code id="pay-to">${esc(cfg.pay_to || '')}</code><button type="button" id="pay-copy">Copy</button></div>
+      <div class="row">In the message, put: <code id="pay-msg">AAFL ${esc(names)}</code><button type="button" id="pay-copy2">Copy</button></div></div>`;
+    const cp = (id, b) => async () => { try { await navigator.clipboard.writeText($(id).textContent); b.textContent = 'Copied ✓'; setTimeout(() => { b.textContent = 'Copy'; }, 1500); } catch (e) { /* ignore */ } };
+    $('pay-copy').addEventListener('click', ev => cp('pay-to', ev.target)());
+    $('pay-copy2').addEventListener('click', ev => cp('pay-msg', ev.target)());
+  }
+
   // ---- Add another entry (if your invite and the league limit allow it) ----
   async function entriesLeft() {
     const codes = [...new Set(MINE.map(t => t.invite_code).filter(Boolean))];

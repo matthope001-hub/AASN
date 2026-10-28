@@ -61,20 +61,24 @@ window.AAFL = (function () {
   }
 
   // ---------- League (teams, picks, credits) ----------
-  let LEAGUE = null;
+  let LEAGUE = null, CONFIG = { entry_fee: 0, pay_to: '' };
   async function loadLeague(force) {
     if (LEAGUE && !force) return LEAGUE;
-    const [teams, picks, credits] = await Promise.all([
-      db(`aafl_teams?select=id,name,is_bot,joined_week,user_id&season=eq.${SEASON}&order=name`),
+    const [teams, picks, credits, cfg] = await Promise.all([
+      db(`aafl_teams?select=id,name,is_bot,joined_week,user_id,paid&season=eq.${SEASON}&order=name`),
       dbAll('aafl_picks?select=team_id,game_id,pick'),
-      db('aafl_credits?select=team_id,week,points')
+      db('aafl_credits?select=team_id,week,points'),
+      db(`aafl_config?select=entry_fee,pay_to,max_entries&season=eq.${SEASON}`).catch(() => [])
     ]);
+    CONFIG = cfg[0] || { entry_fee: 0, pay_to: '' };
+    const fee = +CONFIG.entry_fee || 0;
     const byTeam = {};
     picks.forEach(p => { (byTeam[p.team_id] = byTeam[p.team_id] || {})[p.game_id] = p.pick; });
     const cred = {};
     credits.forEach(c => { (cred[c.team_id] = cred[c.team_id] || {})[c.week] = +c.points; });
     LEAGUE = {
-      teams: teams.map(t => ({ id: t.id, name: t.name, human: !t.is_bot, joined: t.joined_week || 1, userId: t.user_id })),
+      // unpaid: a human entry with an entry fee owing. Its picks don't count until it's marked paid.
+      teams: teams.map(t => ({ id: t.id, name: t.name, human: !t.is_bot, joined: t.joined_week || 1, userId: t.user_id, paid: !!t.paid, unpaid: fee > 0 && !t.is_bot && !t.paid })),
       picks: byTeam, credits: cred
     };
     return LEAGUE;
@@ -88,7 +92,7 @@ window.AAFL = (function () {
     const s = window.aasnAuth && aasnAuth.session && aasnAuth.session();
     const uid = s && s.user && s.user.id;
     if (!uid) return [];
-    return db(`aafl_teams?select=id,name,joined_week,email_reminders,invite_code&season=eq.${SEASON}&user_id=eq.${uid}&order=created_at`);
+    return db(`aafl_teams?select=id,name,joined_week,email_reminders,invite_code,paid&season=eq.${SEASON}&user_id=eq.${uid}&order=created_at`);
   }
   async function myTeam() { return (await myTeams())[0] || null; }
 
@@ -102,9 +106,9 @@ window.AAFL = (function () {
       rows.forEach(r => {
         const credit = L.credits[r.id] && L.credits[r.id][w.week];
         let s, of;
-        if (credit != null) { s = credit; of = fin.length; }                 // league-average credit for a missed week
+        if (credit != null) { s = r.unpaid ? 0 : credit; of = fin.length; }   // league-average credit for a missed week
         else if (w.week < r.joined) { s = 0; of = 0; }
-        else { s = fin.reduce((n, e) => n + (pick(r, e) === winner(e) ? 1 : 0), 0); of = fin.length; }
+        else { s = r.unpaid ? 0 : fin.reduce((n, e) => n + (pick(r, e) === winner(e) ? 1 : 0), 0); of = fin.length; }
         scores[r.id] = s; r.byWeek[w.week] = { pts: s, of, games: w.events.length, credit: credit != null };
         r.pts += s; if (credit == null) r.graded += of;
       });
@@ -139,6 +143,7 @@ window.AAFL = (function () {
 
   return {
     WEEKS, SEASON, state, sides, winner, pick, fetchWeek, currentWeek, loadSeason, loadLeague, standings, myTeam, myTeams, savePicks, deletePicks, join, db,
-    get TEAMS() { return LEAGUE ? LEAGUE.teams : []; }
+    get TEAMS() { return LEAGUE ? LEAGUE.teams : []; },
+    get CONFIG() { return CONFIG; }
   };
 })();

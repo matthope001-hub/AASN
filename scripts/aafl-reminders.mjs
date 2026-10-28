@@ -70,7 +70,7 @@ async function main() {
   const lock = new Date(Math.min(...games.map(g => +new Date(g.kickoff))));
   if (Date.now() >= +lock) { console.log(`Week ${week} already locked.`); return; }
 
-  const teams = await sb(`aafl_teams?select=id,name,invite_code&season=eq.${SEASON}&is_bot=eq.false&email_reminders=eq.true`);
+  const teams = await sb(`aafl_teams?select=id,name,invite_code,paid&season=eq.${SEASON}&is_bot=eq.false&email_reminders=eq.true`);
   const invites = await sb(`aafl_invites?select=code,email,team_id,unsub_token&season=eq.${SEASON}`);
   const ids = games.map(g => g.id).join(',');
   const picks = teams.length ? await sb(`aafl_picks?select=team_id&game_id=in.(${ids})&team_id=in.(${teams.map(t => t.id).join(',')})`) : [];
@@ -84,6 +84,10 @@ async function main() {
     (byEmail[inv.email.toLowerCase()] = byEmail[inv.email.toLowerCase()] || []).push({ ...t, have: count[t.id] || 0 });
   }
   const n = games.length;
+  const cfg = (await sb(`aafl_config?select=entry_fee,pay_to&season=eq.${SEASON}`))[0] || {};
+  const fee = +cfg.entry_fee || 0;
+  // Fee owing line for anyone with unpaid teams (their picks don't count until paid).
+  const owing = list => { const u = fee > 0 ? list.filter(t => !t.paid) : []; return u.length ? [`Entry fee owing: $${fee * u.length} (${u.map(t => t.name).join(', ')}). Send an Interac e-Transfer to ${cfg.pay_to} with "AAFL" and your team name in the message. Picks don't count in the standings until it's paid.`] : []; };
   for (const [email, list] of Object.entries(byEmail)) {
     const tok = (invites.find(i => i.email.toLowerCase() === email && i.unsub_token) || {}).unsub_token;
     const unsub = tok ? UNSUB + tok : null;
@@ -91,14 +95,14 @@ async function main() {
     if (KIND === 'open') {
       await send(email, `AAFL: Week ${week} picks are open`, {
         title: `Week ${week} picks are open`,
-        paras: [`Hi ${hi},`, `Week ${week} has ${n} games. Picks lock at the first kickoff: ${fmt(lock)}.`, ...(list.length > 1 ? [list.map(t => '- ' + t.name).join('\n')] : [])],
+        paras: [`Hi ${hi},`, `Week ${week} has ${n} games. Picks lock at the first kickoff: ${fmt(lock)}.`, ...(list.length > 1 ? [list.map(t => '- ' + t.name).join('\n')] : []), ...owing(list)],
         button: 'Make your picks', url: `${SITE}picks.html`, footer: 'You can also turn these off on the Picks page.', unsub });
     } else if (KIND === 'lock') {
       const missing = list.filter(t => t.have < n);
       if (!missing.length) continue;
       await send(email, `AAFL: Week ${week} picks lock tonight`, {
         title: `Week ${week} picks lock tonight`,
-        paras: [`Hi ${hi},`, `Still to pick for Week ${week}:`, missing.map(t => `- ${t.name}: ${t.have} of ${n} picked`).join('\n'), `Picks lock at ${fmt(lock)}.`],
+        paras: [`Hi ${hi},`, `Still to pick for Week ${week}:`, missing.map(t => `- ${t.name}: ${t.have} of ${n} picked`).join('\n'), `Picks lock at ${fmt(lock)}.`, ...owing(list)],
         button: 'Finish your picks', url: `${SITE}picks.html`, footer: 'You can also turn these off on the Picks page.', unsub });
     }
   }

@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="aafl.css?v=4">
+<link rel="stylesheet" href="aafl.css?v=5">
 <script src="../shared/switcher.js" data-pool="aafl" defer></script>
 <style>
 .pg{padding-top:20px;padding-bottom:28px}
@@ -115,7 +115,7 @@
 <script src="../shared/config.js"></script>
 <script src="nav.js?v=1" defer></script>
 <script src="../shared/auth.js?v=3"></script>
-<script src="league.js?v=4"></script>
+<script src="league.js?v=5"></script>
 <script>
 (function () {
   const L = window.AAFL;
@@ -134,7 +134,7 @@
       const rk = r.rank <= 3 ? `<span class="md g${r.rank}">${r.rank}</span>` : r.rank;
       const mv = r.move > 0 ? `<span class="up">▲${r.move}</span>` : r.move < 0 ? `<span class="dn">▼${-r.move}</span>` : '';
       const last = lw ? r.byWeek[lw] : null;
-      const row = `<tr class="row" tabindex="0" data-id="${r.id}" aria-expanded="${openId === r.id}"><td class="rk">${rk}</td><td class="tn">${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${mv}<span class="caret">${openId === r.id ? '▲' : '▼'}</span></td><td class="n"><b>${r.pts}</b></td><td class="n hide-sm">${(r.pct * 100).toFixed(1)}%</td><td class="n hide-sm">${r.weekWins}</td><td class="n">${last ? last.pts + '/' + last.of : '—'}</td></tr>`;
+      const row = `<tr class="row" tabindex="0" data-id="${r.id}" aria-expanded="${openId === r.id}"><td class="rk">${rk}</td><td class="tn">${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${r.unpaid ? '<span class="unpaid" title="Entry fee not paid yet: picks don\'t count until it is">$ unpaid</span>' : ''}${mv}<span class="caret">${openId === r.id ? '▲' : '▼'}</span></td><td class="n"><b>${r.pts}</b></td><td class="n hide-sm">${(r.pct * 100).toFixed(1)}%</td><td class="n hide-sm">${r.weekWins}</td><td class="n">${last ? last.pts + '/' + last.of : '—'}</td></tr>`;
       return row + (openId === r.id ? `<tr class="det"><td colspan="6">${detail(r)}</td></tr>` : '');
     }).join('');
     $('st-body').querySelectorAll('tr.row').forEach(tr => {
@@ -188,7 +188,7 @@
         const cls = st === 'pre' ? 'p' : st === 'in' ? 'l' : p === win ? 'y' : 'n';
         return `<td><span class="c ${cls}">${esc(p)}</span></td>`;
       }).join('');
-      return `<tr class="${won ? 'wk-win' : ''}"><td class="tcol">${won ? '🏆 ' : ''}${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}</td><td class="sc">${wk.scores[r.id]}</td>${cells}</tr>`;
+      return `<tr class="${won ? 'wk-win' : ''}"><td class="tcol">${won ? '🏆 ' : ''}${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${r.unpaid ? '<span class="unpaid" title="Entry fee not paid yet: picks don\'t count until it is">$ unpaid</span>' : ''}</td><td class="sc">${wk.scores[r.id]}</td>${cells}</tr>`;
     }).join('');
     $('pk').innerHTML = `<thead><tr><th class="tcol">Team</th><th>Pts</th>${head}</tr></thead><tbody>${rows}</tbody>`;
   }

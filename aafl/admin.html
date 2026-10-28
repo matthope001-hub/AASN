@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="aafl.css?v=4">
+<link rel="stylesheet" href="aafl.css?v=5">
 <script src="../shared/switcher.js" data-pool="aafl" defer></script>
 <style>
 .pg{padding-top:20px;padding-bottom:28px}
@@ -32,6 +32,7 @@
 .adm td{padding:8px;border-top:1px solid var(--line);vertical-align:middle}
 .adm td.act{text-align:right;white-space:nowrap}
 .tbl{overflow-x:auto}
+.btn3.paid{color:var(--ok);border-color:rgba(63,209,122,.5)}
 .st-bad{color:#FF8F8F;font-weight:700}
 .btn2.sm{padding:6px 10px;font-size:14px}.btn2:disabled{opacity:.5;cursor:default}
 .st-ok{color:var(--ok);font-weight:700}.st-wait{color:var(--warn);font-weight:700}.st-off{color:var(--mut)}
@@ -97,7 +98,8 @@
     <section aria-labelledby="h-teams">
       <h2 id="h-teams">🏈 TEAMS</h2>
       <p class="hint">Rename any team. Removing a human team deletes its picks and credits (you'll be asked to confirm).</p>
-      <div class="tbl"><table><thead><tr><th>Team</th><th>Type</th><th>Joined</th><th>Reminders</th><th></th></tr></thead><tbody id="team-body"></tbody></table></div>
+      <p class="hint" id="pay-sum"></p>
+      <div class="tbl"><table><thead><tr><th>Team</th><th>Type</th><th>Joined</th><th>Reminders</th><th>Fee</th><th></th></tr></thead><tbody id="team-body"></tbody></table></div>
       <div class="msg" id="team-msg"></div>
     </section>
 
@@ -116,6 +118,10 @@
         <input type="number" id="set-cap" min="0" max="50" style="width:90px">
         <label for="set-max">Max entries per person</label>
         <input type="number" id="set-max" min="1" max="10" style="width:90px">
+        <label for="set-fee">Entry fee $ (0 = free)</label>
+        <input type="number" id="set-fee" min="0" max="1000" step="1" style="width:90px">
+        <label for="set-payto">e-Transfer to</label>
+        <input type="email" id="set-payto" style="min-width:220px">
         <button class="btn2">SAVE</button>
       </form>
       <p class="hint" style="margin-top:10px">Scores and games sync from ESPN every 15 minutes automatically. Computer teams pick as soon as each week opens.</p>
@@ -140,7 +146,7 @@
 <script src="../shared/config.js"></script>
 <script src="nav.js?v=1" defer></script>
 <script src="../shared/auth.js?v=3"></script>
-<script src="league.js?v=4"></script>
+<script src="league.js?v=5"></script>
 <script>
 (function () {
   const L = window.AAFL, S = L.SEASON;
@@ -177,7 +183,7 @@
 
   async function load() {
     [TEAMS, INVITES, CFG] = await Promise.all([
-      L.db(`aafl_teams?select=id,name,is_bot,joined_week,email_reminders,user_id,invite_code&season=eq.${S}&order=is_bot,name`),
+      L.db(`aafl_teams?select=id,name,is_bot,joined_week,email_reminders,user_id,invite_code,paid,paid_at&season=eq.${S}&order=is_bot,name`),
       L.db(`aafl_invites?select=code,email,created_at,used_at,revoked,team_id,entries,send_requested_at,sent_at,send_error,email_opt_out&season=eq.${S}&order=created_at.desc`),
       L.db(`aafl_config?season=eq.${S}`).then(r => r[0])
     ]);
@@ -208,11 +214,18 @@
   }
 
   function paintTeams() {
-    $('team-body').innerHTML = TEAMS.map(t => `<tr><td><b>${esc(t.name)}</b></td><td>${t.is_bot ? 'Computer' : 'Human (h)'}</td><td>Wk ${t.joined_week}</td><td>${t.is_bot ? '—' : t.email_reminders ? 'On' : 'Off'}</td>
+    const fee = CFG ? +CFG.entry_fee || 0 : 0;
+    const humans = TEAMS.filter(t => !t.is_bot), paid = humans.filter(t => t.paid).length;
+    const who = t => { const i = INVITES.find(x => x.code === t.invite_code); return i ? i.email : ''; };
+    $('pay-sum').innerHTML = fee > 0
+      ? `💲 Entry fee $${fee} · <b>${paid} of ${humans.length}</b> human teams paid · collected <b>$${paid * fee}</b> · owing <b>$${(humans.length - paid) * fee}</b>. Unpaid teams' picks don't count until you mark them paid.`
+      : 'No entry fee this season (set one under Settings). Paid / unpaid only matters when there is a fee.';
+    $('team-body').innerHTML = TEAMS.map(t => `<tr><td><b>${esc(t.name)}</b>${t.is_bot ? '' : `<br><span class="st-off" style="font-size:13px">${esc(who(t))}</span>`}</td><td>${t.is_bot ? 'Computer' : 'Human (h)'}</td><td>Wk ${t.joined_week}</td><td>${t.is_bot ? '—' : t.email_reminders ? 'On' : 'Off'}</td>
+      <td>${t.is_bot ? '—' : `<button class="btn3 ${t.paid ? 'paid' : ''}" data-paid="${t.id}" title="Tap to mark ${t.paid ? 'unpaid' : 'paid'}">${t.paid ? '✓ Paid' : 'Unpaid'}</button>`}</td>
       <td class="act"><button class="btn3" data-rename="${t.id}">Rename</button>${t.is_bot ? '' : ` <button class="btn3 red" data-remove="${t.id}">Remove</button>`}</td></tr>`).join('');
   }
 
-  function paintSettings() { if (CFG) { $('set-cap').value = CFG.human_cap; $('set-max').value = CFG.max_entries || 3; } }
+  function paintSettings() { if (CFG) { $('set-cap').value = CFG.human_cap; $('set-max').value = CFG.max_entries || 3; $('set-fee').value = +CFG.entry_fee || 0; $('set-payto').value = CFG.pay_to || ''; } }
 
   async function paintPickers() {
     const sel = $('pk-team').value;
@@ -261,6 +274,13 @@
       try { await navigator.clipboard.writeText(link(t.dataset.copy)); t.textContent = 'Copied ✓'; setTimeout(() => { t.textContent = 'Copy link'; }, 1500); } catch (e) { prompt('Copy this link:', link(t.dataset.copy)); }
     }
     if (t.dataset.msg) { showMsg(t.dataset.msg); return; }
+    if (t.dataset.paid) {
+      const team = TEAMS.find(x => x.id === t.dataset.paid), on = !team.paid;
+      if (!on && !confirm(`Mark ${team.name} as NOT paid? Its picks will stop counting in the standings.`)) return;
+      try { await L.db(`aafl_teams?id=eq.${team.id}`, { method: 'PATCH', body: JSON.stringify({ paid: on, paid_at: on ? new Date().toISOString() : null }) }); msg('team-msg', `${team.name}: ${on ? 'marked paid ✓' : 'marked unpaid'}`, true); await load(); }
+      catch (e) { msg('team-msg', 'Could not save: ' + e.message); }
+      return;
+    }
     if (t.dataset.send) {
       const i = INVITES.find(x => x.code === t.dataset.send);
       if (i.sent_at && !confirm(`Email the invite to ${i.email} again?`)) return;
@@ -315,7 +335,7 @@
   $('pk-week').addEventListener('change', paintGames);
   $('set-form').addEventListener('submit', async ev => {
     ev.preventDefault();
-    try { await L.db(`aafl_config?season=eq.${S}`, { method: 'PATCH', body: JSON.stringify({ human_cap: +$('set-cap').value, max_entries: +$('set-max').value, updated_at: new Date().toISOString() }) }); msg('set-msg', 'Saved ✓', true); await load(); } catch (e) { msg('set-msg', 'Could not save: ' + e.message); }
+    try { await L.db(`aafl_config?season=eq.${S}`, { method: 'PATCH', body: JSON.stringify({ human_cap: +$('set-cap').value, max_entries: +$('set-max').value, entry_fee: Math.max(0, +$('set-fee').value || 0), pay_to: $('set-payto').value.trim(), updated_at: new Date().toISOString() }) }); msg('set-msg', 'Saved ✓', true); await load(); } catch (e) { msg('set-msg', 'Could not save: ' + e.message); }
   });
 
   async function start() {

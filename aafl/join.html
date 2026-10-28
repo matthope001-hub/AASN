@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="aafl.css?v=4">
+<link rel="stylesheet" href="aafl.css?v=5">
 <style>
 body{min-height:100vh;display:flex;flex-direction:column}
 .jn{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 16px}
@@ -55,7 +55,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
 
 <script src="../shared/config.js"></script>
 <script src="../shared/auth.js?v=3"></script>
-<script src="league.js?v=4"></script>
+<script src="league.js?v=5"></script>
 <script>
 (function () {
   const L = window.AAFL;
@@ -138,7 +138,16 @@ body{min-height:100vh;display:flex;flex-direction:column}
         try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
         try { if (newId) localStorage.setItem('aafl-entry', newId); } catch (e) { /* ignore */ }
         body(`<h1 class="ok">${extra ? 'ENTRY ADDED' : 'WELCOME TO THE AAFL'}</h1><p><b>${esc(name)}</b> is in. Taking you to your picks…</p>`);
-        setTimeout(() => { location.href = 'picks.html'; }, 1500);
+        let fee = 0, payTo = '';
+        try { const c = await L.db(`aafl_config?select=entry_fee,pay_to&season=eq.${L.SEASON}`); fee = +(c[0] && c[0].entry_fee) || 0; payTo = (c[0] && c[0].pay_to) || ''; } catch (e) { /* ignore */ }
+        if (fee > 0) {
+          body(`<h1 class="ok">${extra ? 'ENTRY ADDED' : 'YOU\'RE IN'}</h1><p><b>${esc(name)}</b> is in the AAFL.</p>
+            <p style="text-align:left">💲 <b>Entry fee: $${fee}</b>. Send an Interac e-Transfer to <b>${esc(payTo)}</b> with <b>AAFL ${esc(name)}</b> in the message.
+            You can make picks right away, but <b>they only count in the standings once your fee is marked paid.</b></p>
+            <a class="go" style="display:block;text-decoration:none" href="picks.html">GOT IT, MAKE MY PICKS →</a>`);
+        } else {
+          setTimeout(() => { location.href = 'picks.html'; }, 1500);
+        }
       } catch (err) {
         const m = /duplicate key|aafl_teams_season_name/.test(err.message) ? 'That team name is taken. Try another.' : err.message;
         $('err').textContent = m; $('go').disabled = false; $('go').textContent = extra ? 'ADD ENTRY' : 'JOIN THE AAFL';

@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="../shared/switcher.js" data-pool="aafl" defer></script>
-<link rel="stylesheet" href="aafl.css?v=4">
+<link rel="stylesheet" href="aafl.css?v=5">
 <link rel="stylesheet" href="../shared/ticker.css?v=1">
 </head>
 <body>
@@ -105,7 +105,7 @@
 <script src="../shared/config.js"></script>
 <script src="nav.js?v=1" defer></script>
 <script src="../shared/auth.js?v=3"></script>
-<script src="league.js?v=4"></script>
+<script src="league.js?v=5"></script>
 <script>
 (function () {
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
@@ -132,7 +132,7 @@
         const rk = r.rank <= 3 ? `<span class="md g${r.rank}">${r.rank}</span>` : r.rank;
         const mv = r.move > 0 ? `<span class="up">▲${r.move}</span>` : r.move < 0 ? `<span class="dn">▼${-r.move}</span>` : '';
         const last = lw ? r.byWeek[lw.week].pts : '—';
-        return `<tr><td class="rk">${rk}</td><td>${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${mv}</td><td class="n">${last}</td><td class="n"><b>${r.pts}</b></td></tr>`;
+        return `<tr><td class="rk">${rk}</td><td>${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${r.unpaid ? '<span class="unpaid" title="Entry fee not paid yet: picks don\'t count until it is">$ unpaid</span>' : ''}${mv}</td><td class="n">${last}</td><td class="n"><b>${r.pts}</b></td></tr>`;
       }).join('');
       const lead = ST.teams.filter(r => r.rank === 1);
       $('s-lead').textContent = lead.length > 1 ? lead.length + '-way tie' : lead[0].name;
