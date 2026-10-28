@@ -83,13 +83,14 @@ window.AAFL = (function () {
   const pick = (team, e) => (LEAGUE && LEAGUE.picks[team.id] && LEAGUE.picks[team.id][e.id]) || null;
 
   // The signed-in player's team, or null.
-  async function myTeam() {
+  // The signed-in player's teams (a person can have several entries), oldest first.
+  async function myTeams() {
     const s = window.aasnAuth && aasnAuth.session && aasnAuth.session();
     const uid = s && s.user && s.user.id;
-    if (!uid) return null;
-    const rows = await db(`aafl_teams?select=id,name,joined_week,email_reminders&season=eq.${SEASON}&user_id=eq.${uid}`);
-    return rows[0] || null;
+    if (!uid) return [];
+    return db(`aafl_teams?select=id,name,joined_week,email_reminders,invite_code&season=eq.${SEASON}&user_id=eq.${uid}&order=created_at`);
   }
+  async function myTeam() { return (await myTeams())[0] || null; }
 
   // Grade everything. Returns { teams:[...sorted], weeks:[{week, scores:{id:pts}, graded, winners:[ids], top}], lastDone }
   function standings(season) {
@@ -137,7 +138,7 @@ window.AAFL = (function () {
   }
 
   return {
-    WEEKS, SEASON, state, sides, winner, pick, fetchWeek, currentWeek, loadSeason, loadLeague, standings, myTeam, savePicks, deletePicks, join, db,
+    WEEKS, SEASON, state, sides, winner, pick, fetchWeek, currentWeek, loadSeason, loadLeague, standings, myTeam, myTeams, savePicks, deletePicks, join, db,
     get TEAMS() { return LEAGUE ? LEAGUE.teams : []; }
   };
 })();

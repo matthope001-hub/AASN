@@ -19,7 +19,8 @@
 .demo b{color:var(--warn)}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .top h1{font-family:var(--display);font-weight:400;font-size:32px;margin:0}
-.top .me{font-size:15px;color:var(--mut)}.top .me b{color:#fff}
+.top .me{font-size:15px;color:var(--mut)}
+.entry{font:700 16px var(--body);padding:7px 10px;border-radius:8px;border:1px solid var(--silver);background:var(--panel);color:#fff;margin-left:4px}.top .me b{color:#fff}
 .kp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 6px}
 .kp div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
 .kp span{display:block;font-size:12px;letter-spacing:1px;color:var(--mut);text-transform:uppercase}
@@ -147,7 +148,7 @@
 <script src="../shared/config.js"></script>
 <script src="nav.js?v=1" defer></script>
 <script src="../shared/auth.js?v=3"></script>
-<script src="league.js?v=3"></script>
+<script src="league.js?v=4"></script>
 <script>
 (function () {
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
@@ -161,7 +162,7 @@
   const time = d => d.toLocaleTimeString('en-US', { ...ET, hour: 'numeric', minute: '2-digit' });
   const state = e => e.status && e.status.type ? e.status.type.state : 'pre';
   let WK = 0, EV = [], BYES = new Set(), picks = {}, submitted = false, refreshT = null, lockT = null;
-  let MEMBER = null, saved = {}, WLOCK = null, saving = false;   // MEMBER = your AAFL team when signed in
+  let MEMBER = null, MINE = [], saved = {}, WLOCK = null, saving = false;   // MEMBER = your AAFL team when signed in
   const weekLocked = () => !!WLOCK && Date.now() >= WLOCK;
   const openGames = () => weekLocked() ? [] : EV.filter(e => state(e) === 'pre');
 
@@ -404,7 +405,10 @@
       // League picks (computer teams + invited players) and, when signed in, your own team.
       try {
         const L = window.AAFL;
-        const [, me] = await Promise.all([L.loadLeague(true), L.myTeam().catch(() => null)]);
+        const [, mine] = await Promise.all([L.loadLeague(true), L.myTeams().catch(() => [])]);
+        MINE = mine || [];
+        let want = null; try { want = localStorage.getItem('aafl-entry'); } catch (e2) { /* ignore */ }
+        const me = MINE.find(t => t.id === want) || MINE[0] || null;
         const was = MEMBER && MEMBER.id;
         MEMBER = me;
         saved = {};
@@ -434,7 +438,16 @@
         try { await window.AAFL.db('aafl_teams?id=eq.' + MEMBER.id, { method: 'PATCH', body: JSON.stringify({ email_reminders: ev.target.checked }) }); MEMBER.email_reminders = ev.target.checked; toast(ev.target.checked ? 'Reminders on' : 'Reminders off'); }
         catch (err) { ev.target.checked = !ev.target.checked; toast('Could not save: ' + err.message); }
       });
-      $('me').innerHTML = 'Playing as <b>' + esc(MEMBER.name) + '</b> <span class="h">(h)</span>';
+      if (MINE.length > 1) {
+        $('me').innerHTML = '<label for="entry">Picking for</label> <select id="entry" class="entry">' + MINE.map(t => `<option value="${t.id}"${t.id === MEMBER.id ? ' selected' : ''}>${esc(t.name)}</option>`).join('') + '</select>';
+        $('entry').addEventListener('change', ev => {
+          if (!submitted && Object.keys(picks).length && !confirm('You have unsaved picks for ' + MEMBER.name + '. Switch anyway?')) { ev.target.value = MEMBER.id; return; }
+          try { localStorage.setItem('aafl-entry', ev.target.value); } catch (e2) { /* ignore */ }
+          load();
+        });
+      } else {
+        $('me').innerHTML = 'Playing as <b>' + esc(MEMBER.name) + '</b> <span class="h">(h)</span>';
+      }
     } else {
       $('me').textContent = 'Demo picks';
     }

@@ -1,5 +1,14 @@
 [
   {
+    "date": "2026-10-28",
+    "title": "More than one entry",
+    "items": [
+      "You can now play more than one team if your invite allows it: open your invite link again to add another entry.",
+      "Each entry has its own picks. Switch between your teams at the top of the Picks page.",
+      "Reminder emails list all your teams in one email."
+    ]
+  },
+  {
     "date": "2026-10-27",
     "title": "Form and injuries on the pick cards",
     "items": [

@@ -55,7 +55,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
 
 <script src="../shared/config.js"></script>
 <script src="../shared/auth.js?v=3"></script>
-<script src="league.js?v=3"></script>
+<script src="league.js?v=4"></script>
 <script>
 (function () {
   const L = window.AAFL;
@@ -81,16 +81,36 @@ body{min-height:100vh;display:flex;flex-direction:column}
       return;
     }
     const email = s.user.email || '';
+    let mine = [], left = 1;
     try {
-      const me = await L.myTeam();
-      if (me) { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } body(`<h1>YOU'RE IN</h1><p>Your team <b>${esc(me.name)}</b> is already in the AAFL.</p><a class="go" style="display:block;text-decoration:none" href="picks.html">MAKE YOUR PICKS →</a>`); return; }
-      const inv = await L.db(`aafl_invites?select=code,email,used_at,revoked&code=eq.${encodeURIComponent(code)}`);
+      mine = await L.myTeams();
+      const [inv, cfg] = await Promise.all([
+        L.db(`aafl_invites?select=code,email,entries,revoked&code=eq.${encodeURIComponent(code)}`),
+        L.db(`aafl_config?select=max_entries&season=eq.${L.SEASON}`)
+      ]);
+      const list = mine.map(t => `<b>${esc(t.name)}</b>`).join(', ');
+      const inMsg = () => body(`<h1>YOU'RE IN</h1><p>Your team${mine.length > 1 ? 's' : ''} ${list} ${mine.length > 1 ? 'are' : 'is'} in the AAFL.</p><a class="go" style="display:block;text-decoration:none" href="picks.html">MAKE YOUR PICKS →</a>`);
       if (!inv.length) {
+        if (mine.length) { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } inMsg(); return; }
         body(`<h1>WRONG ACCOUNT?</h1><p>This invite isn't for <b>${esc(email)}</b>. Sign in with the email the invite was sent to.</p><button type="button" class="ghost" id="out">Sign out and switch account</button>`);
         $('out').addEventListener('click', () => aasnAuth.signOut());
         return;
       }
-      if (inv[0].used_at) { body('<h1>INVITE ALREADY USED</h1><p>This invite has already been used to join. <a href="picks.html">Go to your picks</a>.</p>'); return; }
+      const max = (cfg[0] && cfg[0].max_entries) || 3;
+      const used = mine.filter(t => t.invite_code === code).length;
+      left = Math.min((inv[0].entries || 1) - used, max - mine.length);
+      if (left <= 0) {
+        if (mine.length) { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } inMsg(); return; }
+        body('<h1>INVITE ALREADY USED</h1><p>All the entries on this invite have been used.</p>'); return;
+      }
+      if (mine.length) {
+        body(`<h1>ADD ANOTHER ENTRY</h1><p>You're in with ${list}. This invite lets you add <b>${left}</b> more ${left === 1 ? 'entry' : 'entries'}, each with its own picks.</p>
+          <form id="f"><div class="fld"><label for="nm">New team name</label><input id="nm" maxlength="40" minlength="2" required autocomplete="off"></div>
+          <button class="go" id="go">ADD ENTRY</button></form>
+          <div class="err" id="err"></div>
+          <small><a href="picks.html">No thanks, go to my picks →</a></small>`);
+        wire(true); return;
+      }
     } catch (e) {
       body('<h1>SOMETHING WENT WRONG</h1><p>We couldn\'t check your invite right now. Try again in a minute.</p>'); return;
     }
@@ -99,6 +119,10 @@ body{min-height:100vh;display:flex;flex-direction:column}
       <button class="go" id="go">JOIN THE AAFL</button></form>
       <div class="err" id="err"></div>
       <small>If you're joining mid-season you get the league average for every week you missed, and start picking with the next week that hasn't kicked off.</small>`);
+    wire(false);
+  }
+
+  function wire(extra) {
     $('nm').focus();
     $('f').addEventListener('submit', async ev => {
       ev.preventDefault();
@@ -106,13 +130,14 @@ body{min-height:100vh;display:flex;flex-direction:column}
       if (name.length < 2) { $('err').textContent = 'Pick a team name (2–40 characters).'; return; }
       $('go').disabled = true; $('go').textContent = 'JOINING…'; $('err').textContent = '';
       try {
-        await L.join(code, name);
+        const newId = await L.join(code, name);
         try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
-        body(`<h1 class="ok">WELCOME TO THE AAFL</h1><p><b>${esc(name)}</b> is in. Taking you to your picks…</p>`);
+        try { if (newId) localStorage.setItem('aafl-entry', newId); } catch (e) { /* ignore */ }
+        body(`<h1 class="ok">${extra ? 'ENTRY ADDED' : 'WELCOME TO THE AAFL'}</h1><p><b>${esc(name)}</b> is in. Taking you to your picks…</p>`);
         setTimeout(() => { location.href = 'picks.html'; }, 1500);
       } catch (err) {
         const m = /duplicate key|aafl_teams_season_name/.test(err.message) ? 'That team name is taken. Try another.' : err.message;
-        $('err').textContent = m; $('go').disabled = false; $('go').textContent = 'JOIN THE AAFL';
+        $('err').textContent = m; $('go').disabled = false; $('go').textContent = extra ? 'ADD ENTRY' : 'JOIN THE AAFL';
       }
     });
   }

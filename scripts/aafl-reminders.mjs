@@ -40,22 +40,32 @@ async function main() {
   const lock = new Date(Math.min(...games.map(g => +new Date(g.kickoff))));
   if (Date.now() >= +lock) { console.log(`Week ${week} already locked.`); return; }
 
-  const teams = await sb(`aafl_teams?select=id,name,email_reminders&season=eq.${SEASON}&is_bot=eq.false&email_reminders=eq.true`);
-  const invites = await sb(`aafl_invites?select=email,team_id&season=eq.${SEASON}&team_id=not.is.null`);
+  const teams = await sb(`aafl_teams?select=id,name,invite_code&season=eq.${SEASON}&is_bot=eq.false&email_reminders=eq.true`);
+  const invites = await sb(`aafl_invites?select=code,email,team_id&season=eq.${SEASON}`);
   const ids = games.map(g => g.id).join(',');
   const picks = teams.length ? await sb(`aafl_picks?select=team_id&game_id=in.(${ids})&team_id=in.(${teams.map(t => t.id).join(',')})`) : [];
   const count = {}; picks.forEach(p => { count[p.team_id] = (count[p.team_id] || 0) + 1; });
 
+  // One email per person, listing all their teams (a person can have several entries).
+  const byEmail = {};
   for (const t of teams) {
-    const inv = invites.find(i => i.team_id === t.id);
+    const inv = invites.find(i => i.code === t.invite_code) || invites.find(i => i.team_id === t.id);
     if (!inv) continue;
-    const have = count[t.id] || 0;
+    (byEmail[inv.email.toLowerCase()] = byEmail[inv.email.toLowerCase()] || []).push({ ...t, have: count[t.id] || 0 });
+  }
+  const n = games.length;
+  for (const [email, list] of Object.entries(byEmail)) {
+    const hi = list.length === 1 ? list[0].name : 'there';
     if (KIND === 'open') {
-      await send(inv.email, `AAFL: Week ${week} picks are open`,
-        `Hi ${t.name},\n\nWeek ${week} picks are open: ${games.length} games.\nPicks lock at the first kickoff: ${fmt(lock)}.\n\nMake your picks: ${SITE}picks.html\n\n(Turn these emails off on the Picks page.)`);
-    } else if (KIND === 'lock' && have < games.length) {
-      await send(inv.email, `AAFL: Week ${week} picks lock tonight`,
-        `Hi ${t.name},\n\nYou've picked ${have} of ${games.length} games for Week ${week}.\nPicks lock at ${fmt(lock)}.\n\nFinish your picks: ${SITE}picks.html\n\n(Turn these emails off on the Picks page.)`);
+      const lines = list.length > 1 ? `\nYour teams: ${list.map(t => t.name).join(', ')}\n` : '';
+      await send(email, `AAFL: Week ${week} picks are open`,
+        `Hi ${hi},\n\nWeek ${week} picks are open: ${n} games.${lines}\nPicks lock at the first kickoff: ${fmt(lock)}.\n\nMake your picks: ${SITE}picks.html\n\n(Turn these emails off on the Picks page.)`);
+    } else if (KIND === 'lock') {
+      const missing = list.filter(t => t.have < n);
+      if (!missing.length) continue;
+      const lines = missing.map(t => `- ${t.name}: ${t.have} of ${n} picked`).join('\n');
+      await send(email, `AAFL: Week ${week} picks lock tonight`,
+        `Hi ${hi},\n\nStill to pick for Week ${week}:\n${lines}\n\nPicks lock at ${fmt(lock)}.\n\nFinish your picks: ${SITE}picks.html\n\n(Turn these emails off on the Picks page.)`);
     }
   }
 }
