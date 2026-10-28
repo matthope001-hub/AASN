@@ -454,9 +454,13 @@
     const m = $('mode');
     if (MEMBER) {
       m.innerHTML = '<b>YOU\'RE IN.</b> Pick a winner for every game, then submit. You can change picks until the week locks at the first kickoff. '
-        + '<label style="white-space:nowrap;margin-left:6px"><input type="checkbox" id="rem"' + (MEMBER.email_reminders === false ? '' : ' checked') + '> Email me reminders</label>';
+        + '<label style="white-space:nowrap;margin-left:6px"><input type="checkbox" id="rem"' + (MEMBER.email_reminders === false ? '' : ' checked') + '> Email me reminders</label> <a href="rules.html#emails" style="font-size:13px;color:var(--mut)">what\'s this?</a>';
       $('rem').addEventListener('change', async ev => {
-        try { await window.AAFL.db('aafl_teams?id=eq.' + MEMBER.id, { method: 'PATCH', body: JSON.stringify({ email_reminders: ev.target.checked }) }); MEMBER.email_reminders = ev.target.checked; toast(ev.target.checked ? 'Reminders on' : 'Reminders off'); }
+        try {
+          await window.AAFL.db('rpc/aafl_my_emails', { method: 'POST', body: JSON.stringify({ p_on: ev.target.checked }) });
+          MINE.forEach(t => { t.email_reminders = ev.target.checked; }); MEMBER.email_reminders = ev.target.checked;
+          toast(ev.target.checked ? '✓ Email reminders on' + (MINE.length > 1 ? ' for all your teams' : '') : 'Email reminders off' + (MINE.length > 1 ? ' for all your teams' : ''));
+        }
         catch (err) { ev.target.checked = !ev.target.checked; toast('Could not save: ' + err.message); }
       });
       if (MINE.length > 1) {
