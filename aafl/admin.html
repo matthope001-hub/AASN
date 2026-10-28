@@ -187,7 +187,9 @@
   function paintInvites() {
     const humans = TEAMS.filter(t => !t.is_bot).length;
     $('cap').textContent = `${humans} of ${CFG ? CFG.human_cap : 10} human entries used · up to ${CFG ? CFG.max_entries : 3} entries per person.`;
-    $('inv-body').innerHTML = INVITES.length ? INVITES.map(i => {
+    // Revoked invites are hidden (kept in the database, just not listed).
+    const shown = INVITES.filter(i => !i.revoked);
+    $('inv-body').innerHTML = shown.length ? shown.map(i => {
       const teams = TEAMS.filter(t => t.invite_code === i.code);
       const n = i.entries || 1, left = n - teams.length;
       const names = teams.map(t => esc(t.name)).join(', ');
@@ -285,7 +287,7 @@
     }
     if (t.dataset.revoke) {
       const i = INVITES.find(x => x.code === t.dataset.revoke);
-      if (!confirm(`Revoke the invite for ${i.email}? The link will stop working.`)) return;
+      if (!confirm(`Revoke the invite for ${i.email}? The link stops working and it's removed from this list.`)) return;
       try { await L.db(`aafl_invites?code=eq.${i.code}`, { method: 'PATCH', body: JSON.stringify({ revoked: true }) }); await load(); } catch (e) { msg('inv-msg', 'Could not revoke: ' + e.message); }
     }
     if (t.dataset.rename) {
