@@ -168,3 +168,21 @@ export async function aaflSync(env) {
   for (const b of bots) for (const g of rows.filter(r => open.includes(r.week))) picks.push({ team_id: b.id, game_id: g.id, pick: rand(b.bot_key + ':' + g.id) < 0.5 ? g.away : g.home });
   if (picks.length) await pub(env, 'aafl_picks?on_conflict=team_id,game_id', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(picks) });
 }
+
+// Weekly reminder emails: the worker starts the GitHub "AAFL reminders" job on time (GitHub's own
+// timer can run hours late). Tuesday 9:07am Eastern = "picks are open"; Thursday 12:07pm = "picks lock
+// tonight" (only players still missing picks). Eastern time is worked out here, so daylight time is handled.
+export async function aaflReminders(env, tick) {
+  if (!env.GH_TOKEN) return;
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Toronto', weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(tick).map(x => [x.type, x.value]));
+  const at = `${p.weekday} ${+p.hour}:${String(+p.minute).padStart(2, '0')}`;
+  const kind = at === 'Tue 9:07' ? 'open' : at === 'Thu 12:07' ? 'lock' : null;
+  if (!kind) return;
+  const res = await fetch('https://api.github.com/repos/matthope001-hub/AASN/actions/workflows/aafl-reminders.yml/dispatches', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.GH_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'aasn-api', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ref: 'main', inputs: { kind, dry_run: '0' } })
+  });
+  if (!res.ok) throw new Error(`GitHub reminders dispatch: ${res.status} ${await res.text()}`);
+  console.log('AAFL ' + kind + ' reminders started');
+}

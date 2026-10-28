@@ -1,11 +1,9 @@
 name: AAFL reminders
 
-# Tuesday ~9am ET: picks are open. Thursday ~noon ET: picks lock tonight (only players missing picks).
-# Times are UTC for Eastern Standard Time (from Nov 1); during daylight time they run an hour later.
+# Tuesday 9:07am ET: picks are open. Thursday 12:07pm ET: picks lock tonight (only players missing picks).
+# Started on time by the AASN worker (workers/aabl-api/src/aafl.js, aaflReminders); GitHub's own timer
+# ran hours late, so there's no schedule here. Run it by hand from the Actions tab to test.
 on:
-  schedule:
-    - cron: '7 14 * * 2'
-    - cron: '7 17 * * 4'
   workflow_dispatch:
     inputs:
       kind:
@@ -40,7 +38,7 @@ jobs:
           TEST_TO: ${{ inputs.test_to }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           AAFL_FROM: ${{ secrets.AAFL_FROM }}
-          KIND: ${{ inputs.kind || (github.event.schedule == '7 14 * * 2' && 'open' || 'lock') }}
+          KIND: ${{ inputs.kind }}
           DRY_RUN: ${{ inputs.dry_run }}
           SEASON: '2026'
         run: node scripts/aafl-reminders.mjs

@@ -15,7 +15,7 @@
  * Confirmation emails go out from Matt's Gmail via the Gmail API.
  */
 
-import { aaflOutbox, aaflSync } from './aafl.js';
+import { aaflOutbox, aaflSync, aaflReminders } from './aafl.js';
 
 const VERSION = '2026-10-23';
 const TOTAL_BOXES = 21;
@@ -112,6 +112,7 @@ export default {
     if (event.cron !== DIGEST_CRON) {
       const sendAs = (to, subject, text, html, unsub) => gmailSend(env, to, subject, text, html, { from: aaflFrom(env), unsub });
       ctx.waitUntil(aaflOutbox(env, sendAs).catch(err => console.log('AAFL outbox failed: ' + (err && err.stack || err))));
+      ctx.waitUntil(aaflReminders(env, tick).catch(err => console.log('AAFL reminders failed: ' + (err && err.stack || err))));
       if (tick.getUTCMinutes() % 10 === 4) ctx.waitUntil(aaflSync(env).catch(err => console.log('AAFL sync failed: ' + (err && err.stack || err))));
     }
     // Live points only run noon-3:59am Eastern (16:00-07:59 UTC), as before; mornings are AAFL-only.
