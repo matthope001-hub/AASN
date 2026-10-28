@@ -195,10 +195,21 @@
     const sess = window.aasnAuth && aasnAuth.session && aasnAuth.session();
     const uid = sess && sess.user && sess.user.id;
     if (!ok && uid) { try { member = (await aasnSelect('aafl_teams', `select=id&user_id=eq.${uid}&limit=1`)).length > 0; } catch (e) { /* keep hidden */ } }
+    // Invited but not joined yet? Show a button to finish joining.
+    let invite = '';
+    if (!ok && !member && uid && window.aasnAuth && aasnAuth.accessToken) {
+      try {
+        const tok = await aasnAuth.accessToken();
+        const r = await fetch(`${AASN_SUPABASE_URL}/rest/v1/aafl_invites?select=code&revoked=eq.false&order=created_at.desc&limit=1`, { headers: { apikey: AASN_SUPABASE_KEY, Authorization: 'Bearer ' + tok } });
+        const j = r.ok ? await r.json() : [];
+        invite = (j[0] && j[0].code) || '';
+      } catch (e) { /* ignore */ }
+    }
     const aafl = document.getElementById('aafl-btn');
-    aafl.hidden = !(ok || member);
-    aafl.textContent = member && !ok ? 'ENTER THE AAFL →' : 'PREVIEW THE AAFL →';
-    document.getElementById('aafl-soon').hidden = ok || member;
+    aafl.hidden = !(ok || member || invite);
+    aafl.textContent = invite ? 'FINISH JOINING THE AAFL →' : member && !ok ? 'ENTER THE AAFL →' : 'PREVIEW THE AAFL →';
+    aafl.href = invite ? 'aafl/join.html?code=' + encodeURIComponent(invite) : 'aafl/';
+    document.getElementById('aafl-soon').hidden = ok || member || !!invite;
   }
   paint();
   if (window.aasnAuth) aasnAuth.onChange(paint);

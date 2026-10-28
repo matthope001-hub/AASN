@@ -66,6 +66,37 @@
     } catch (e) { return false; }
   }
 
+  // AAFL: signed in with an invite but haven't finished joining? Send them to the join page.
+  function signedInToken() {
+    for (const k of AUTH_KEYS) {
+      try {
+        const v = JSON.parse(localStorage.getItem(k) || 'null');
+        const t = v && (v.access_token || (v.currentSession && v.currentSession.access_token));
+        if (t) return t;
+      } catch (e) { /* ignore */ }
+    }
+    return '';
+  }
+  async function pendingInvite() {
+    if (gate !== 'aafl') return '';
+    const tok = signedInToken();
+    if (!tok) return '';
+    try {
+      const SB = 'https://tetgrmgurobacdohhiby.supabase.co';
+      const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldGdybWd1cm9iYWNkb2hoaWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5Njc4MTYsImV4cCI6MjEwNDU0MzgxNn0.Jn0MdAdYslGv7znS0DFiSUjlZ6rpw0qsvQwiNq63vWk';
+      // Row-level security only returns invites sent to the signed-in email.
+      const r = await fetch(`${SB}/rest/v1/aafl_invites?select=code&revoked=eq.false&order=created_at.desc&limit=1`, { headers: { apikey: KEY, Authorization: 'Bearer ' + tok } });
+      const j = r.ok ? await r.json() : [];
+      return (j[0] && j[0].code) || '';
+    } catch (e) { return ''; }
+  }
+  async function toJoin() {
+    const code = await pendingInvite();
+    if (!code) return false;
+    location.replace(location.pathname.replace(/\/aafl\/.*$/, '/aafl/') + 'join.html?code=' + encodeURIComponent(code));
+    return true;
+  }
+
   // Hide the page until we know who's looking.
   const root = document.documentElement;
   root.classList.add('aasn-gate-wait');
@@ -108,6 +139,7 @@
   }
   async function check() {
     if (await isAdmin() || await isMember()) { unlock(); return true; }
+    if (await toJoin()) return true;
     return false;
   }
 

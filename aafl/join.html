@@ -72,6 +72,10 @@ body{min-height:100vh;display:flex;flex-direction:column}
 
   async function render() {
     const s = window.aasnAuth && aasnAuth.session();
+    // No code in the link (e.g. the sign-in email opened in another browser)? Use the invite sent to this email.
+    if (!code && s && s.user) {
+      try { const mine = await L.db('aafl_invites?select=code&revoked=eq.false&order=created_at.desc&limit=1'); if (mine[0]) { code = mine[0].code; try { localStorage.setItem(KEY, code); } catch (e) { /* ignore */ } } } catch (e) { /* ignore */ }
+    }
     if (!code) { body('<h1>NO INVITE FOUND</h1><p>Open the invite link from your email. If you\'ve already joined, <a href="picks.html">go to your picks</a>.</p>'); return; }
     if (!s || !s.user) {
       body(`<h1>YOU'RE INVITED</h1><p>Join the <b>Angry Alpaca Football League</b> 2026 trial: pick the winner of every NFL game, every week. Free, no prizes.</p>
