@@ -100,6 +100,8 @@ export async function aaflOutbox(env, send) {
     .filter(i => !i.sent_at || new Date(i.sent_at) < new Date(i.send_requested_at));
   if (!queued.length) return;
   if (env.GH_TOKEN) return dispatchOutbox(env, queued);
+  // No way to send from here: leave them queued for the GitHub outbox job.
+  if (!(env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN)) return;
   for (const i of queued) {
     if (i.email_opt_out) {
       await pub(env, `aafl_invites?code=eq.${i.code}`, { method: 'PATCH', body: JSON.stringify({ send_error: 'They unsubscribed from AAFL emails', send_requested_at: null }) });
