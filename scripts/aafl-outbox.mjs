@@ -3,7 +3,7 @@
 // Sends from Matt's Gmail (GitHub secrets GMAIL_USER + GMAIL_APP_PASSWORD, same as reminders).
 // Env: SUPABASE_URL, SUPABASE_SERVICE_KEY, GMAIL_USER, GMAIL_APP_PASSWORD
 
-import { htmlEmail, textEmail } from './aafl-email.mjs';
+import { htmlEmail, textEmail, UNSUB, unsubHeaders } from './aafl-email.mjs';
 
 const { SUPABASE_URL, SUPABASE_SERVICE_KEY: KEY, GMAIL_USER, GMAIL_APP_PASSWORD } = process.env;
 const JOIN = 'https://aasn.theaahl.ca/aafl/join.html?code=';
@@ -18,7 +18,7 @@ async function sb(path, opts = {}) {
 }
 
 // Same wording as the Admin page's copy-and-paste email, as a branded HTML email with a button.
-function inviteEmail(email, code, entries) {
+function inviteEmail(email, code, entries, token) {
   const msg = {
     title: "You're invited to the AAFL",
     paras: [
@@ -28,22 +28,28 @@ function inviteEmail(email, code, entries) {
       "Picks for each week lock at that week's first kickoff (usually Thursday night)."
     ],
     button: 'Join the AAFL', url: JOIN + code,
-    footer: 'Invite only · this link works for ' + email + '.'
+    footer: 'Invite only · this link works for ' + email + '.',
+    unsub: token ? UNSUB + token : null
   };
   return { subject: "You're invited to the AAFL (Angry Alpaca Football League)", html: htmlEmail(msg), text: textEmail(msg) };
 }
 
 async function main() {
-  const queued = (await sb('aafl_invites?select=code,email,entries,send_requested_at,sent_at&revoked=eq.false&send_requested_at=not.is.null'))
+  const queued = (await sb('aafl_invites?select=code,email,entries,send_requested_at,sent_at,unsub_token,email_opt_out&revoked=eq.false&send_requested_at=not.is.null'))
     .filter(i => !i.sent_at || new Date(i.sent_at) < new Date(i.send_requested_at));
   if (!queued.length) { console.log('No invite emails waiting.'); return; }
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD) { console.log('::error::Gmail secrets not set'); process.exitCode = 1; return; }
   const nodemailer = (await import('nodemailer')).default;
   const mailer = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GMAIL_USER.trim(), pass: GMAIL_APP_PASSWORD.replace(/[^A-Za-z0-9]/g, '') } });
   for (const i of queued) {
-    const { subject, text, html } = inviteEmail(i.email, i.code, i.entries || 1);
+    if (i.email_opt_out) {
+      await sb(`aafl_invites?code=eq.${i.code}`, { method: 'PATCH', body: JSON.stringify({ send_error: 'They unsubscribed from AAFL emails', send_requested_at: null }) });
+      console.log(`::warning::Skipped ${i.email}: unsubscribed`); continue;
+    }
+    const { subject, text, html } = inviteEmail(i.email, i.code, i.entries || 1, i.unsub_token);
+    const headers = unsubHeaders(i.unsub_token ? UNSUB + i.unsub_token : null);
     try {
-      await mailer.sendMail({ from: `AAFL <${GMAIL_USER.trim()}>`, to: i.email, subject, text, html });
+      await mailer.sendMail({ from: `AAFL <${GMAIL_USER.trim()}>`, to: i.email, subject, text, html, headers });
       await sb(`aafl_invites?code=eq.${i.code}`, { method: 'PATCH', body: JSON.stringify({ sent_at: new Date().toISOString(), send_error: null }) });
       console.log(`::notice::Invite emailed to ${i.email}`);
     } catch (e) {

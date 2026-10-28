@@ -1,4 +1,4 @@
-import { htmlEmail, textEmail } from './aafl-email.mjs';
+import { htmlEmail, textEmail, UNSUB, unsubHeaders } from './aafl-email.mjs';
 
 // AAFL email reminders (GitHub Actions: .github/workflows/aafl-reminders.yml).
 //   KIND=open  Tuesday morning: "Week N picks are open" to every human player.
@@ -34,13 +34,14 @@ let mailer = null;
 async function send(to, subject, msg) {
   const text = typeof msg === 'string' ? msg : textEmail(msg);
   const html = typeof msg === 'string' ? undefined : htmlEmail(msg);
+  const headers = unsubHeaders(typeof msg === 'string' ? null : msg.unsub);
   if (DRY || !CAN_SEND) { console.log(`::warning::Not sent (${DRY ? 'dry run' : 'email secrets not set'}): ${to}: ${subject}`); return; }
   if (USE_GMAIL) {
     if (!mailer) {
       const nodemailer = (await import('nodemailer')).default;
       mailer = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GMAIL_USER.trim(), pass: GMAIL_APP_PASSWORD.replace(/[^A-Za-z0-9]/g, '') } });
     }
-    try { await mailer.sendMail({ from: `AAFL <${GMAIL_USER.trim()}>`, to, subject, text, html }); console.log(`::notice::Sent to ${to} (Gmail)`); }
+    try { await mailer.sendMail({ from: `AAFL <${GMAIL_USER.trim()}>`, to, subject, text, html, headers }); console.log(`::notice::Sent to ${to} (Gmail)`); }
     catch (e) {
       const pw = GMAIL_APP_PASSWORD.replace(/[^A-Za-z0-9]/g, '');
       console.log(`::error::Send to ${to} failed (Gmail): ${e.message.split('\n')[0]} | user looks like an email: ${/^[^@\s]+@[^@\s]+\.[a-z]+$/i.test(GMAIL_USER.trim())} | app password length: ${pw.length} (should be 16)`);
@@ -70,7 +71,7 @@ async function main() {
   if (Date.now() >= +lock) { console.log(`Week ${week} already locked.`); return; }
 
   const teams = await sb(`aafl_teams?select=id,name,invite_code&season=eq.${SEASON}&is_bot=eq.false&email_reminders=eq.true`);
-  const invites = await sb(`aafl_invites?select=code,email,team_id&season=eq.${SEASON}`);
+  const invites = await sb(`aafl_invites?select=code,email,team_id,unsub_token&season=eq.${SEASON}`);
   const ids = games.map(g => g.id).join(',');
   const picks = teams.length ? await sb(`aafl_picks?select=team_id&game_id=in.(${ids})&team_id=in.(${teams.map(t => t.id).join(',')})`) : [];
   const count = {}; picks.forEach(p => { count[p.team_id] = (count[p.team_id] || 0) + 1; });
@@ -84,19 +85,21 @@ async function main() {
   }
   const n = games.length;
   for (const [email, list] of Object.entries(byEmail)) {
+    const tok = (invites.find(i => i.email.toLowerCase() === email && i.unsub_token) || {}).unsub_token;
+    const unsub = tok ? UNSUB + tok : null;
     const hi = list.length === 1 ? list[0].name : 'there';
     if (KIND === 'open') {
       await send(email, `AAFL: Week ${week} picks are open`, {
         title: `Week ${week} picks are open`,
         paras: [`Hi ${hi},`, `Week ${week} has ${n} games. Picks lock at the first kickoff: ${fmt(lock)}.`, ...(list.length > 1 ? [list.map(t => '- ' + t.name).join('\n')] : [])],
-        button: 'Make your picks', url: `${SITE}picks.html`, footer: 'Turn these emails off on the Picks page.' });
+        button: 'Make your picks', url: `${SITE}picks.html`, footer: 'You can also turn these off on the Picks page.', unsub });
     } else if (KIND === 'lock') {
       const missing = list.filter(t => t.have < n);
       if (!missing.length) continue;
       await send(email, `AAFL: Week ${week} picks lock tonight`, {
         title: `Week ${week} picks lock tonight`,
         paras: [`Hi ${hi},`, `Still to pick for Week ${week}:`, missing.map(t => `- ${t.name}: ${t.have} of ${n} picked`).join('\n'), `Picks lock at ${fmt(lock)}.`],
-        button: 'Finish your picks', url: `${SITE}picks.html`, footer: 'Turn these emails off on the Picks page.' });
+        button: 'Finish your picks', url: `${SITE}picks.html`, footer: 'You can also turn these off on the Picks page.', unsub });
     }
   }
 }

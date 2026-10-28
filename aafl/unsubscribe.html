@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email settings — AAFL</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07101F">
+<link rel="icon" type="image/png" href="assets/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Graduate&family=Saira+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aafl.css?v=4">
+<style>
+body{min-height:100vh;display:flex;flex-direction:column}
+.jn{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 16px}
+.card{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--silver);border-radius:14px;padding:26px 22px;text-align:center}
+.card img{width:96px;height:96px;object-fit:contain}
+.card h1{font-family:var(--display);font-weight:400;font-size:26px;margin:8px 0 6px}
+.card p{color:#C9D3E0;font-size:17px;line-height:1.4;margin:0 0 16px}
+.go{width:100%;background:#fff;color:#07101F;font-family:var(--display);font-size:17px;padding:13px;border-radius:10px;border:0;cursor:pointer}
+.go:disabled{opacity:.5;cursor:default}
+.ok{color:var(--ok)}
+small{display:block;color:var(--mut);font-size:14px;margin-top:12px}
+</style>
+</head>
+<body>
+<main class="jn">
+  <section class="card" aria-live="polite">
+    <img src="assets/aafl-logo.png" alt="AAFL logo">
+    <div id="body"><p>One moment…</p></div>
+  </section>
+</main>
+<script src="../shared/config.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const t = new URLSearchParams(location.search).get('t') || '';
+  const valid = /^[0-9a-f-]{36}$/i.test(t);
+
+  async function set(on) {
+    const r = await fetch(`${AASN_SUPABASE_URL}/rest/v1/rpc/aafl_set_emails`, {
+      method: 'POST',
+      headers: { apikey: AASN_SUPABASE_KEY, Authorization: `Bearer ${AASN_SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_token: t, p_on: on })
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok) throw new Error((j && j.message) || 'Something went wrong');
+    return j;
+  }
+  function off(email) {
+    $('body').innerHTML = `<h1>YOU'RE UNSUBSCRIBED</h1><p>No more AAFL emails to <b>${esc(email)}</b>. Your teams and picks stay exactly as they are.</p>
+      <button class="go" id="on">TURN EMAILS BACK ON</button><small><a href="./">Go to the AAFL →</a></small>`;
+    $('on').addEventListener('click', async ev => {
+      ev.target.disabled = true;
+      try { const e = await set(true); $('body').innerHTML = `<h1 class="ok">EMAILS ARE BACK ON</h1><p>Reminders will go to <b>${esc(e)}</b> again.</p><small><a href="./">Go to the AAFL →</a></small>`; }
+      catch (err) { ev.target.disabled = false; alert(err.message); }
+    });
+  }
+  if (!valid) { $('body').innerHTML = '<h1>LINK NOT VALID</h1><p>This unsubscribe link looks incomplete. Try the link from the email again, or turn reminders off on the Picks page.</p>'; return; }
+  // Unsubscribe straight away: one click from the email is all it takes.
+  set(false).then(off).catch(err => { $('body').innerHTML = `<h1>LINK NOT VALID</h1><p>${esc(err.message)}. You can also turn reminders off on the <a href="picks.html">Picks page</a>.</p>`; });
+})();
+</script>
+</body>
+</html>

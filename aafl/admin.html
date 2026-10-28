@@ -178,7 +178,7 @@
   async function load() {
     [TEAMS, INVITES, CFG] = await Promise.all([
       L.db(`aafl_teams?select=id,name,is_bot,joined_week,email_reminders,user_id,invite_code&season=eq.${S}&order=is_bot,name`),
-      L.db(`aafl_invites?select=code,email,created_at,used_at,revoked,team_id,entries,send_requested_at,sent_at,send_error&season=eq.${S}&order=created_at.desc`),
+      L.db(`aafl_invites?select=code,email,created_at,used_at,revoked,team_id,entries,send_requested_at,sent_at,send_error,email_opt_out&season=eq.${S}&order=created_at.desc`),
       L.db(`aafl_config?season=eq.${S}`).then(r => r[0])
     ]);
     paintInvites(); paintTeams(); paintSettings(); paintPickers();
@@ -198,7 +198,7 @@
         : `<span class="st-wait">Waiting${n > 1 ? ' · ' + n + ' entries' : ''}</span>`;
       const when = d => new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
       const queued = i.send_requested_at && (!i.sent_at || new Date(i.sent_at) < new Date(i.send_requested_at));
-      const mail = i.revoked ? '' : queued ? '<br><span class="st-wait">✉️ Email queued, sends within ~10 min</span>'
+      const mail = i.revoked ? '' : i.email_opt_out ? '<br><span class="st-off">✉️ Unsubscribed from AAFL emails</span>' : queued ? '<br><span class="st-wait">✉️ Email queued, sends within ~10 min</span>'
         : i.send_error ? `<br><span class="st-bad" title="${esc(i.send_error)}">✉️ Email failed, try again</span>`
         : i.sent_at ? `<br><span class="st-off">✉️ Emailed ${when(i.sent_at)}</span>` : '';
       const ent = !i.revoked ? `<button class="btn3" data-entries="${i.code}" title="Change how many teams this invite allows">Entries: ${n}</button> ` : '';

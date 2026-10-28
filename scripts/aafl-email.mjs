@@ -4,7 +4,10 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const LOGO = 'https://aasn.theaahl.ca/aafl/assets/icon-180.png';
 
 // paras: array of strings (plain text; a line starting with "- " becomes a bullet)
-export function htmlEmail({ title, paras, button, url, footer }) {
+export const UNSUB = 'https://aasn.theaahl.ca/aafl/unsubscribe.html?t=';
+
+// unsub: the person's unsubscribe link (adds a footer link; see aafl/unsubscribe.html)
+export function htmlEmail({ title, paras, button, url, footer, unsub }) {
   const body = paras.map(p => {
     const lines = String(p).split('\n');
     if (lines.every(l => l.startsWith('- '))) return `<ul style="margin:0 0 16px;padding-left:20px;color:#1f2a3c;font-size:16px;line-height:1.5">${lines.map(l => `<li>${esc(l.slice(2))}</li>`).join('')}</ul>`;
@@ -25,11 +28,14 @@ export function htmlEmail({ title, paras, button, url, footer }) {
         <h1 style="margin:0 0 14px;color:#07101F;font-size:22px">${esc(title)}</h1>
         ${body}${btn}
       </td></tr>
-      ${footer ? `<tr><td style="padding:12px 22px 20px;border-top:1px solid #e3e7ee;color:#6b7686;font-size:12px;line-height:1.4">${esc(footer)}</td></tr>` : ''}
+      ${footer || unsub ? `<tr><td style="padding:12px 22px 20px;border-top:1px solid #e3e7ee;color:#6b7686;font-size:12px;line-height:1.4">${esc(footer || '')}${unsub ? `${footer ? '<br>' : ''}Don't want AAFL emails? <a href="${esc(unsub)}" style="color:#6b7686">Unsubscribe</a>` : ''}</td></tr>` : ''}
     </table>
   </td></tr></table></body></html>`;
 }
 
-export function textEmail({ title, paras, button, url, footer }) {
-  return [title, '', ...paras.flatMap(p => [p, '']), button && url ? `${button}: ${url}` : '', footer ? `\n${footer}` : ''].join('\n').trim();
+export function textEmail({ title, paras, button, url, footer, unsub }) {
+  return [title, '', ...paras.flatMap(p => [p, '']), button && url ? `${button}: ${url}` : '', footer ? `\n${footer}` : '', unsub ? `Unsubscribe from AAFL emails: ${unsub}` : ''].join('\n').trim();
 }
+
+// Mail headers so Gmail/Yahoo show their own "Unsubscribe" link too.
+export const unsubHeaders = unsub => (unsub ? { 'List-Unsubscribe': `<${unsub}>` } : {});
