@@ -1,5 +1,5 @@
-// AABL nightly backup — dumps every aabl table (plus the shared AASN
-// champions table) to one JSON file. The workflow gzips and encrypts it
+// AASN nightly backup — dumps every AABL table, every AAFL table (public.aafl_*) and the
+// shared AASN champions table to one JSON file. The workflow gzips and encrypts it
 // before uploading, because artifacts on a public repo can be downloaded.
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_KEY, OUT (default backup.json)
@@ -21,7 +21,11 @@ const TABLES = {
     stats_season: 'season,mlb_id,role', stats_game: 'mlb_id,game_pk,role', standings: 'season,snapshot_date,entry_id',
     job_runs: 'id'
   },
-  public: { champions: 'id' }
+  public: {
+    champions: 'id',
+    aafl_config: 'season', aafl_teams: 'id', aafl_invites: 'code', aafl_games: 'id',
+    aafl_picks: 'team_id,game_id', aafl_credits: 'team_id,week'
+  }
 };
 
 async function dump(schema, table, order) {

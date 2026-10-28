@@ -1,6 +1,6 @@
-name: AABL backup
+name: AASN backup (AABL + AAFL)
 
-# Nightly encrypted backup of the AABL data, kept 30 days as a workflow artifact.
+# Nightly encrypted backup of the AABL and AAFL data, kept 30 days as a workflow artifact.
 # Needs repo secrets SUPABASE_SERVICE_KEY and BACKUP_PASSPHRASE.
 # To restore: download the artifact, then
 #   openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in aabl-backup.json.gz.enc -out aabl-backup.json.gz -pass pass:YOUR_PASSPHRASE
