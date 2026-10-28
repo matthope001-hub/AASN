@@ -77,9 +77,29 @@ function inviteEmail(email, code, entries, token) {
   return { subject: "You're invited to the AAFL (Angry Alpaca Football League)", html: htmlEmail(msg), text: textEmail(msg), unsub: msg.unsub };
 }
 
+// With a GH_TOKEN secret, the worker just starts the GitHub "AAFL outbox" job right away (it sends from
+// Matt's Gmail with the app password). A started job is marked "Sending <time>" so it isn't started
+// again every minute; if nothing went out after 15 minutes it's started again.
+async function dispatchOutbox(env, queued) {
+  const stale = i => { const m = /^Sending (\S+)/.exec(i.send_error || ''); return !m || Date.now() - new Date(m[1]) > 15 * 60e3; };
+  const need = queued.filter(i => !i.email_opt_out && stale(i));
+  if (!need.length) return;
+  const res = await fetch('https://api.github.com/repos/matthope001-hub/AASN/actions/workflows/aafl-outbox.yml/dispatches', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.GH_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'aasn-api', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ref: 'main' })
+  });
+  if (!res.ok) throw new Error(`GitHub dispatch: ${res.status} ${await res.text()}`);
+  const mark = 'Sending ' + new Date().toISOString();
+  await pub(env, `aafl_invites?code=in.(${need.map(i => i.code).join(',')})`, { method: 'PATCH', body: JSON.stringify({ send_error: mark }) });
+  console.log('AAFL outbox job started for ' + need.length + ' invite(s)');
+}
+
 export async function aaflOutbox(env, send) {
-  const queued = (await pub(env, 'aafl_invites?select=code,email,entries,send_requested_at,sent_at,unsub_token,email_opt_out&revoked=eq.false&send_requested_at=not.is.null'))
+  const queued = (await pub(env, 'aafl_invites?select=code,email,entries,send_requested_at,sent_at,send_error,unsub_token,email_opt_out&revoked=eq.false&send_requested_at=not.is.null'))
     .filter(i => !i.sent_at || new Date(i.sent_at) < new Date(i.send_requested_at));
+  if (!queued.length) return;
+  if (env.GH_TOKEN) return dispatchOutbox(env, queued);
   for (const i of queued) {
     if (i.email_opt_out) {
       await pub(env, `aafl_invites?code=eq.${i.code}`, { method: 'PATCH', body: JSON.stringify({ send_error: 'They unsubscribed from AAFL emails', send_requested_at: null }) });
