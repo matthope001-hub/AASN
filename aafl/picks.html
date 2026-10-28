@@ -20,6 +20,17 @@
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .top h1{font-family:var(--display);font-weight:400;font-size:32px;margin:0}
 .top .me{font-size:15px;color:var(--mut)}
+.add-entry{margin-left:8px;background:none;border:1px dashed var(--silver);color:#fff;border-radius:8px;padding:7px 12px;font:700 15px var(--body);cursor:pointer}
+.add-entry:hover{background:var(--navy);border-style:solid}
+.add-dlg{background:var(--panel);color:var(--txt);border:1px solid var(--silver);border-radius:14px;padding:20px;width:min(420px,calc(100vw - 32px))}
+.add-dlg::backdrop{background:rgba(0,0,0,.65)}
+.add-dlg h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0 0 6px}
+.add-dlg p{color:#C9D3E0;margin:0 0 14px}
+.add-dlg label{display:block;font-size:12px;letter-spacing:1px;color:var(--mut);text-transform:uppercase;margin-bottom:4px}
+.add-dlg input{width:100%;font:600 18px var(--body);padding:10px 12px;border-radius:8px;border:2px solid var(--line);background:#07101F;color:#fff}
+.add-err{color:#FF8F8F;font-weight:600;min-height:20px;margin:6px 0}
+.add-row{display:flex;gap:8px;justify-content:flex-end}
+.add-cancel{background:none;border:1px solid var(--line);color:#C9D3E0;border-radius:10px;padding:10px 16px;font:600 15px var(--body);cursor:pointer}
 .entry{font:700 16px var(--body);padding:7px 10px;border-radius:8px;border:1px solid var(--silver);background:var(--panel);color:#fff;margin-left:4px}.top .me b{color:#fff}
 .kp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 6px}
 .kp div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
@@ -144,6 +155,16 @@
   <button type="button" class="sub" id="submit" disabled>SUBMIT PICKS</button>
 </div></div>
 <div class="toast" id="toast" role="status"></div>
+<dialog id="add-dlg" class="add-dlg" aria-labelledby="add-h">
+  <form id="add-form" method="dialog">
+    <h2 id="add-h">ADD ANOTHER ENTRY</h2>
+    <p id="add-left"></p>
+    <label for="add-name">New team name</label>
+    <input id="add-name" maxlength="40" minlength="2" autocomplete="off">
+    <div class="add-err" id="add-err"></div>
+    <div class="add-row"><button type="submit" value="cancel" class="add-cancel" formnovalidate>Cancel</button><button type="submit" value="ok" id="add-go" class="sub">ADD ENTRY</button></div>
+  </form>
+</dialog>
 
 <script src="../shared/config.js"></script>
 <script src="nav.js?v=1" defer></script>
@@ -448,10 +469,65 @@
       } else {
         $('me').innerHTML = 'Playing as <b>' + esc(MEMBER.name) + '</b> <span class="h">(h)</span>';
       }
+      addEntryButton();
     } else {
       $('me').textContent = 'Demo picks';
     }
   }
+  // ---- Add another entry (if your invite and the league limit allow it) ----
+  async function entriesLeft() {
+    const codes = [...new Set(MINE.map(t => t.invite_code).filter(Boolean))];
+    if (!codes.length) return { left: 0 };
+    const L = window.AAFL;
+    const [inv, cfg] = await Promise.all([
+      L.db(`aafl_invites?select=code,entries,revoked&code=in.(${codes.join(',')})`),
+      L.db(`aafl_config?select=max_entries&season=eq.${L.SEASON}`)
+    ]);
+    const max = (cfg[0] && cfg[0].max_entries) || 3;
+    let best = null, left = 0;
+    inv.filter(i => !i.revoked).forEach(i => {
+      const l = (i.entries || 1) - MINE.filter(t => t.invite_code === i.code).length;
+      if (l > left) { left = l; best = i.code; }
+    });
+    return { left: Math.min(left, max - MINE.length), code: best };
+  }
+  async function addEntryButton() {
+    try {
+      const { left, code } = await entriesLeft();
+      if (left <= 0 || !$('me') || $('add-entry')) return;
+      const b = document.createElement('button');
+      b.type = 'button'; b.id = 'add-entry'; b.className = 'add-entry';
+      b.textContent = '+ Add entry';
+      b.title = `You can add ${left} more ${left === 1 ? 'team' : 'teams'}`;
+      b.addEventListener('click', () => openAdd(code, left));
+      $('me').appendChild(b);
+    } catch (e) { /* no button */ }
+  }
+  function openAdd(code, left) {
+    const d = $('add-dlg');
+    $('add-left').textContent = `You can add ${left} more ${left === 1 ? 'team' : 'teams'}. Each one has its own picks.`;
+    $('add-err').textContent = ''; $('add-name').value = '';
+    d.dataset.code = code;
+    d.showModal(); $('add-name').focus();
+  }
+  $('add-form').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    if (ev.submitter && ev.submitter.value === 'cancel') { $('add-dlg').close(); return; }
+    const name = $('add-name').value.trim();
+    if (name.length < 2) { $('add-err').textContent = 'Pick a team name (2–40 characters).'; return; }
+    const go = $('add-go'); go.disabled = true; go.textContent = 'ADDING…';
+    try {
+      const id = await window.AAFL.join($('add-dlg').dataset.code, name);
+      try { if (id) localStorage.setItem('aafl-entry', id); } catch (e) { /* ignore */ }
+      $('add-dlg').close(); toast('✓ ' + name + ' added. Make its picks below.');
+      const old = $('add-entry'); if (old) old.remove();
+      load();
+    } catch (err) {
+      $('add-err').textContent = /duplicate|aafl_teams_season_name/.test(err.message) ? 'That team name is taken. Try another.' : err.message;
+    }
+    go.disabled = false; go.textContent = 'ADD ENTRY';
+  });
+
   document.addEventListener('click', ev => { if (ev.target && ev.target.id === 'mode-signin') { ev.preventDefault(); if (window.aasnAuth) aasnAuth.open(); } });
   if (window.aasnAuth) aasnAuth.onChange(() => load());
   load();

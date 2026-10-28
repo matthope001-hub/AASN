@@ -158,7 +158,8 @@
       const st = i.revoked ? '<span class="st-off">Revoked</span>'
         : teams.length ? `<span class="st-ok">Joined ${teams.length}/${n} · ${names}</span>${left > 0 ? ' <span class="st-wait">· ' + left + ' left</span>' : ''}`
         : `<span class="st-wait">Waiting${n > 1 ? ' · ' + n + ' entries' : ''}</span>`;
-      const acts = !i.revoked && left > 0 ? `<button class="btn3" data-copy="${i.code}">Copy link</button> <a class="btn3" href="${mailto(i.email, i.code)}">Email</a> <button class="btn3 red" data-revoke="${i.code}">Revoke</button>` : '';
+      const ent = !i.revoked ? `<button class="btn3" data-entries="${i.code}" title="Change how many teams this invite allows">Entries: ${n}</button> ` : '';
+      const acts = ent + (!i.revoked && left > 0 ? `<button class="btn3" data-copy="${i.code}">Copy link</button> <a class="btn3" href="${mailto(i.email, i.code)}">Email</a> <button class="btn3 red" data-revoke="${i.code}">Revoke</button>` : '');
       return `<tr><td>${esc(i.email)}</td><td>${st}</td><td>${day(i.created_at)}</td><td class="act">${acts}</td></tr>`;
     }).join('') : '<tr><td colspan="4" class="st-off">No invites yet.</td></tr>';
   }
@@ -214,6 +215,15 @@
     const t = ev.target;
     if (t.dataset.copy) {
       try { await navigator.clipboard.writeText(link(t.dataset.copy)); t.textContent = 'Copied ✓'; setTimeout(() => { t.textContent = 'Copy link'; }, 1500); } catch (e) { prompt('Copy this link:', link(t.dataset.copy)); }
+    }
+    if (t.dataset.entries) {
+      const i = INVITES.find(x => x.code === t.dataset.entries);
+      const used = TEAMS.filter(x => x.invite_code === i.code).length;
+      const v = prompt(`How many teams can ${i.email} have on this invite? (${used} joined so far, 1–10)`, i.entries || 1);
+      if (v === null) return;
+      const n = Math.round(+v);
+      if (!(n >= 1 && n <= 10) || n < used) { msg('inv-msg', `Enter a number from ${Math.max(1, used)} to 10.`); return; }
+      try { await L.db(`aafl_invites?code=eq.${i.code}`, { method: 'PATCH', body: JSON.stringify({ entries: n }) }); msg('inv-msg', `${i.email} can now have ${n} ${n === 1 ? 'team' : 'teams'}.`, true); await load(); } catch (e) { msg('inv-msg', 'Could not save: ' + e.message); }
     }
     if (t.dataset.revoke) {
       const i = INVITES.find(x => x.code === t.dataset.revoke);
