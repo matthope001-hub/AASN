@@ -15,6 +15,8 @@
  * Confirmation emails go out from Matt's Gmail via the Gmail API.
  */
 
+import { aaflOutbox, aaflSync } from './aafl.js';
+
 const VERSION = '2026-10-23';
 const TOTAL_BOXES = 21;
 const TOTAL_PICKS = 27; // 21 boxes + 6 division picks
@@ -105,6 +107,14 @@ export default {
 
   // Cron (wrangler.toml [triggers]): Monday-morning digest, emailed to the commissioner.
   async scheduled(event, env, ctx) {
+    // AAFL: send queued invite emails every tick; refresh this/next week's games every 10 minutes.
+    const tick = new Date(event.scheduledTime || Date.now());
+    if (event.cron !== DIGEST_CRON) {
+      const sendAs = (to, subject, text, html, unsub) => gmailSend(env, to, subject, text, html, { from: aaflFrom(env), unsub });
+      ctx.waitUntil(aaflOutbox(env, sendAs).catch(err => console.log('AAFL outbox failed: ' + (err && err.stack || err))));
+      if (tick.getUTCMinutes() % 10 === 4) ctx.waitUntil(aaflSync(env).catch(err => console.log('AAFL sync failed: ' + (err && err.stack || err))));
+    }
+    if (event.cron === AAFL_CRON) return;   // morning ticks are only for the AAFL
     if (event.cron === DIGEST_CRON) {
       ctx.waitUntil(sendWeeklyDigest(env).catch(err => console.log('Digest failed: ' + (err && err.stack || err))));
       return;
@@ -946,6 +956,9 @@ async function addDeathPoolHistory(env, out) {
 // the 4am nightly run stays the official count. Off: variable LIVE_POINTS = off.
 
 const DIGEST_CRON = '13 12 * * 1';
+const AAFL_CRON = '*/2 8-15 * * *';   // fills the morning gap in the live cron, for AAFL emails + sync
+// AAFL emails come from the same Gmail as the worker, named "AAFL".
+const aaflFrom = env => 'AAFL <' + (String(env.GMAIL_FROM || '').match(/<([^>]+)>/) || [null, env.GMAIL_FROM])[1] + '>';
 const MLB_API = 'https://statsapi.mlb.com/api/v1';
 const BOX_FIELDS = 'teams,away,home,players,person,id,stats,batting,pitching,hits,doubles,triples,homeRuns,rbi,runs,baseOnBalls,' +
   'hitByPitch,stolenBases,strikeOuts,caughtStealing,plateAppearances,atBats,outs,wins,saves,holds,earnedRuns,losses,gamesStarted,battersFaced';
@@ -1183,10 +1196,11 @@ async function gmailToken(env) {
   return data.access_token;
 }
 
-async function gmailSend(env, to, subject, text, html) {
+async function gmailSend(env, to, subject, text, html, opts = {}) {
   const boundary = 'aasn' + randomHex(8);
   const mime = [
-    `From: ${env.GMAIL_FROM}`, `To: ${to}`, `Subject: =?UTF-8?B?${b64(subject)}?=`,
+    `From: ${opts.from || env.GMAIL_FROM}`, `To: ${to}`, `Subject: =?UTF-8?B?${b64(subject)}?=`,
+    ...(opts.unsub ? [`List-Unsubscribe: <${opts.unsub}>`] : []),
     'MIME-Version: 1.0', `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
     `--${boundary}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64(text),
     `--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64(html),

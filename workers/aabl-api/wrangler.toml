@@ -7,9 +7,10 @@ compatibility_date = "2026-10-01"
 keep_vars = true
 
 # 1) Monday 12:13 UTC (8:13am Eastern in summer): weekly digest to the commissioner.
-# 2) Every minute 16:00-07:59 UTC (noon-3:59am Eastern): live "Tonight" points.
+# 2) Every minute 16:00-07:59 UTC (noon-3:59am Eastern): live "Tonight" points (+ AAFL emails/sync).
+# 3) Every 2 minutes 08:00-15:59 UTC: AAFL invite emails + game sync only (see src/aafl.js).
 [triggers]
-crons = ["13 12 * * 1", "* 16-23,0-7 * * *"]
+crons = ["13 12 * * 1", "* 16-23,0-7 * * *", "*/2 8-15 * * *"]
 
 [observability]
 enabled = true
