@@ -2,12 +2,17 @@
 //   KIND=open  Tuesday morning: "Week N picks are open" to every human player.
 //   KIND=lock  Thursday noon:   "Picks lock tonight" to players still missing picks.
 // Players can turn reminders off on the Picks page (aafl_teams.email_reminders).
-// Sending uses Resend (free tier). Needs repo secrets RESEND_API_KEY and AAFL_FROM
-// (e.g. "AAFL <aafl@theaahl.ca>", a verified Resend sender). Without them it just logs and exits.
+// Sending, either way (free):
+//   * Gmail: repo secrets GMAIL_USER (e.g. matt.hope001@gmail.com) and GMAIL_APP_PASSWORD
+//     (a Google "App password", needs 2-Step Verification). Emails come from that Gmail.
+//   * Resend: repo secrets RESEND_API_KEY and AAFL_FROM ("AAFL <aafl@theaahl.ca>", verified sender).
+// Gmail is used when its secrets are set. With neither, it's a dry run that just logs.
 //
-// Env: SUPABASE_URL, SUPABASE_SERVICE_KEY, KIND, SEASON (2026), RESEND_API_KEY, AAFL_FROM, DRY_RUN (1 = don't send)
+// Env: SUPABASE_URL, SUPABASE_SERVICE_KEY, KIND, SEASON (2026), GMAIL_USER, GMAIL_APP_PASSWORD, RESEND_API_KEY, AAFL_FROM, DRY_RUN (1 = don't send)
 
-const { SUPABASE_URL, SUPABASE_SERVICE_KEY: KEY, RESEND_API_KEY, AAFL_FROM } = process.env;
+const { SUPABASE_URL, SUPABASE_SERVICE_KEY: KEY, RESEND_API_KEY, AAFL_FROM, GMAIL_USER, GMAIL_APP_PASSWORD } = process.env;
+const USE_GMAIL = !!(GMAIL_USER && GMAIL_APP_PASSWORD);
+const CAN_SEND = USE_GMAIL || !!(RESEND_API_KEY && AAFL_FROM);
 const KIND = process.env.KIND || 'open';
 const SEASON = Number(process.env.SEASON || 2026);
 const DRY = process.env.DRY_RUN === '1';
@@ -23,8 +28,18 @@ async function sb(path, opts = {}) {
 }
 const fmt = d => new Date(d).toLocaleString('en-US', { timeZone: 'America/Toronto', weekday: 'long', hour: 'numeric', minute: '2-digit' }) + ' ET';
 
+let mailer = null;
 async function send(to, subject, text) {
-  if (DRY || !RESEND_API_KEY || !AAFL_FROM) { console.log(`[not sent] ${to}: ${subject}`); return; }
+  if (DRY || !CAN_SEND) { console.log(`[not sent] ${to}: ${subject}`); return; }
+  if (USE_GMAIL) {
+    if (!mailer) {
+      const nodemailer = (await import('nodemailer')).default;
+      mailer = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD.replace(/\s+/g, '') } });
+    }
+    try { await mailer.sendMail({ from: `AAFL <${GMAIL_USER}>`, to, subject, text }); console.log(`Sent to ${to}`); }
+    catch (e) { console.error(`Send to ${to} failed: ${e.message}`); }
+    return;
+  }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: AAFL_FROM, to: [to], subject, text })
@@ -33,7 +48,13 @@ async function send(to, subject, text) {
 }
 
 async function main() {
-  if (!RESEND_API_KEY || !AAFL_FROM) console.log('Email sending not set up yet (RESEND_API_KEY / AAFL_FROM secrets). Running as a dry run.');
+  if (!CAN_SEND) console.log('Email sending not set up yet (GMAIL_USER + GMAIL_APP_PASSWORD, or RESEND_API_KEY + AAFL_FROM secrets). Running as a dry run.');
+  else console.log('Sending with ' + (USE_GMAIL ? 'Gmail' : 'Resend') + (DRY ? ' (dry run)' : ''));
+  if (KIND === 'test') {
+    const to = process.env.TEST_TO || GMAIL_USER;
+    await send(to, 'AAFL: test email', `This is a test from the AAFL reminder job. If you can read this, email reminders are working.\n\n${SITE}`);
+    return;
+  }
   const week = await sb(`rpc/aafl_current_week`, { method: 'POST', body: JSON.stringify({ p_season: SEASON }) });
   const games = await sb(`aafl_games?select=id,kickoff&season=eq.${SEASON}&week=eq.${week}`);
   if (!games.length) { console.log('No games this week.'); return; }

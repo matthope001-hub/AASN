@@ -9,9 +9,12 @@ on:
   workflow_dispatch:
     inputs:
       kind:
-        description: 'open or lock'
+        description: 'open, lock, or test (test = one email to test_to)'
         required: true
         default: 'open'
+      test_to:
+        description: 'For test: who gets the test email (blank = the Gmail sender)'
+        required: false
       dry_run:
         description: '1 = list who would get it, send nothing'
         required: false
@@ -26,10 +29,15 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+      - name: Install mail library
+        run: npm install --no-save nodemailer@6.9.16
       - name: Send reminders
         env:
           SUPABASE_URL: https://tetgrmgurobacdohhiby.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          TEST_TO: ${{ inputs.test_to }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           AAFL_FROM: ${{ secrets.AAFL_FROM }}
           KIND: ${{ inputs.kind || (github.event.schedule == '7 14 * * 2' && 'open' || 'lock') }}
