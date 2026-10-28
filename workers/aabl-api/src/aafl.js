@@ -111,7 +111,7 @@ export async function aaflOutbox(env, send) {
     const m = inviteEmail(i.email, i.code, i.entries || 1, i.unsub_token);
     try { await send(i.email, m.subject, m.text, m.html, m.unsub); console.log('AAFL invite emailed to ' + i.email); }
     catch (e) {
-      await pub(env, `aafl_invites?code=eq.${i.code}`, { method: 'PATCH', body: JSON.stringify({ sent_at: i.sent_at, send_error: String(e.message || e).slice(0, 300), send_requested_at: null }) });
+      await pub(env, `aafl_invites?code=eq.${i.code}`, { method: 'PATCH', body: JSON.stringify({ sent_at: i.sent_at, send_error: (String(e.message || e) + ' [client ' + String(env.GMAIL_CLIENT_ID || 'none').slice(0, 18) + '…, len ' + String(env.GMAIL_CLIENT_ID || '').length + ']').slice(0, 300), send_requested_at: null }) });
       console.log('AAFL invite to ' + i.email + ' failed: ' + e.message);
     }
   }
