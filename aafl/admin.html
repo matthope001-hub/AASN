@@ -32,6 +32,8 @@
 .adm td{padding:8px;border-top:1px solid var(--line);vertical-align:middle}
 .adm td.act{text-align:right;white-space:nowrap}
 .tbl{overflow-x:auto}
+.st-bad{color:#FF8F8F;font-weight:700}
+.btn2.sm{padding:6px 10px;font-size:14px}.btn2:disabled{opacity:.5;cursor:default}
 .st-ok{color:var(--ok);font-weight:700}.st-wait{color:var(--warn);font-weight:700}.st-off{color:var(--mut)}
 .newlink{margin-top:10px;background:#0A1426;border:1px dashed var(--silver);border-radius:8px;padding:10px;font-size:14px;word-break:break-all}
 .msg{min-height:20px;font-size:14px;margin-top:8px}.msg.err{color:#FF8F8F}.msg.ok{color:var(--ok)}
@@ -79,11 +81,12 @@
 
     <section aria-labelledby="h-inv">
       <h2 id="h-inv">✉️ INVITES</h2>
-      <p class="hint">Create an invite, then send the link (Email opens your mail app with the message ready). Each link only works for that email; set Entries above 1 to let them play more than one team. <span id="cap"></span></p>
+      <p class="hint">Create an invite and tick <b>Email it now</b> to send it from your Gmail automatically (within ~10 minutes). Or send the link (Email opens your mail app with the message ready). Each link only works for that email; set Entries above 1 to let them play more than one team. <span id="cap"></span></p>
       <form class="row" id="inv-form">
         <input type="email" id="inv-email" required placeholder="friend@example.com" aria-label="Email to invite">
         <label for="inv-n" style="color:var(--mut);font-size:14px">Entries</label>
         <input type="number" id="inv-n" min="1" max="10" value="1" style="width:70px" aria-label="Entries this invite allows">
+        <label style="color:#C9D3E0;font-size:14px;white-space:nowrap"><input type="checkbox" id="inv-send" checked> Email it now</label>
         <button class="btn2">CREATE INVITE</button>
       </form>
       <div id="inv-new"></div>
@@ -175,7 +178,7 @@
   async function load() {
     [TEAMS, INVITES, CFG] = await Promise.all([
       L.db(`aafl_teams?select=id,name,is_bot,joined_week,email_reminders,user_id,invite_code&season=eq.${S}&order=is_bot,name`),
-      L.db(`aafl_invites?select=code,email,created_at,used_at,revoked,team_id,entries&season=eq.${S}&order=created_at.desc`),
+      L.db(`aafl_invites?select=code,email,created_at,used_at,revoked,team_id,entries,send_requested_at,sent_at,send_error&season=eq.${S}&order=created_at.desc`),
       L.db(`aafl_config?season=eq.${S}`).then(r => r[0])
     ]);
     paintInvites(); paintTeams(); paintSettings(); paintPickers();
@@ -191,9 +194,14 @@
       const st = i.revoked ? '<span class="st-off">Revoked</span>'
         : teams.length ? `<span class="st-ok">Joined ${teams.length}/${n} · ${names}</span>${left > 0 ? ' <span class="st-wait">· ' + left + ' left</span>' : ''}`
         : `<span class="st-wait">Waiting${n > 1 ? ' · ' + n + ' entries' : ''}</span>`;
+      const when = d => new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const queued = i.send_requested_at && (!i.sent_at || new Date(i.sent_at) < new Date(i.send_requested_at));
+      const mail = i.revoked ? '' : queued ? '<br><span class="st-wait">✉️ Email queued, sends within ~10 min</span>'
+        : i.send_error ? `<br><span class="st-bad" title="${esc(i.send_error)}">✉️ Email failed, try again</span>`
+        : i.sent_at ? `<br><span class="st-off">✉️ Emailed ${when(i.sent_at)}</span>` : '';
       const ent = !i.revoked ? `<button class="btn3" data-entries="${i.code}" title="Change how many teams this invite allows">Entries: ${n}</button> ` : '';
-      const acts = ent + (!i.revoked && left > 0 ? `<button class="btn3" data-copy="${i.code}">Copy link</button> <button class="btn3" data-msg="${i.code}">Copy email</button> <a class="btn3" href="${mailto(i.email, i.code, n)}">Open in mail app</a> <button class="btn3 red" data-revoke="${i.code}">Revoke</button>` : '');
-      return `<tr><td>${esc(i.email)}</td><td>${st}</td><td>${day(i.created_at)}</td><td class="act">${acts}</td></tr>`;
+      const acts = ent + (!i.revoked && left > 0 ? `<button class="btn3" data-copy="${i.code}">Copy link</button> <button class="btn2 sm" data-send="${i.code}"${queued ? ' disabled' : ''}>${i.sent_at ? 'Resend email' : 'Send email'}</button> <button class="btn3" data-msg="${i.code}">Copy email</button> <a class="btn3" href="${mailto(i.email, i.code, n)}">Open in mail app</a> <button class="btn3 red" data-revoke="${i.code}">Revoke</button>` : '');
+      return `<tr><td>${esc(i.email)}</td><td>${st}${mail}</td><td>${day(i.created_at)}</td><td class="act">${acts}</td></tr>`;
     }).join('') : '<tr><td colspan="4" class="st-off">No invites yet.</td></tr>';
   }
 
@@ -236,10 +244,11 @@
     const email = $('inv-email').value.trim().toLowerCase();
     const entries = Math.max(1, Math.min(10, +$('inv-n').value || 1));
     try {
-      const r = await L.db('aafl_invites', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ email, season: S, entries }) });
+      const sendNow = $('inv-send').checked;
+      const r = await L.db('aafl_invites', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ email, season: S, entries, send_requested_at: sendNow ? new Date().toISOString() : null }) });
       const code = r[0].code; NEWINV = r[0];
       $('inv-new').innerHTML = `<div class="newlink">Invite for <b>${esc(email)}</b>:<br>${esc(link(code))}<div class="row" style="margin-top:8px"><button class="btn3" data-copy="${code}">Copy link</button><button class="btn3" data-msg="${code}">Copy email</button><a class="btn3" href="${mailto(email, code, entries)}">Open in mail app</a></div></div>`;
-      $('inv-email').value = ''; msg('inv-msg', '');
+      $('inv-email').value = ''; msg('inv-msg', sendNow ? `Invite created. The email to ${email} goes out from your Gmail within about 10 minutes.` : 'Invite created.', true);
       await load();
     } catch (e) { msg('inv-msg', /duplicate|aafl_invites_email/.test(e.message) ? 'That email already has an invite.' : 'Could not create: ' + e.message); }
   });
@@ -250,6 +259,15 @@
       try { await navigator.clipboard.writeText(link(t.dataset.copy)); t.textContent = 'Copied ✓'; setTimeout(() => { t.textContent = 'Copy link'; }, 1500); } catch (e) { prompt('Copy this link:', link(t.dataset.copy)); }
     }
     if (t.dataset.msg) { showMsg(t.dataset.msg); return; }
+    if (t.dataset.send) {
+      const i = INVITES.find(x => x.code === t.dataset.send);
+      if (i.sent_at && !confirm(`Email the invite to ${i.email} again?`)) return;
+      try {
+        await L.db(`aafl_invites?code=eq.${i.code}`, { method: 'PATCH', body: JSON.stringify({ send_requested_at: new Date().toISOString(), send_error: null }) });
+        msg('inv-msg', `Queued. The invite email to ${i.email} goes out from your Gmail within about 10 minutes.`, true); await load();
+      } catch (e) { msg('inv-msg', 'Could not queue: ' + e.message); }
+      return;
+    }
     if (t.dataset.cp) {
       const v = t.dataset.cp === 'all' ? `To: ${$('m-to').value}\nSubject: ${$('m-sub').value}\n\n${$('m-body').value}` : $(t.dataset.cp).value;
       try { await navigator.clipboard.writeText(v); } catch (e) { $(t.dataset.cp === 'all' ? 'm-body' : t.dataset.cp).select(); document.execCommand('copy'); }
