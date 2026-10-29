@@ -115,7 +115,7 @@
 <script src="../shared/config.js"></script>
 <script src="nav.js?v=1" defer></script>
 <script src="../shared/auth.js?v=3"></script>
-<script src="league.js?v=5"></script>
+<script src="league.js?v=6"></script>
 <script>
 (function () {
   const L = window.AAFL;
@@ -134,7 +134,7 @@
       const rk = r.rank <= 3 ? `<span class="md g${r.rank}">${r.rank}</span>` : r.rank;
       const mv = r.move > 0 ? `<span class="up">▲${r.move}</span>` : r.move < 0 ? `<span class="dn">▼${-r.move}</span>` : '';
       const last = lw ? r.byWeek[lw] : null;
-      const row = `<tr class="row" tabindex="0" data-id="${r.id}" aria-expanded="${openId === r.id}"><td class="rk">${rk}</td><td class="tn">${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${r.unpaid ? '<span class="unpaid" title="Entry fee not paid yet: picks don\'t count until it is">$ unpaid</span>' : ''}${mv}<span class="caret">${openId === r.id ? '▲' : '▼'}</span></td><td class="n"><b>${r.pts}</b></td><td class="n hide-sm">${(r.pct * 100).toFixed(1)}%</td><td class="n hide-sm">${r.weekWins}</td><td class="n">${last ? last.pts + '/' + last.of : '—'}</td></tr>`;
+      const row = `<tr class="row" tabindex="0" data-id="${r.id}" aria-expanded="${openId === r.id}"><td class="rk">${rk}</td><td class="tn">${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${r.unpaid ? '<span class="unpaid" title="Entry fee not paid yet: picks don\'t count until it is">$ unpaid</span>' : ''}${mv}<span class="caret">${openId === r.id ? '▲' : '▼'}</span></td><td class="n"><b>${r.pts}</b></td><td class="n hide-sm">${r.pct == null ? '—' : (r.pct * 100).toFixed(1) + '%'}</td><td class="n hide-sm">${r.weekWins}</td><td class="n">${last ? last.pts + '/' + last.of : '—'}</td></tr>`;
       return row + (openId === r.id ? `<tr class="det"><td colspan="6">${detail(r)}</td></tr>` : '');
     }).join('');
     $('st-body').querySelectorAll('tr.row').forEach(tr => {
@@ -159,7 +159,7 @@
     }).join('');
     return `<div class="dg">
       <div><span>RANK</span><b>${ord(r.rank)}</b></div>
-      <div><span>CORRECT</span><b>${(r.pct * 100).toFixed(1)}%</b></div>
+      <div><span>CORRECT</span><b>${r.pct == null ? '—' : (r.pct * 100).toFixed(1) + '%'}</b></div>
       <div><span>BEST WEEK</span><b>${best}</b><span>Week ${bestW}</span></div>
       <div><span>WORST WEEK</span><b>${worstW ? worst : '—'}</b><span>${worstW ? 'Week ' + worstW : ''}</span></div>
     </div>

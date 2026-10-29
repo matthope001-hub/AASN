@@ -105,7 +105,7 @@
 <script src="../shared/config.js"></script>
 <script src="nav.js?v=1" defer></script>
 <script src="../shared/auth.js?v=3"></script>
-<script src="league.js?v=5"></script>
+<script src="league.js?v=6"></script>
 <script>
 (function () {
   const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
@@ -141,7 +141,7 @@
       const graded = ST.weeks.reduce((n, w) => n + w.graded, 0);
       $('s-graded').textContent = graded;
       $('s-graded2').textContent = 'Weeks 1–' + cur + ' so far';
-      const tot = ST.teams.reduce((n, r) => n + r.pts, 0), of = ST.teams.reduce((n, r) => n + r.graded, 0);
+      const tot = ST.teams.reduce((n, r) => n + r.real, 0), of = ST.teams.reduce((n, r) => n + r.graded, 0);
       $('s-pct').textContent = of ? (tot / of * 100).toFixed(1) + '%' : '—';
       if (lw) {
         const names = lw.winners.map(id => ST.teams.find(r => r.id === id).name);
