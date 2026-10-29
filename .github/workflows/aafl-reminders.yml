@@ -4,6 +4,11 @@ name: AAFL reminders
 # Started on time by the AASN worker (workers/aabl-api/src/aafl.js, aaflReminders); GitHub's own timer
 # ran hours late, so there's no schedule here. Run it by hand from the Actions tab to test.
 on:
+  # Automatic: Tuesday 9 AM ET (open) and Thursday noon ET (lock).
+  # GitHub cron is UTC, so each runs at both the EDT and EST hour; the check step keeps only the right one.
+  schedule:
+    - cron: '0 13,14 * * 2'
+    - cron: '0 16,17 * * 4'
   workflow_dispatch:
     inputs:
       kind:
@@ -23,13 +28,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Pick the reminder for this run
+        id: when
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then echo "kind=${{ inputs.kind }}" >> $GITHUB_OUTPUT; echo "dry=${{ inputs.dry_run }}" >> $GITHUB_OUTPUT; exit 0; fi
+          D=$(TZ=America/Toronto date +%u); H=$(TZ=America/Toronto date +%-H)
+          if [ "$D" = 2 ] && [ "$H" -ge 9 ] && [ "$H" -lt 10 ]; then K=open
+          elif [ "$D" = 4 ] && [ "$H" -ge 12 ] && [ "$H" -lt 13 ]; then K=lock
+          else K=skip; fi
+          echo "ET day $D hour $H -> $K"
+          echo "kind=$K" >> $GITHUB_OUTPUT; echo "dry=0" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v5
+        if: steps.when.outputs.kind != 'skip'
       - uses: actions/setup-node@v5
+        if: steps.when.outputs.kind != 'skip'
         with:
           node-version: '22'
       - name: Install mail library
+        if: steps.when.outputs.kind != 'skip'
         run: npm install --no-save nodemailer@6.9.16
       - name: Send reminders
+        if: steps.when.outputs.kind != 'skip'
         env:
           SUPABASE_URL: https://tetgrmgurobacdohhiby.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -38,7 +57,7 @@ jobs:
           TEST_TO: ${{ inputs.test_to }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           AAFL_FROM: ${{ secrets.AAFL_FROM }}
-          KIND: ${{ inputs.kind }}
-          DRY_RUN: ${{ inputs.dry_run }}
+          KIND: ${{ steps.when.outputs.kind }}
+          DRY_RUN: ${{ steps.when.outputs.dry }}
           SEASON: '2026'
         run: node scripts/aafl-reminders.mjs
