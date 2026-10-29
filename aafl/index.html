@@ -200,8 +200,8 @@
   function countdown(to) {
     const ms = to - Date.now();
     if (ms <= 0) return 'now';
-    const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
-    return (d ? d + 'd ' : '') + h + 'h ' + m + 'm';
+    const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4), s = Math.floor(ms % 6e4 / 1e3);
+    return (d ? d + 'd ' : '') + h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's';
   }
 
   // ---- Live score ticker ----
@@ -241,11 +241,19 @@
     return live;
   }
 
-  let tickT = null, refreshT = null;
+  let tickT = null, refreshT = null, reloadedFor = 0;
   function setCountdown(lock, n) {
     clearInterval(tickT);
-    const tick = () => { $('cta-cd').innerHTML = `Locks ${day(lock)} ${time(lock)} ET · <b>${countdown(lock)}</b> left · ${n} games`; };
-    tick(); tickT = setInterval(tick, 30000);
+    // Counts down every second; at lock it reloads so the card switches to the locked state.
+    const tick = () => {
+      if (Date.now() >= +lock) {
+        clearInterval(tickT); $('cta-cd').textContent = 'Picks are locked';
+        if (reloadedFor !== +lock) { reloadedFor = +lock; load(); }   // reload once (ESPN may still say "pre" for a few minutes)
+        return;
+      }
+      $('cta-cd').innerHTML = `Locks ${day(lock)} ${time(lock)} ET · <b style="font-variant-numeric:tabular-nums">${countdown(lock)}</b> left · ${n} games`;
+    };
+    tick(); tickT = setInterval(tick, 1000);
   }
 
   // Your pick progress for the open week (signed-in players only).

@@ -404,6 +404,7 @@
   $('t-home').addEventListener('click', () => { openGames().forEach(e => picks[e.id] = sides(e)[1].team.abbreviation); submitted = false; savePicks(); render(); });
   $('t-clear').addEventListener('click', () => { openGames().forEach(e => delete picks[e.id]); submitted = false; savePicks(); render(); });
 
+  let reloadedFor = 0;
   function lockCountdown() {
     clearInterval(lockT);
     const pre = openGames();
@@ -412,11 +413,12 @@
     const first = new Date(WLOCK);
     const tick = () => {
       const ms = first - Date.now();
-      if (ms <= 0) { $('k-lock').textContent = 'NOW'; return; }
-      const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
-      $('k-lock').textContent = (d ? d + 'd ' : '') + h + 'h ' + m + 'm';
+      if (ms <= 0) { $('k-lock').textContent = 'NOW'; clearInterval(lockT); if (reloadedFor !== +first) { reloadedFor = +first; load(); } return; }   // lock reached: reload once so picks show as locked
+      const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4), s = Math.floor(ms % 6e4 / 1e3);
+      $('k-lock').textContent = (d ? d + 'd ' : '') + h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's';
+      $('k-lock').style.fontVariantNumeric = 'tabular-nums';
     };
-    tick(); lockT = setInterval(tick, 30000);
+    tick(); lockT = setInterval(tick, 1000);
   }
 
   async function load() {
