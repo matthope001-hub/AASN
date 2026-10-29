@@ -49,7 +49,8 @@
     if (document.getElementById('aasn-spooky')) return;
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     var box = document.createElement('div'); box.id = 'aasn-spooky'; box.setAttribute('aria-hidden', 'true');
-    var html = '<div class="glow"></div><div class="web l">' + WEB + '</div><div class="web r">' + WEB + '</div>';
+    var html = '<div class="glow"></div><div class="web l">' + WEB + '</div><div class="web r">' + WEB + '</div>'
+      + '<div class="pk l">' + PUMPKIN + '</div><div class="pk r">' + PUMPKIN + '</div>';
     var bats = window.innerWidth < 600 ? 3 : 6;
     for (var i = 0; i < bats; i++) {
       var top = 8 + Math.random() * 55, dur = 14 + Math.random() * 14, delay = -Math.random() * dur;
