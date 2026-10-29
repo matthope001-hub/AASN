@@ -181,3 +181,5 @@ a.league:not([href]) { cursor: default; }
   .btn-solid, .btn-ghost, .dp-btn { font-size: 15px; letter-spacing: 1px; text-align: center; padding: 6px 8px; line-height: 1.15; }
 }
 @media (min-width: 900px) and (max-width: 1199px) { .pools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.champ-row.new { box-shadow: 0 0 0 1px #FFB800, 0 0 18px rgba(255,184,0,.35); border-radius: 6px; }

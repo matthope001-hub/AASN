@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#0B0D10">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="shared/aasn.css?v=5">
+<link rel="stylesheet" href="shared/aasn.css?v=6">
 </head>
 <body>
 <header class="hdr">
@@ -119,14 +119,14 @@
 
 <script src="shared/gate.js"></script>
 <script src="shared/config.js"></script>
-<script src="shared/version.js?v=4" defer></script>
-<script src="shared/halloween.js?v=3" defer></script>
+<script src="shared/version.js?v=5" defer></script>
+<script src="shared/seasons.js?v=1" defer></script>
 <script src="shared/auth.js?v=2"></script>
 <script>
 (function () {
   const COLORS = { AAHL: '#00D4FF', AABL: '#F06A70' };
   let rows = [];
-  let league = 'all';
+  let league = 'all', celebrated = false;
 
   function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
@@ -135,12 +135,13 @@
     const seasons = {};
     rows.filter(r => league === 'all' || r.league === league).forEach(r => {
       const k = r.league + '|' + r.season_label;
-      (seasons[k] = seasons[k] || { league: r.league, season: r.season_label, places: {} }).places[r.place] = r.team_name;
+      const g = (seasons[k] = seasons[k] || { league: r.league, season: r.season_label, places: {}, added: 0 });
+      g.places[r.place] = r.team_name; g.added = Math.max(g.added, +new Date(r.created_at || 0));
     });
     const list = Object.values(seasons).sort((a, b) => b.season.localeCompare(a.season));
     if (!list.length) { el.innerHTML = '<p class="mono dim">No champions yet.</p>'; return; }
     el.innerHTML = list.map(s => `
-      <div class="champ-row">
+      <div class="champ-row${Date.now() - s.added < 7 * 864e5 ? ' new' : ''}">
         <div class="champ-season"><span style="color:${COLORS[s.league]}">${esc(s.league)}</span><b class="mono">${esc(s.season)}</b></div>
         <div class="champ-places">
           <div class="place p1"><span class="mono">1ST</span><em>${esc(s.places[1] || '—')}</em></div>
@@ -148,6 +149,9 @@
           <div class="place p3"><span class="mono">3RD</span><em>${esc(s.places[3] || '—')}</em></div>
         </div>
       </div>`).join('');
+    // A champion crowned in the last 7 days: confetti once the page has loaded (seasons.js provides it).
+    const fresh = el.querySelector('.champ-row.new');
+    if (fresh && !celebrated) { celebrated = true; const pop = () => window.aasnCelebrate && aasnCelebrate(fresh); document.readyState === 'complete' ? setTimeout(pop, 400) : addEventListener('load', () => setTimeout(pop, 400)); }
   }
 
   document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
@@ -156,7 +160,7 @@
     render();
   }));
 
-  aasnSelect('champions', 'select=league,season_label,place,team_name&order=season_label.desc')
+  aasnSelect('champions', 'select=league,season_label,place,team_name,created_at&order=season_label.desc')
     .then(r => { rows = r; render(); })
     .catch(() => { document.getElementById('champions').innerHTML = '<p class="mono dim">Champions unavailable right now.</p>'; });
 })();

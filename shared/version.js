@@ -4,10 +4,10 @@
  */
 (function () {
   var V = {
-    aafl:      { name: 'AAFL',       v: '1.0.6', date: '2026-10-29' },
-    aabl:      { name: 'AABL',       v: '1.0.2', date: '2026-10-29' },
-    deathpool: { name: 'Death Pool', v: '1.0.2', date: '2026-10-29' },
-    aasn:      { name: 'AASN',       v: '1.0.3', date: '2026-10-29' }
+    aafl:      { name: 'AAFL',       v: '1.0.7', date: '2026-10-29' },
+    aabl:      { name: 'AABL',       v: '1.0.3', date: '2026-10-29' },
+    deathpool: { name: 'Death Pool', v: '1.0.3', date: '2026-10-29' },
+    aasn:      { name: 'AASN',       v: '1.0.4', date: '2026-10-29' }
   };
   var m = location.pathname.match(/\/(aafl|aabl|deathpool)\//);
   var p = V[m ? m[1] : 'aasn'];
