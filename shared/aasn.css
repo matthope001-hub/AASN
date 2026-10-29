@@ -47,6 +47,10 @@ a { color: var(--ice); }
 /* Pool cards: AAHL · AABL · Death Pool in one row */
 .pools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .league { background: var(--panel); border: 1px solid var(--border); border-top: 4px solid var(--c); border-radius: 6px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+a.league { text-decoration: none; color: var(--text); transition: border-color .15s, transform .15s, box-shadow .15s; }
+a.league[href], .dp-flat { cursor: pointer; }
+a.league[href]:hover, a.league[href]:focus-visible, .dp-flat:hover, .dp-flat:focus-visible { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(0,0,0,.45), 0 0 0 1px var(--c, var(--dp)); }
+a.league:not([href]) { cursor: default; }
 .league-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .league-abbr { font-family: var(--font-display); font-weight: 800; font-size: 44px; line-height: 1; color: var(--c); }
 .league-name { font-family: var(--font-display); font-weight: 600; font-size: 16px; letter-spacing: 1px; color: var(--text-2); }

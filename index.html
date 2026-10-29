@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#0B0D10">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="shared/aasn.css?v=4">
+<link rel="stylesheet" href="shared/aasn.css?v=5">
 </head>
 <body>
 <header class="hdr">
@@ -38,7 +38,7 @@
   </section>
 
   <section id="leagues" class="pools" aria-label="Pools">
-    <article class="league" style="--c:#00D4FF">
+    <a class="league" href="https://theaahl.ca" style="--c:#00D4FF" aria-label="Enter the AAHL">
       <div class="league-top">
         <div><div class="league-abbr">AAHL</div><div class="league-name">ANGRY ALPACA HOCKEY LEAGUE</div></div>
         <span class="tag tag-live mono">● LIVE</span>
@@ -50,10 +50,9 @@
       </div>
       <p class="card-note">NHL box pick'em. One player from every box plus division winners. Points every night, fresh standings every morning.</p>
       <div class="card-logo"><img src="shared/img/aahl-logo.png" alt="AAHL logo"></div>
-      <a href="https://theaahl.ca" class="btn-solid">ENTER THE AAHL →</a>
-    </article>
+    </a>
 
-    <article class="league" style="--c:#F06A70">
+    <a class="league" id="aabl-card" style="--c:#F06A70" title="Opens before the 2027 season">
       <div class="league-top">
         <div><div class="league-abbr">AABL</div><div class="league-name">ANGRY ALPACA BASEBALL LEAGUE</div></div>
         <span class="tag tag-soon mono">COMING 2027</span>
@@ -65,11 +64,9 @@
       </div>
       <p class="card-note">MLB box pick'em. 21 player boxes plus all 6 division winners. Picks lock at the first pitch of Opening Day.</p>
       <div class="card-logo"><img class="round" src="aabl/assets/aabl-badge.png" alt="AABL logo"></div>
-      <a href="aabl/" class="btn-ghost" id="aabl-btn" hidden>PREVIEW THE AABL →</a>
-      <span class="btn-ghost" id="aabl-soon" aria-disabled="true" style="cursor:default;opacity:.7">OPENS BEFORE THE 2027 SEASON</span>
-    </article>
+    </a>
 
-    <article class="league" style="--c:#9FB3C8">
+    <a class="league" id="aafl-card" style="--c:#9FB3C8" title="Invite-only trial">
       <div class="league-top">
         <div><div class="league-abbr">AAFL</div><div class="league-name">ANGRY ALPACA FOOTBALL LEAGUE</div></div>
         <span class="tag tag-soon mono">TRIAL 2026</span>
@@ -81,9 +78,7 @@
       </div>
       <p class="card-note">NFL pick'em. Pick the winner of every game, every week. Invite-only trial for the rest of the 2026 season.</p>
       <div class="card-logo"><img src="aafl/assets/aafl-logo.png" alt="AAFL logo" style="border-radius:0"></div>
-      <a href="aafl/" class="btn-ghost" id="aafl-btn" hidden>PREVIEW THE AAFL →</a>
-      <span class="btn-ghost" id="aafl-soon" aria-disabled="true" style="cursor:default;opacity:.7">INVITE-ONLY TRIAL</span>
-    </article>
+    </a>
 
     <a href="deathpool/" class="dp-flat" id="deathpool">
       <div class="dp-top">
@@ -101,7 +96,6 @@
       </div>
       <div class="dp-lead mono" id="dp-lead" hidden></div>
       <div class="card-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="#040A06" stroke="#8BE37A" stroke-width=".8"/><path d="M3.5 12.5h4l1.6-3.2 2.4 6.4 2-8 1.8 4.8h5.2" fill="none" stroke="#8BE37A" stroke-width=".9" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
-      <span class="dp-btn">ENTER THE DEATH POOL →</span>
     </a>
   </section>
 
@@ -125,7 +119,7 @@
 
 <script src="shared/gate.js"></script>
 <script src="shared/config.js"></script>
-<script src="shared/version.js?v=3" defer></script>
+<script src="shared/version.js?v=4" defer></script>
 <script src="shared/halloween.js?v=3" defer></script>
 <script src="shared/auth.js?v=2"></script>
 <script>
@@ -190,8 +184,9 @@
 (function () {
   async function paint() {
     const ok = window.aasnIsAdmin ? await aasnIsAdmin() : false;
-    document.getElementById('aabl-btn').hidden = !ok;
-    document.getElementById('aabl-soon').hidden = ok;
+    // The whole card is the link; a card with no href isn't clickable.
+    const aabl = document.getElementById('aabl-card');
+    if (ok) { aabl.href = 'aabl/'; aabl.title = 'Preview the AABL'; } else { aabl.removeAttribute('href'); aabl.title = 'Opens before the 2027 season'; }
     // AAFL: the commissioner, plus invited players who have joined.
     let member = false;
     const sess = window.aasnAuth && aasnAuth.session && aasnAuth.session();
@@ -207,11 +202,11 @@
         invite = (j[0] && j[0].code) || '';
       } catch (e) { /* ignore */ }
     }
-    const aafl = document.getElementById('aafl-btn');
-    aafl.hidden = !(ok || member || invite);
-    aafl.textContent = invite ? 'FINISH JOINING THE AAFL →' : member && !ok ? 'ENTER THE AAFL →' : 'PREVIEW THE AAFL →';
-    aafl.href = invite ? 'aafl/join.html?code=' + encodeURIComponent(invite) : 'aafl/';
-    document.getElementById('aafl-soon').hidden = ok || member || !!invite;
+    const aafl = document.getElementById('aafl-card');
+    if (ok || member || invite) {
+      aafl.href = invite ? 'aafl/join.html?code=' + encodeURIComponent(invite) : 'aafl/';
+      aafl.title = invite ? 'Finish joining the AAFL' : member && !ok ? 'Enter the AAFL' : 'Preview the AAFL';
+    } else { aafl.removeAttribute('href'); aafl.title = 'Invite-only trial'; }
   }
   paint();
   if (window.aasnAuth) aasnAuth.onChange(paint);
