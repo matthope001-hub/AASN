@@ -110,7 +110,7 @@ tr.off td.nm b, tr.off td.when { opacity: .45; }
       const on = !S.off.includes(k);
       return `<tr class="${on ? '' : 'off'}"><td class="nm"><b>${esc(n)}</b><span>${esc(where)}</span></td>
         <td class="when hide-sm">${esc(when)}</td>
-        <td><a href="./?theme=${k}" target="_blank" rel="noopener" title="Preview on your browser only">Preview ↗</a></td>
+        <td><a href="./?theme=${k}" target="_blank" rel="noopener" title="Preview in this tab only">Preview ↗</a></td>
         <td style="width:60px"><label class="sw" title="${on ? 'On' : 'Off'}"><input type="checkbox" data-k="${k}" ${on ? 'checked' : ''} aria-label="${esc(n)} theme"><i></i></label></td></tr>`;
     }).join('');
     const cf = S.cup_final || {};
@@ -132,7 +132,7 @@ tr.off td.nm b, tr.off td.when { opacity: .45; }
             <label>END<input type="date" id="cf-end" value="${esc(cf.end || '')}"></label>
           </div>
         </div>
-        <p class="note">Preview links show a theme on <b>your browser only</b>. To go back to normal afterwards, open any page with <span class="mono">?theme=auto</span>.</p>
+        <p class="note">Preview links show a theme on <b>your browser only</b>, until you close that tab.</p>
       </section>
       <div class="bar"><span id="msg"></span><button type="button" class="save" id="save">SAVE CHANGES</button></div>`;
     $('today').textContent = todayText();
