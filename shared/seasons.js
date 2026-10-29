@@ -5,16 +5,17 @@
  *   Halloween Oct 20–Nov 1
  * Pool moments (that pool's pages only, they win over holidays):
  *   AAFL Super Bowl week (Mon–Sun ending the 2nd Sunday of Feb) · AABL Opening Day (config.opening_day)
- *   AAHL Stanley Cup Final (set CUP_FINAL below when the NHL announces dates)
+ *   AAHL Stanley Cup Final (dates set in AASN Admin)
  * Champion crowned: window.aasnCelebrate(el) fires confetti (used by the Hall of Champions).
  * Rules: never blocks clicks (pointer-events: none), sits under menus/pop-ups (z-index 40),
  *        "reduce motion" keeps only the static bits.
+ * Commissioner switches: AASN Admin (/admin.html) — all themes off, single themes off, Cup Final dates.
  * Preview / control on any page: ?theme=christmas (or newyear, valentine, stpatrick, easter, canada,
  *   thanksgiving, halloween, superbowl, opening, cup) · ?theme=off · ?theme=auto (back to normal).
  */
 (function () {
   // Stanley Cup Final dates, e.g. { start: '2027-06-03', end: '2027-06-22' }. Leave null until announced.
-  var CUP_FINAL = null;
+  var CUP_FINAL = null;   // set from AASN Admin (aasn_settings.themes.cup_final)
 
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   var Z = 40;
@@ -229,22 +230,42 @@
   };
 
   function start(name) { if (THEMES[name] && !document.getElementById('aasn-season')) THEMES[name](); }
+  // Supabase (public read-only key; same project as config.js, repeated here because AAHL doesn't load config.js).
+  var SB = 'https://tetgrmgurobacdohhiby.supabase.co', SBK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldGdybWd1cm9iYWNkb2hoaWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5Njc4MTYsImV4cCI6MjEwNDU0MzgxNn0.Jn0MdAdYslGv7znS0DFiSUjlZ6rpw0qsvQwiNq63vWk';
+  function sb(path, schema) {
+    var h = { apikey: SBK, Authorization: 'Bearer ' + SBK }; if (schema) h['Accept-Profile'] = schema;
+    return fetch(SB + '/rest/v1/' + path, { headers: h }).then(function (r) { return r.ok ? r.json() : []; });
+  }
+  // Commissioner switches from AASN Admin (/admin.html): all themes on/off, single themes off, Cup Final dates.
+  // Cached 5 minutes per tab so it isn't fetched on every page.
+  function settings() {
+    try { var c = JSON.parse(sessionStorage.getItem('aasn-themes') || 'null'); if (c && Date.now() - c.t < 3e5) return Promise.resolve(c.v); } catch (e) { /* ignore */ }
+    return sb('aasn_settings?select=value&key=eq.themes').then(function (j) {
+      var v = (j[0] && j[0].value) || {};
+      try { sessionStorage.setItem('aasn-themes', JSON.stringify({ t: Date.now(), v: v })); } catch (e) { /* ignore */ }
+      return v;
+    }).catch(function () { return {}; });
+  }
+  window.aasnThemeToday = function (S) { CUP_FINAL = S && S.cup_final && S.cup_final.start && S.cup_final.end ? S.cup_final : null; return [poolMoment(), holiday()]; };
   function run() {
     var forced = pref && pref !== 'off' && THEMES[pref] ? pref : null;
-    if (forced) return start(forced);
-    var name = poolMoment() || holiday();
-    if (pool === 'aabl' && typeof AASN_SUPABASE_URL !== 'undefined' && typeof AASN_SUPABASE_KEY !== 'undefined') {
-      // Opening Day comes from AABL's config (the picks deadline).
-      fetch(AASN_SUPABASE_URL + '/rest/v1/config?select=opening_day&order=season.desc&limit=1', { headers: { apikey: AASN_SUPABASE_KEY, Authorization: 'Bearer ' + AASN_SUPABASE_KEY, 'Accept-Profile': 'aabl' } })
-        .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (j) {
+    if (forced) return start(forced);   // previews (?theme=...) ignore the admin switches
+    settings().then(function (S) {
+      if (S.enabled === false) return;
+      var off = S.off || [];
+      var list = window.aasnThemeToday(S);
+      var pick = function (l) { for (var i = 0; i < l.length; i++) if (l[i] && off.indexOf(l[i]) < 0) return start(l[i]); };
+      if (pool === 'aabl') {
+        // Opening Day comes from AABL's config (the picks deadline).
+        sb('config?select=opening_day&order=season.desc&limit=1', 'aabl').then(function (j) {
           var od = j[0] && j[0].opening_day;
-          if (od) { var o = new Date(new Date(od).toLocaleString('en-US', { timeZone: 'America/Toronto' })); if (dk(o) === today) name = 'opening'; }
-          start(name);
-        }).catch(function () { start(name); });
-      return;
-    }
-    start(name);
+          if (od) { var o = new Date(new Date(od).toLocaleString('en-US', { timeZone: 'America/Toronto' })); if (dk(o) === today) list.unshift('opening'); }
+          pick(list);
+        }).catch(function () { pick(list); });
+        return;
+      }
+      pick(list);
+    });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
 })();

@@ -139,6 +139,8 @@
     m.style.left = Math.max(8, window.scrollX + r.right - 220) + 'px';
     m.innerHTML = `<div class="who">${esc(session.user.email || 'Signed in')}</div><a href="${MY_LINK.href}">${esc(MY_LINK.label)}</a><button type="button" data-out>Sign out</button>`;
     m.querySelector('[data-out]').addEventListener('click', signOut);
+    // Commissioner: link to AASN Admin (site-wide switches such as seasonal themes).
+    if (window.aasnIsAdmin) aasnIsAdmin().then(ok => { if (ok && !m.querySelector('[data-admin]')) { const a = document.createElement('a'); a.href = 'https://aasn.theaahl.ca/admin.html'; a.dataset.admin = '1'; a.textContent = '⚙ AASN Admin'; m.insertBefore(a, m.querySelector('[data-out]')); } });
     document.body.appendChild(m);
     setTimeout(() => document.addEventListener('click', function off(e) { if (!m.contains(e.target) && e.target !== btn) { closeMenu(); document.removeEventListener('click', off); } }), 0);
   }

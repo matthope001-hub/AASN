@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AASN Admin</title>
+<link rel="icon" type="image/png" href="shared/img/aasn-favicon.png">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0B0D10">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/aasn.css?v=6">
+<style>
+body { height: auto !important; overflow: auto !important; display: block !important; }
+.adm { padding-top: 24px; padding-bottom: 40px; display: flex; flex-direction: column; gap: 18px; max-width: 920px; }
+.adm h1 { font-family: var(--font-display); font-weight: 800; font-size: 40px; letter-spacing: 1px; line-height: 1; }
+.adm h1 small { display: block; margin-top: 6px; font-family: var(--font-mono); font-weight: 400; font-size: 12px; letter-spacing: 1px; color: var(--dim); }
+.panel { background: var(--panel); border: 1px solid var(--border); border-top: 4px solid var(--ice); border-radius: 6px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.panel h2 { font-family: var(--font-display); font-weight: 800; font-size: 26px; letter-spacing: 1px; }
+.note { font-size: 14px; color: var(--dim); line-height: 1.45; }
+.master { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; background: var(--panel-2); border: 1px solid var(--border-2); border-radius: 6px; }
+.master b { font-family: var(--font-display); font-size: 20px; letter-spacing: 1px; }
+.today { font-family: var(--font-mono); font-size: 13px; color: #FFB800; }
+.sw { position: relative; width: 52px; height: 28px; flex: none; }
+.sw input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; z-index: 1; }
+.sw i { position: absolute; inset: 0; border-radius: 99px; background: #2E353D; transition: background .15s; }
+.sw i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.sw input:checked + i { background: var(--ice); }
+.sw input:checked + i::after { transform: translateX(24px); }
+.sw input:focus-visible + i { outline: 2px solid #FFB800; outline-offset: 2px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; color: var(--dim); font-weight: 400; padding: 8px 10px; border-bottom: 1px solid var(--border-2); }
+td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+td.nm b { font-family: var(--font-display); font-size: 18px; letter-spacing: .5px; }
+td.nm span { display: block; font-size: 12px; color: var(--dim); }
+td.when { font-family: var(--font-mono); font-size: 12px; color: var(--text-2, #c9d1d9); }
+td a { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+tr.off td.nm b, tr.off td.when { opacity: .45; }
+.dates { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.dates label { display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; color: var(--dim); }
+.dates input { min-height: 40px; padding: 0 10px; background: var(--panel-2); color: var(--text); border: 1px solid var(--border-2); border-radius: 4px; font: 15px var(--font-body); color-scheme: dark; }
+.bar { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; background: linear-gradient(transparent, var(--bg) 30%); }
+.save { min-height: 46px; padding: 0 26px; border: 0; border-radius: 4px; background: var(--ice); color: #0B0D10; font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: 1.5px; cursor: pointer; }
+.save:disabled { opacity: .5; cursor: default; }
+#msg { font-family: var(--font-mono); font-size: 13px; }
+#msg.ok { color: #8BE37A; } #msg.err { color: #F06A70; }
+.lock { text-align: center; padding: 60px 16px; }
+@media (max-width: 640px) { .hide-sm { display: none; } .adm h1 { font-size: 32px; } }
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a href="./" class="brand">
+      <img class="brand-logo" src="shared/img/aasn-logo.png" alt="">
+      <span class="brand-txt"><span class="brand-mark">AASN</span>
+      <span class="brand-sub mono">ANGRY ALPACA SPORTS NETWORK</span></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="./">Home</a>
+      <button type="button" class="btn-outline" id="signin-btn">Sign in</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap adm" id="main">
+  <div class="lock" id="lock"><p class="mono dim">Checking access…</p></div>
+</main>
+
+<footer class="wrap ftr mono">
+  <span>© ANGRY ALPACA SPORTS NETWORK</span>
+  <span>AASN ADMIN</span>
+</footer>
+
+<script src="shared/gate.js"></script>
+<script src="shared/config.js"></script>
+<script src="shared/version.js?v=6" defer></script>
+<script src="shared/seasons.js?v=2" defer></script>
+<script src="shared/auth.js?v=4"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Every theme seasons.js knows, in calendar order.
+  const THEMES = [
+    ['newyear', "New Year's", 'All sites', 'Dec 31 – Jan 1'],
+    ['superbowl', 'Super Bowl week', 'AAFL only', 'Week ending the 2nd Sunday of Feb'],
+    ['valentine', "Valentine's", 'All sites', 'Feb 10 – 14'],
+    ['stpatrick', "St. Patrick's", 'All sites', 'Mar 15 – 17'],
+    ['easter', 'Easter', 'All sites', 'Good Friday – Easter Monday'],
+    ['opening', 'Opening Day', 'AABL only', 'Opening Day (AABL settings)'],
+    ['cup', 'Stanley Cup Final', 'AAHL only', 'Dates below'],
+    ['canada', 'Canada Day', 'All sites', 'Jun 28 – Jul 1'],
+    ['thanksgiving', 'Thanksgiving', 'All sites', 'Fri – Mon of Canadian Thanksgiving'],
+    ['halloween', 'Halloween', 'All sites', 'Oct 20 – Nov 1'],
+    ['christmas', 'Christmas', 'All sites', 'Dec 1 – 26']
+  ];
+  const NAME = Object.fromEntries(THEMES.map(t => [t[0], t[1]]));
+  let S = { enabled: true, off: [], cup_final: null };
+
+  function todayText() {
+    if (!S.enabled) return 'Today: nothing (all themes are off)';
+    const hol = (window.aasnThemeToday ? window.aasnThemeToday(S) : [])[1];
+    if (!hol) return 'Today: no holiday theme';
+    return S.off.includes(hol) ? `Today: ${NAME[hol]} (switched off)` : `Today: ${NAME[hol]} on all sites`;
+  }
+
+  function render() {
+    const rows = THEMES.map(([k, n, where, when]) => {
+      const on = !S.off.includes(k);
+      return `<tr class="${on ? '' : 'off'}"><td class="nm"><b>${esc(n)}</b><span>${esc(where)}</span></td>
+        <td class="when hide-sm">${esc(when)}</td>
+        <td><a href="./?theme=${k}" target="_blank" rel="noopener" title="Preview on your browser only">Preview ↗</a></td>
+        <td style="width:60px"><label class="sw" title="${on ? 'On' : 'Off'}"><input type="checkbox" data-k="${k}" ${on ? 'checked' : ''} aria-label="${esc(n)} theme"><i></i></label></td></tr>`;
+    }).join('');
+    const cf = S.cup_final || {};
+    $('main').innerHTML = `
+      <h1>AASN ADMIN<small>COMMISSIONER ONLY · CHANGES APPLY TO ALL FIVE SITES</small></h1>
+      <section class="panel">
+        <h2>🎃 Seasonal themes</h2>
+        <p class="note">Themes turn on and off by date on AAHL, AAFL, AABL, Death Pool and the AASN home. Switch them all off here, or just the ones you don't want. Changes reach visitors within about 5 minutes.</p>
+        <div class="master">
+          <div><b>All themes</b><div class="today" id="today"></div></div>
+          <label class="sw"><input type="checkbox" id="all" ${S.enabled ? 'checked' : ''} aria-label="All themes"><i></i></label>
+        </div>
+        <table><thead><tr><th>THEME</th><th class="hide-sm">WHEN</th><th></th><th>ON</th></tr></thead><tbody id="rows">${rows}</tbody></table>
+        <div>
+          <h2 style="font-size:20px">🏆 Stanley Cup Final dates (AAHL)</h2>
+          <p class="note" style="margin:6px 0 10px">Set these when the NHL announces the Final. Leave blank to keep it off.</p>
+          <div class="dates">
+            <label>START<input type="date" id="cf-start" value="${esc(cf.start || '')}"></label>
+            <label>END<input type="date" id="cf-end" value="${esc(cf.end || '')}"></label>
+          </div>
+        </div>
+        <p class="note">Preview links show a theme on <b>your browser only</b>. To go back to normal afterwards, open any page with <span class="mono">?theme=auto</span>.</p>
+      </section>
+      <div class="bar"><span id="msg"></span><button type="button" class="save" id="save">SAVE CHANGES</button></div>`;
+    $('today').textContent = todayText();
+    $('rows').addEventListener('change', e => {
+      const k = e.target.dataset.k; if (!k) return;
+      S.off = e.target.checked ? S.off.filter(x => x !== k) : [...new Set([...S.off, k])];
+      e.target.closest('tr').classList.toggle('off', !e.target.checked);
+      $('today').textContent = todayText(); dirty();
+    });
+    $('all').addEventListener('change', e => { S.enabled = e.target.checked; $('today').textContent = todayText(); dirty(); });
+    ['cf-start', 'cf-end'].forEach(id => $(id).addEventListener('change', dirty));
+    $('save').addEventListener('click', save);
+  }
+  function dirty() { const m = $('msg'); m.className = ''; m.textContent = 'Unsaved changes'; }
+
+  async function save() {
+    const st = $('cf-start').value, en = $('cf-end').value, m = $('msg'), b = $('save');
+    if ((st && !en) || (!st && en)) { m.className = 'err'; m.textContent = 'Set both Cup Final dates, or neither.'; return; }
+    if (st && en && en < st) { m.className = 'err'; m.textContent = 'The Cup Final end date is before the start.'; return; }
+    S.cup_final = st && en ? { start: st, end: en } : null;
+    b.disabled = true; m.className = ''; m.textContent = 'Saving…';
+    try {
+      const tok = await aasnAuth.accessToken();
+      const r = await fetch(`${AASN_SUPABASE_URL}/rest/v1/aasn_settings?key=eq.themes`, {
+        method: 'PATCH',
+        headers: { apikey: AASN_SUPABASE_KEY, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({ value: S, updated_at: new Date().toISOString() })
+      });
+      const j = r.ok ? await r.json() : null;
+      if (!j || !j.length) throw new Error(r.ok ? 'Not allowed (sign in as the commissioner)' : 'HTTP ' + r.status);
+      try { sessionStorage.removeItem('aasn-themes'); } catch (e) { /* ignore */ }
+      m.className = 'ok'; m.textContent = '✓ Saved. Visitors see it within about 5 minutes.';
+    } catch (e) { m.className = 'err'; m.textContent = 'Not saved: ' + e.message; }
+    b.disabled = false;
+  }
+
+  async function init() {
+    const ok = window.aasnIsAdmin ? await aasnIsAdmin() : false;
+    if (!ok) { $('main').innerHTML = '<div class="lock"><h1>AASN ADMIN</h1><p class="note" style="margin-top:12px">Commissioner only. Sign in with the commissioner account.</p></div>'; return; }
+    try {
+      const j = await aasnSelect('aasn_settings', 'select=value&key=eq.themes');
+      const v = (j[0] && j[0].value) || {};
+      S = { enabled: v.enabled !== false, off: Array.isArray(v.off) ? v.off : [], cup_final: v.cup_final || null };
+    } catch (e) { /* defaults */ }
+    // seasons.js loads after this script; wait for it so "Showing today" is right.
+    if (!window.aasnThemeToday && document.readyState !== 'complete') await new Promise(res => addEventListener('load', res, { once: true }));
+    render();
+  }
+  init();
+  if (window.aasnAuth) aasnAuth.onChange(init);
+})();
+</script>
+</body>
+</html>
