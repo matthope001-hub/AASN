@@ -247,6 +247,21 @@
     tick(); tickT = setInterval(tick, 30000);
   }
 
+  // Your pick progress for the open week (signed-in players only).
+  async function mySub(evs) {
+    const n = evs.length;
+    try {
+      const A = window.aasnAuth; if (A && A.ready) await A.ready();
+      const L = window.AAFL;
+      const [, mine] = await Promise.all([L.loadLeague(true), L.myTeams()]);
+      if (!mine.length) return `${n} games`;
+      const cnt = t => evs.filter(e => L.pick(t, e)).length;
+      if (mine.length === 1) { const c = cnt(mine[0]); return c >= n ? `✓ All ${n} picked` : `${c} / ${n} picked`; }
+      const done = mine.filter(t => cnt(t) >= n).length;
+      return `${done} / ${mine.length} teams submitted`;
+    } catch (e) { return `${n} games`; }
+  }
+
   async function load() {
     let live = false;
     try {
@@ -266,7 +281,7 @@
         st.className = 'st ok'; st.textContent = `● WEEK ${wk + 1} PICKS ARE OPEN`;
         h.textContent = `Make your Week ${wk + 1} picks`;
         setCountdown(lock, nev.length);
-        sub.textContent = `0 / ${nev.length} picked`;
+        sub.textContent = await mySub(nev);
       } else if (started) {
         clearInterval(tickT);
         showGames(cur, `WEEK ${wk} · LIVE & FINAL`);
@@ -279,7 +294,7 @@
           st.className = 'st ok'; st.textContent = `● WEEK ${wk + 1} PICKS ARE OPEN · WEEK ${wk} IN PROGRESS`;
           h.textContent = `Make your Week ${wk + 1} picks`;
           setCountdown(lock, nev.length);
-          sub.textContent = `${nev.length} games`;
+          sub.textContent = await mySub(nev);
         } else {
           st.className = 'st live'; st.textContent = `● WEEK ${wk} IN PROGRESS · PICKS LOCKED`;
           h.textContent = 'Final week of the season';
@@ -293,7 +308,7 @@
         st.className = 'st ok'; st.textContent = `● WEEK ${wk} PICKS ARE OPEN`;
         h.textContent = `Make your Week ${wk} picks`;
         setCountdown(lock, ev.length);
-        sub.textContent = `0 / ${ev.length} picked`;
+        sub.textContent = await mySub(ev);
       }
     } catch (e) {
       $('cta-st').textContent = '● SCHEDULE UNAVAILABLE RIGHT NOW';
@@ -305,6 +320,7 @@
     refreshT = setTimeout(() => { if (document.hidden) { document.addEventListener('visibilitychange', load, { once: true }); } else load(); }, live ? 30000 : 300000);
   }
   load();
+  if (window.aasnAuth) aasnAuth.onChange(() => load());
 })();
 </script>
 </body>
