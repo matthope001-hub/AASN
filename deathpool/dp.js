@@ -171,6 +171,50 @@
     const up = upcomingBirthdays(14).slice(0, 5);
     $('h-bdays').innerHTML = up.map(b => `<div class="mini">${face(b.name)}<div>${celebBtn(b.name)}<div class="sub">TURNS ${b.turning}</div></div><span class="val${b.days === 0 ? ' g' : ' small'}">${b.days === 0 ? '🎂 TODAY' : 'IN ' + b.days + 'D'}</span></div>`).join('') || '<p class="small" style="padding-top:6px">No birthdays in the next two weeks.</p>';
     hydrateFaces($('v-home'));
+    renderOutside();
+  }
+
+  // Notable deaths of people nobody picked, from Wikipedia's monthly "Deaths in <Month> <Year>"
+  // lists. Filtered to well-known kinds of people; cached in this browser for 6 hours.
+  const OUT_KEY = 'aasn-dp-outside-v1', OUT_TTL = 6 * 36e5;
+  const OUT_KINDS = /\b(actor|actress|singer|musician|rapper|comedian|television|presenter|film|director|songwriter|model|player|athlete|boxer|wrestler|politician|author|novelist|personality|host|broadcaster|drummer|guitarist)\b/i;
+  let outList = null, outLoading = null;
+  function fetchOutside() {
+    if (outLoading) return outLoading;
+    try { const c = JSON.parse(localStorage.getItem(OUT_KEY) || 'null'); if (c && Date.now() - c.t < OUT_TTL) return Promise.resolve(outList = c.list); } catch (e) { /* ignore */ }
+    const now = today(), months = [new Date(now.getFullYear(), now.getMonth(), 1)];
+    if (now.getDate() <= 7) months.push(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    outLoading = Promise.all(months.map(mo => {
+      const page = 'Deaths in ' + mo.toLocaleDateString('en-US', { month: 'long' }) + ' ' + mo.getFullYear();
+      return fetch('https://en.wikipedia.org/w/api.php?action=parse&prop=wikitext&format=json&formatversion=2&origin=*&page=' + encodeURIComponent(page))
+        .then(r => r.json()).then(j => {
+          const out = []; let day = 0;
+          String((j.parse && j.parse.wikitext) || '').split('\n').forEach(line => {
+            const d = line.match(/^===\s*(\d{1,2})\s*===/); if (d) { day = +d[1]; return; }
+            const m = line.match(/^\*\s*\[\[([^\]|]+)(?:\|([^\]]+))?\]\],\s*(\d{1,3}),\s*(.+)$/);
+            if (!m || !day) return;
+            const desc = m[4].replace(/<ref[^>]*\/>/g, '').replace(/<ref[\s\S]*?(<\/ref>|$)/g, '').replace(/\{\{[^}]*\}\}/g, '')
+              .replace(/\[\[(?:[^\]|]*\|)?([^\]]+)\]\]/g, '$1').replace(/''+/g, '').replace(/[.,\s]+$/, '').trim();
+            if (!OUT_KINDS.test(desc)) return;
+            out.push({ name: (m[2] || m[1]).trim(), title: m[1].trim(), age: +m[3], desc, t: +new Date(mo.getFullYear(), mo.getMonth(), day) });
+          });
+          return out;
+        }).catch(() => []);
+    })).then(parts => {
+      outList = parts.flat().sort((a, b) => b.t - a.t);
+      if (outList.length) try { localStorage.setItem(OUT_KEY, JSON.stringify({ t: Date.now(), list: outList })); } catch (e) { /* ignore */ }
+      outLoading = null; return outList;
+    });
+    return outLoading;
+  }
+  function renderOutside() {
+    fetchOutside().then(list => {
+      const inPool = n => celebMap.has(key(n)) || picksCount.has(key(n)) || deadMap.has(key(n));
+      const rows = (list || []).filter(x => !inPool(x.name) && !inPool(x.title)).slice(0, 5);
+      $('h-out-list').innerHTML = rows.map(x => `<div class="mini">${face(x.title)}<div><a class="linkbtn" href="https://en.wikipedia.org/wiki/${encodeURIComponent(x.title.replace(/ /g, '_'))}" target="_blank" rel="noopener" title="${esc(x.desc)}">${esc(x.name)}</a><div class="sub">${esc(new Date(x.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase())} · ${esc(x.desc.split(/[(,]/)[0].trim().toUpperCase())}</div></div><span class="val small">${x.age}</span></div>`).join('')
+        || '<p class="small" style="padding-top:6px">Nothing notable outside the pool lately.</p>';
+      hydrateFaces($('h-out-list'));
+    });
   }
 
   // Season history rebuilt from the deaths themselves: each cemetery's points step up
