@@ -1,0 +1,28 @@
+name: AABL player news
+
+on:
+  schedule:
+    - cron: '41 */4 * * *'   # every 4 hours (UTC)
+  workflow_dispatch:          # "Run workflow" button for manual runs
+
+concurrency:
+  group: aabl-player-news
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Fetch AABL player news
+        run: node scripts/aabl-player-news.mjs
+        env:
+          SUPABASE_URL: https://tetgrmgurobacdohhiby.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
