@@ -210,7 +210,9 @@
   function renderOutside() {
     fetchOutside().then(list => {
       const inPool = n => celebMap.has(key(n)) || picksCount.has(key(n)) || deadMap.has(key(n));
-      const rows = (list || []).filter(x => !inPool(x.name) && !inPool(x.title)).slice(0, 5);
+      let rows = (list || []).filter(x => !inPool(x.name) && !inPool(x.title));
+      const since = +today() - 3 * 864e5, recent = rows.filter(x => x.t >= since);
+      rows = recent.length ? recent : rows.slice(0, 5);   // last 4 days; fall back to the latest 5
       $('h-out-list').innerHTML = rows.map(x => `<div class="mini">${face(x.title)}<div><a class="linkbtn" href="https://en.wikipedia.org/wiki/${encodeURIComponent(x.title.replace(/ /g, '_'))}" target="_blank" rel="noopener" title="${esc(x.desc)}">${esc(x.name)}</a><div class="sub">${esc(new Date(x.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase())} · ${esc(x.desc.split(/[(,]/)[0].trim().toUpperCase())}</div></div><span class="val small">${x.age}</span></div>`).join('')
         || '<p class="small" style="padding-top:6px">Nothing notable outside the pool lately.</p>';
       hydrateFaces($('h-out-list'));
