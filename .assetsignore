@@ -2,7 +2,6 @@
 .github
 .nojekyll
 .assetsignore
-CNAME
 README.md
 aasn-site.jsonc
 scripts
