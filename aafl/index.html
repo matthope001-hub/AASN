@@ -71,7 +71,7 @@
         <h3 id="st-h">STANDINGS <a href="standings.html">Full table →</a></h3>
         <div class="st-scroll" tabindex="0" aria-label="Standings, scroll for more">
         <table>
-          <thead><tr><th>#</th><th>Team</th><th class="n">Last wk</th><th class="n">Pts</th></tr></thead>
+          <thead><tr><th>#</th><th>Team</th><th class="n" id="tw-h" hidden>This wk</th><th class="n">Last wk</th><th class="n">Pts</th></tr></thead>
           <tbody id="st-body"><tr><td colspan="4" class="empty">Grading the season…</td></tr></tbody>
         </table>
         </div>
@@ -130,11 +130,15 @@
       const [season] = await Promise.all([L.loadSeason(cur), L.loadLeague()]);
       const ST = L.standings(season);
       const lw = ST.lastDone;
+      // Week in play: has final games but isn't finished. Shows correct picks so far (finals only).
+      const tw = [...ST.weeks].reverse().find(w => !w.done && w.graded > 0);
+      $('tw-h').hidden = !tw;
+      if (tw) $('tw-h').textContent = 'Wk ' + tw.week;
       $('st-body').innerHTML = ST.teams.map(r => {
         const rk = r.rank <= 3 ? `<span class="md g${r.rank}">${r.rank}</span>` : r.rank;
         const mv = r.move > 0 ? `<span class="up">▲${r.move}</span>` : r.move < 0 ? `<span class="dn">▼${-r.move}</span>` : '';
         const last = lw ? r.byWeek[lw.week].pts : '—';
-        return `<tr><td class="rk">${rk}</td><td>${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${r.unpaid ? '<span class="unpaid" title="Entry fee not paid yet: picks don\'t count until it is">$ unpaid</span>' : ''}${mv}</td><td class="n">${last}</td><td class="n"><b>${r.pts}</b></td></tr>`;
+        return `<tr><td class="rk">${rk}</td><td>${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${r.unpaid ? '<span class="unpaid" title="Entry fee not paid yet: picks don\'t count until it is">$ unpaid</span>' : ''}${mv}</td>${tw ? `<td class="n">${r.byWeek[tw.week] ? r.byWeek[tw.week].pts + '/' + r.byWeek[tw.week].of : '—'}</td>` : ''}<td class="n">${last}</td><td class="n"><b>${r.pts}</b></td></tr>`;
       }).join('');
       const lead = ST.teams.filter(r => r.rank === 1);
       $('s-lead').textContent = lead.length > 1 ? lead.length + '-way tie' : lead[0].name;
