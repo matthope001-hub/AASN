@@ -92,6 +92,8 @@
 .inj{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;color:#C9D3E0}
 .inj b{display:block;font-size:12px;color:#fff;margin-bottom:2px}
 .inj span{display:block;line-height:1.35}.inj .o{color:#FF8F8F}.inj .q{color:var(--warn)}
+.tnews{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px}.tnews b{display:block;font-size:12px;color:#fff;margin-bottom:2px}
+.tnews a,.tnews span{display:block;line-height:1.35;margin-bottom:6px;color:#C9D3E0}.tnews a{text-decoration:underline;text-decoration-color:rgba(255,255,255,.25)}
 .mx-x .none{color:var(--mut);font-size:13px}
 
 /* submit bar */
@@ -309,6 +311,7 @@
         ${c.venue ? `<div style="margin-top:6px;color:var(--mut);font-size:13px">${esc(c.venue.fullName)}${c.venue.address && c.venue.address.city ? ' · ' + esc(c.venue.address.city) : ''}</div>` : ''}
         ${fl.length ? `<div class="flags">${fl.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : ''}
         <div class="mx-x" data-x="${e.id}">${XTRA[e.id] || ''}</div>
+        <div class="mx-n" data-n="${e.id}">${NEWS_HTML[e.id] || ''}</div>
       </div>
     </article>`;
   }
@@ -347,6 +350,34 @@
 
   function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); }
 
+  // ---- Team news: latest ESPN headlines per team, loaded when a card opens ----
+  // Team-specific stories first (fewest teams tagged), up to 2 per team, each linking to ESPN.
+  const NEWS = {};
+  async function teamNews(ab) {
+    if (NEWS[ab]) return NEWS[ab];
+    NEWS[ab] = fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?team=${encodeURIComponent(ab.toLowerCase())}&limit=8`)
+      .then(r => (r.ok ? r.json() : { articles: [] }))
+      .then(j => (j.articles || []).filter(x => !x.premium && x.headline).map(x => ({
+        h: x.headline, url: (x.links && x.links.web && x.links.web.href) || '', when: x.published || '',
+        n: (x.categories || []).filter(c => c.type === 'team').length || 99
+      })).sort((a, b) => a.n - b.n || b.when.localeCompare(a.when)).slice(0, 2))
+      .catch(() => []);
+    return NEWS[ab];
+  }
+  async function newsFor(id) {
+    const e = EV.find(x => x.id === id); if (!e) return;
+    const [A, H] = sides(e);
+    const [na, nh] = await Promise.all([teamNews(A.team.abbreviation), teamNews(H.team.abbreviation)]);
+    if (!na.length && !nh.length) return;
+    const list = n => n.length ? n.map(x => x.url
+      ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.h)}</a>`
+      : `<span>${esc(x.h)}</span>`).join('') : '<span class="none">No recent news</span>';
+    const html = `<div class="xh">TEAM NEWS</div><div class="tnews"><div><b>${esc(A.team.abbreviation)}</b>${list(na)}</div><div><b>${esc(H.team.abbreviation)}</b>${list(nh)}</div></div>`;
+    const put = () => { const el = document.querySelector(`.mx-n[data-n="${id}"]`); if (el) el.innerHTML = html; };
+    NEWS_HTML[id] = html; put();
+  }
+  const NEWS_HTML = {};
+
   // ---- Matchup extras: last-5 form + key injuries (ESPN game summary, loaded when a card opens) ----
   const XTRA = {}, XLOAD = {};
   const KEY_POS = ['QB', 'RB', 'WR', 'TE', 'OT', 'OL', 'EDGE', 'DE', 'LB', 'CB', 'S', 'DT', 'K'];
@@ -356,6 +387,7 @@
     const slot = () => document.querySelector(`.mx-x[data-x="${id}"]`);
     if (slot()) slot().innerHTML = '<div class="none">Loading form and injuries…</div>';
     try {
+      newsFor(id);
       const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${encodeURIComponent(id)}`);
       if (!r.ok) throw new Error(r.status);
       const j = await r.json();
