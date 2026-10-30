@@ -156,10 +156,10 @@
     $('h-count').textContent = s.length;
 
     const row = (r, cls) => `<div class="st-row ${cls || ''}"><span class="rk">${r.rank ?? ''}</span>${cemBtn(r.name)}<span class="num">${fmt(r.points)}</span><span class="hide-sm"><span class="bar" style="display:block"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></span></span></div>`;
-    $('h-top').innerHTML = s.slice(0, 10).map(r => row(r, r.rank === 1 ? 'top1' : '')).join('');
-    // Signed in: your cemeteries outside the top 10 are pinned underneath.
+    $('h-top').innerHTML = s.slice(0, 20).map(r => row(r, r.rank === 1 ? 'top1' : '')).join('');
+    // Signed in: your cemeteries outside the top 20 are pinned underneath.
     const mine = (me && me.success && me.cemeteries) || [];
-    $('h-mine').innerHTML = mine.map(n => s.find(r => key(r.name) === key(n))).filter(r => r && s.indexOf(r) >= 10).map(r => row(r, 'mine')).join('');
+    $('h-mine').innerHTML = mine.map(n => s.find(r => key(r.name) === key(n))).filter(r => r && s.indexOf(r) >= 20).map(r => row(r, 'mine')).join('');
 
     // Everyone who died on the most recent death day gets a card (up to 2); the next few are listed.
     const feature = lastDay ? byDeath.filter(g => +parseDate(g.died) === +lastDay).slice(0, 2) : [];
