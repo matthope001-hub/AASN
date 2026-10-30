@@ -176,9 +176,9 @@
 
   // Notable deaths of people nobody picked, from Wikipedia's monthly "Deaths in <Month> <Year>"
   // lists. Filtered to well-known kinds of people; cached in this browser for 6 hours.
-  const OUT_KEY = 'aasn-dp-outside-v1', OUT_TTL = 6 * 36e5;
+  const OUT_KEY = 'aasn-dp-outside-v2', OUT_TTL = 6 * 36e5;
   const OUT_KINDS = /\b(actor|actress|singer|musician|rapper|comedian|television|presenter|film|director|songwriter|model|player|athlete|boxer|wrestler|politician|author|novelist|personality|host|broadcaster|drummer|guitarist)\b/i;
-  let outList = null, outLoading = null;
+  let outList = null, outLoading = null, outErr = false;
   function fetchOutside() {
     if (outLoading) return outLoading;
     try { const c = JSON.parse(localStorage.getItem(OUT_KEY) || 'null'); if (c && Date.now() - c.t < OUT_TTL) return Promise.resolve(outList = c.list); } catch (e) { /* ignore */ }
@@ -187,19 +187,20 @@
     outLoading = Promise.all(months.map(mo => {
       const page = 'Deaths in ' + mo.toLocaleDateString('en-US', { month: 'long' }) + ' ' + mo.getFullYear();
       return fetch('https://en.wikipedia.org/w/api.php?action=parse&prop=wikitext&format=json&formatversion=2&origin=*&page=' + encodeURIComponent(page))
-        .then(r => r.json()).then(j => {
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(j => {
+          if (!j.parse) throw new Error((j.error && j.error.info) || 'no page');
           const out = []; let day = 0;
           String((j.parse && j.parse.wikitext) || '').split('\n').forEach(line => {
             const d = line.match(/^===\s*(\d{1,2})\s*===/); if (d) { day = +d[1]; return; }
-            const m = line.match(/^\*\s*\[\[([^\]|]+)(?:\|([^\]]+))?\]\],\s*(\d{1,3}),\s*(.+)$/);
-            if (!m || !day) return;
+            const m = line.match(/^\*+\s*(?:\{\{[^}]*\}\}\s*)?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]\s*,\s*(?:(\d{1,3})(?:\s*[–-]\s*\d{1,3})?\s*,\s*)?(.+)$/);
+            if (!m || !day || /^(File|Image|Category):/i.test(m[1])) return;
             const desc = m[4].replace(/<ref[^>]*\/>/g, '').replace(/<ref[\s\S]*?(<\/ref>|$)/g, '').replace(/\{\{[^}]*\}\}/g, '')
               .replace(/\[\[(?:[^\]|]*\|)?([^\]]+)\]\]/g, '$1').replace(/''+/g, '').replace(/[.,\s]+$/, '').trim();
             if (!OUT_KINDS.test(desc)) return;
-            out.push({ name: (m[2] || m[1]).trim(), title: m[1].trim(), age: +m[3], desc, t: +new Date(mo.getFullYear(), mo.getMonth(), day) });
+            out.push({ name: (m[2] || m[1]).trim(), title: m[1].trim(), age: m[3] ? +m[3] : '', desc, t: +new Date(mo.getFullYear(), mo.getMonth(), day) });
           });
           return out;
-        }).catch(() => []);
+        }).catch(e => { console.warn('Not in the pool:', page, e); outErr = true; return []; });
     })).then(parts => {
       outList = parts.flat().sort((a, b) => b.t - a.t);
       if (outList.length) try { localStorage.setItem(OUT_KEY, JSON.stringify({ t: Date.now(), list: outList })); } catch (e) { /* ignore */ }
@@ -214,7 +215,7 @@
       const since = +today() - 3 * 864e5, recent = rows.filter(x => x.t >= since);
       rows = recent.length ? recent : rows.slice(0, 5);   // last 4 days; fall back to the latest 5
       $('h-out-list').innerHTML = rows.map(x => `<div class="mini">${face(x.title)}<div><a class="linkbtn" href="https://en.wikipedia.org/wiki/${encodeURIComponent(x.title.replace(/ /g, '_'))}" target="_blank" rel="noopener" title="${esc(x.desc)}">${esc(x.name)}</a><div class="sub">${esc(new Date(x.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase())} · ${esc(x.desc.split(/[(,]/)[0].trim().toUpperCase())}</div></div><span class="val small">${x.age}</span></div>`).join('')
-        || '<p class="small" style="padding-top:6px">Nothing notable outside the pool lately.</p>';
+        || `<p class="small" style="padding-top:6px">${outErr ? 'Couldn\'t reach Wikipedia right now.' : 'Nothing notable outside the pool lately.'}</p>`;
       hydrateFaces($('h-out-list'));
     });
   }
