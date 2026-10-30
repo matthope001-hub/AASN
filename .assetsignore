@@ -1,0 +1,10 @@
+.git
+.github
+.nojekyll
+.assetsignore
+CNAME
+README.md
+wrangler.jsonc
+scripts
+sql
+workers

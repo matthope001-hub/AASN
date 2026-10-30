@@ -156,7 +156,7 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const day = d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const BASE = location.origin + location.pathname.replace(/admin\.html$/, '');
+  const BASE = location.origin + location.pathname.replace(/admin(\.html)?$/, '');
   const link = code => BASE + 'join.html?code=' + code;
   const msg = (id, t, ok) => { const m = $(id); m.textContent = t || ''; m.className = 'msg ' + (ok ? 'ok' : 'err'); };
   let TEAMS = [], INVITES = [], CFG = null, GAMES = [];

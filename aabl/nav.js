@@ -118,7 +118,7 @@
     });
     document.body.appendChild(b);
   }
-  if (!standalone && !dismissed && document.body && !/admin\.html$/.test(location.pathname)) {
+  if (!standalone && !dismissed && document.body && !/admin(\.html)?$/.test(location.pathname)) {
     window.addEventListener('beforeinstallprompt', ev => {
       ev.preventDefault();
       banner('Get the AABL on your home screen.', () => ev.prompt());
