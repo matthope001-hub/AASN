@@ -211,6 +211,26 @@
   const sides = e => { const cs = e.competitions[0].competitors; return [cs.find(x => x.homeAway === 'away'), cs.find(x => x.homeAway === 'home')]; };
   const col = t => '#' + (t.team.color || '22324F');
   function rec(t, type) { const r = (t.records || []).find(x => x.type === type || x.name === type); return r ? r.summary : '—'; }
+  // ---- Team standings (streak, points per game, division record) from ESPN, loaded once ----
+  const STAND = {};
+  async function loadStandings() {
+    try {
+      const r = await fetch('https://site.api.espn.com/apis/v2/sports/football/nfl/standings');
+      if (!r.ok) return;
+      const j = await r.json();
+      (j.children || []).forEach(c => ((c.standings && c.standings.entries) || []).forEach(en => {
+        const st = {}; (en.stats || []).forEach(x => { st[x.name] = x; });
+        const gp = ['wins', 'losses', 'ties'].reduce((n, k) => n + ((st[k] && st[k].value) || 0), 0);
+        const pg = k => (gp && st[k] ? (st[k].value / gp).toFixed(1) : '—');
+        if (en.team && en.team.abbreviation) STAND[en.team.abbreviation] = {
+          streak: (st.streak && st.streak.displayValue) || '—',
+          pf: pg('pointsFor'), pa: pg('pointsAgainst'),
+          div: (st.divisionRecord && st.divisionRecord.displayValue) || '—'
+        };
+      }));
+    } catch (e) { /* standings are optional - the card just leaves these rows out */ }
+  }
+  const sv = (t, k) => (STAND[t.team.abbreviation] && STAND[t.team.abbreviation][k]) || '—';
   function winPct(e) {
     const o = e.competitions[0].odds && e.competitions[0].odds[0];
     const ml = o && [o.awayTeamOdds && o.awayTeamOdds.moneyLine, o.homeTeamOdds && o.homeTeamOdds.moneyLine];
@@ -280,6 +300,10 @@
         <table>
           <tr><td>${esc(rec(A, 'total'))}</td><td>RECORD</td><td>${esc(rec(H, 'total'))}</td></tr>
           <tr><td>${esc(rec(A, 'road'))}</td><td>AWAY / HOME</td><td>${esc(rec(H, 'home'))}</td></tr>
+          ${STAND[A.team.abbreviation] || STAND[H.team.abbreviation] ? `<tr><td>${esc(sv(A, 'streak'))}</td><td>STREAK</td><td>${esc(sv(H, 'streak'))}</td></tr>
+          <tr><td>${esc(sv(A, 'pf'))}</td><td>POINTS / GAME</td><td>${esc(sv(H, 'pf'))}</td></tr>
+          <tr><td>${esc(sv(A, 'pa'))}</td><td>ALLOWED / GAME</td><td>${esc(sv(H, 'pa'))}</td></tr>
+          <tr><td>${esc(sv(A, 'div'))}</td><td>DIVISION</td><td>${esc(sv(H, 'div'))}</td></tr>` : ''}
           <tr><td>${pa}%</td><td>WIN CHANCE</td><td>${ph}%</td></tr>
         </table>
         ${c.venue ? `<div style="margin-top:6px;color:var(--mut);font-size:13px">${esc(c.venue.fullName)}${c.venue.address && c.venue.address.city ? ' · ' + esc(c.venue.address.city) : ''}</div>` : ''}
@@ -423,6 +447,7 @@
   }
 
   async function load() {
+    loadStandings().then(() => { if (EV.length) render(); });
     let live = false;
     try {
       const cur = await fetchWeek();
