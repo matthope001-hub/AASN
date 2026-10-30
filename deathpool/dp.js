@@ -2,7 +2,7 @@
  * every page client-side. Hash routes: #home #standings #graveyard #deathrow
  * #birthdays #boxes #rules. Refreshes every 10 minutes while open. */
 (function () {
-  const VIEWS = ['home', 'standings', 'graveyard', 'deathrow', 'birthdays', 'boxes', 'rules', 'mine', 'whatsnew'];
+  const VIEWS = ['home', 'standings', 'graveyard', 'deathrow', 'birthdays', 'boxes', 'rules', 'mine', 'whatsnew', 'notable'];
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = v => v == null ? '—' : (Math.round(v * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -178,7 +178,7 @@
   // lists. Filtered to well-known kinds of people; cached in this browser for 6 hours.
   const OUT_KEY = 'aasn-dp-outside-v5', OUT_TTL = 6 * 36e5;
   const OUT_KINDS = /\b(actor|actress|singer|musician|rapper|comedian|television|presenter|film|director|songwriter|model|player|athlete|boxer|wrestler|politician|author|novelist|personality|host|broadcaster|drummer|guitarist|footballer|coach|publisher|poet|writer|journalist|cricketer|golfer|jockey|dancer|artist|chef|producer|composer)\b/i;
-  let outList = null, outLoading = null, outErr = false, outStat = [];
+  let outList = null, outLoading = null, outErr = false;
   function fetchOutside() {
     if (outLoading) return outLoading;
     try { const c = JSON.parse(localStorage.getItem(OUT_KEY) || 'null'); if (c && Date.now() - c.t < OUT_TTL) return Promise.resolve(outList = c.list); } catch (e) { /* ignore */ }
@@ -191,7 +191,6 @@
           if (!j.parse) throw new Error((j.error && j.error.info) || 'no page');
           const html = typeof j.parse.text === 'string' ? j.parse.text : (j.parse.text && j.parse.text['*']) || '';
           const doc = new DOMParser().parseFromString(html, 'text/html');
-          outStat.push(page + ': ' + html.length + ' chars, ' + doc.querySelectorAll('h3').length + ' days, ' + doc.querySelectorAll('li').length + ' lines');
           const out = []; let day = 0;
           doc.querySelectorAll('h2, h3, li').forEach(el => {
             if (el.tagName === 'H2') { day = 0; return; }
@@ -208,7 +207,6 @@
             const title = (a.getAttribute('title') || name).replace(/\s*\(page does not exist\)$/, '');
             out.push({ name, title, age: m[1] ? +m[1] : '', desc, t: +new Date(mo.getFullYear(), mo.getMonth(), day) });
           });
-          outStat.push(out.length + ' notable');
           return out;
         }).catch(e => { console.warn('Not in the pool:', page, e); outErr = true; return []; });
     })).then(parts => {
@@ -221,14 +219,17 @@
   function renderOutside() {
     fetchOutside().then(list => {
       const inPool = n => celebMap.has(key(n)) || picksCount.has(key(n)) || deadMap.has(key(n));
-      let rows = (list || []).filter(x => !inPool(x.name) && !inPool(x.title));
-      const since = +today() - 3 * 864e5, recent = rows.filter(x => x.t >= since);
-      rows = recent.length ? recent : rows.slice(0, 5);   // last 4 days; fall back to the latest 5
-      $('h-out-list').innerHTML = rows.map(x => `<div class="mini">${face(x.title)}<div><a class="linkbtn" href="https://en.wikipedia.org/wiki/${encodeURIComponent(x.title.replace(/ /g, '_'))}" target="_blank" rel="noopener" title="${esc(x.desc)}">${esc(x.name)}</a><div class="sub">${esc(new Date(x.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase())} · ${esc(x.desc.split(/[(,]/)[0].trim().toUpperCase())}</div></div><span class="val small">${x.age}</span></div>`).join('')
-        || `<p class="small" style="padding-top:6px">${outErr ? 'Couldn\'t reach Wikipedia right now.' : 'Nothing notable outside the pool lately.'}</p><p class="small mono" style="font-size:10px">${esc(outStat.join(' · ') + ' · ' + (list || []).length + ' total')}</p>`;
-      hydrateFaces($('h-out-list'));
+      const rows = (list || []).filter(x => !inPool(x.name) && !inPool(x.title)).slice(0, 20);
+      const link = x => `<a class="linkbtn" href="https://en.wikipedia.org/wiki/${encodeURIComponent(x.title.replace(/ /g, '_'))}" target="_blank" rel="noopener" title="${esc(x.desc)}">${esc(x.name)}</a>`;
+      const day = x => new Date(x.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+      const none = `<p class="small" style="padding-top:6px">${outErr ? 'Couldn\'t reach Wikipedia right now.' : 'Nothing notable outside the pool lately.'}</p>`;
+      $('h-out-list').innerHTML = rows.slice(0, 5).map(x => `<div class="mini">${face(x.title)}<div>${link(x)}<div class="sub">${esc(day(x))} · ${esc(x.desc.split(/[(,]/)[0].trim().toUpperCase())}</div></div><span class="val small">${x.age}</span></div>`).join('') || none;
+      $('n-body').innerHTML = rows.map(x => `<tr><td><div style="display:flex;align-items:center;gap:10px">${face(x.title)}${link(x)}</div></td><td class="mono small">${esc(day(x))}</td><td class="num">${x.age}</td><td class="hide-sm small">${esc(x.desc)}</td></tr>`).join('')
+        || `<tr><td colspan="4">${none}</td></tr>`;
+      hydrateFaces($('h-out-list')); hydrateFaces($('n-body'));
     });
   }
+
 
   // Season history rebuilt from the deaths themselves: each cemetery's points step up
   // (or down, for Mummy's Curse) on the day each of its picks died, from Jan 1.

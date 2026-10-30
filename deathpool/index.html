@@ -29,6 +29,7 @@
       <details class="more" id="more">
         <summary>More ▾</summary>
         <div class="more-menu">
+          <a href="#notable">Notable Deaths</a>
           <a href="#birthdays">Birthdays</a>
           <a href="#rules">Rules</a>
           <a href="#whatsnew">What's New</a>
@@ -65,8 +66,9 @@
           <a href="#graveyard" class="more-link">FULL GRAVEYARD →</a>
         </section>
         <section class="panel" aria-labelledby="h-out">
-          <div class="ph"><h2 id="h-out">NOT IN THE POOL</h2><span class="small">LAST 4 DAYS</span></div>
+          <div class="ph"><h2 id="h-out">NOT IN THE POOL</h2><span class="small">LATEST</span></div>
           <div id="h-out-list"><p class="small" style="padding-top:6px">Checking…</p></div>
+          <a href="#notable" class="more-link">LAST 20 →</a>
         </section>
         <section class="panel" aria-labelledby="h-bd">
           <div class="ph"><h2 id="h-bd">BIRTHDAYS</h2><span class="small">NEXT 14 DAYS</span></div>
@@ -96,6 +98,12 @@
   <section class="view" id="v-deathrow" hidden>
     <div class="sec-head"><div class="sec-title">DEATH ROW <small>NO GUARANTEES THEY'LL BE PUT DOWN</small></div></div>
     <div class="tbl-wrap"><table><thead><tr><th>INMATE</th><th>STATE</th><th>SCHEDULED</th><th>STATUS</th><th class="hide-sm">BORN</th></tr></thead><tbody id="d-body"></tbody></table></div>
+  </section>
+
+  <!-- NOTABLE DEATHS -->
+  <section class="view" id="v-notable" hidden>
+    <div class="sec-head"><div class="sec-title">NOTABLE DEATHS <small>NOT IN THE POOL · LAST 20 · FROM WIKIPEDIA</small></div></div>
+    <div class="tbl-wrap"><table><thead><tr><th>NAME</th><th>DIED</th><th class="num">AGE</th><th class="hide-sm">KNOWN FOR</th></tr></thead><tbody id="n-body"></tbody></table></div>
   </section>
 
   <!-- BIRTHDAYS -->
@@ -163,6 +171,6 @@
 <script src="../shared/seasons.js?v=2" defer></script>
 <script src="../shared/logos.js?v=5"></script>
 <script src="../shared/auth.js?v=4"></script>
-<script src="dp.js?v=17"></script>
+<script src="dp.js?v=18"></script>
 </body>
 </html>
