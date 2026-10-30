@@ -176,8 +176,8 @@
 
   // Notable deaths of people nobody picked, from Wikipedia's monthly "Deaths in <Month> <Year>"
   // lists. Filtered to well-known kinds of people; cached in this browser for 6 hours.
-  const OUT_KEY = 'aasn-dp-outside-v2', OUT_TTL = 6 * 36e5;
-  const OUT_KINDS = /\b(actor|actress|singer|musician|rapper|comedian|television|presenter|film|director|songwriter|model|player|athlete|boxer|wrestler|politician|author|novelist|personality|host|broadcaster|drummer|guitarist)\b/i;
+  const OUT_KEY = 'aasn-dp-outside-v3', OUT_TTL = 6 * 36e5;
+  const OUT_KINDS = /\b(actor|actress|singer|musician|rapper|comedian|television|presenter|film|director|songwriter|model|player|athlete|boxer|wrestler|politician|author|novelist|personality|host|broadcaster|drummer|guitarist|footballer|coach|publisher|poet|writer|journalist|cricketer|golfer|jockey|dancer|artist|chef|producer|composer)\b/i;
   let outList = null, outLoading = null, outErr = false;
   function fetchOutside() {
     if (outLoading) return outLoading;
@@ -191,7 +191,8 @@
           if (!j.parse) throw new Error((j.error && j.error.info) || 'no page');
           const out = []; let day = 0;
           String((j.parse && j.parse.wikitext) || '').split('\n').forEach(line => {
-            const d = line.match(/^===\s*(\d{1,2})\s*===/); if (d) { day = +d[1]; return; }
+            const h = line.match(/^=+\s*(.*?)\s*=+\s*$/);
+            if (h) { const n = h[1].replace(/\[\[(?:[^\]|]*\|)?([^\]]+)\]\]/g, '$1').match(/\b(\d{1,2})\b/); day = n && +n[1] <= 31 ? +n[1] : 0; return; }
             const m = line.match(/^\*+\s*(?:\{\{[^}]*\}\}\s*)?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]\s*,\s*(?:(\d{1,3})(?:\s*[–-]\s*\d{1,3})?\s*,\s*)?(.+)$/);
             if (!m || !day || /^(File|Image|Category):/i.test(m[1])) return;
             const desc = m[4].replace(/<ref[^>]*\/>/g, '').replace(/<ref[\s\S]*?(<\/ref>|$)/g, '').replace(/\{\{[^}]*\}\}/g, '')
