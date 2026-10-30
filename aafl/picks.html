@@ -525,12 +525,12 @@
     clearTimeout(refreshT);
     refreshT = setTimeout(() => { if (!document.hidden) load(); else document.addEventListener('visibilitychange', load, { once: true }); }, live ? 30000 : 300000);
   }
-  // Team switcher labels show this week's progress: ✓ all games picked, ◐ some, ○ none.
+  // Team switcher labels: ✓ picks saved for this week, ○ still to do (picks save all-or-nothing).
   function entryLabel(t) {
     if (!EV.length) return t.name;
     const L = window.AAFL;
     const n = EV.filter(e => (MEMBER && t.id === MEMBER.id) ? saved[e.id] : (L && L.pick({ id: t.id }, e))).length;
-    return n >= EV.length ? `✓ ${t.name}` : n ? `◐ ${t.name} (${n}/${EV.length})` : `○ ${t.name}`;
+    return n ? `✓ ${t.name}` : `○ ${t.name}`;
   }
   function refreshEntryLabels() {
     const sel = $('entry'); if (!sel) return;
