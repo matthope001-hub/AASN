@@ -4,7 +4,7 @@
 .assetsignore
 CNAME
 README.md
-wrangler.jsonc
+aasn-site.jsonc
 scripts
 sql
 workers

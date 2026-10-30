@@ -1,7 +1,0 @@
-// AASN website (aasn.theaahl.ca) as a Cloudflare Worker serving static files.
-// Separate from the API worker in workers/aabl-api (aasn-api).
-{
-  "name": "aasn-site",
-  "compatibility_date": "2026-10-01",
-  "assets": { "directory": "." }
-}

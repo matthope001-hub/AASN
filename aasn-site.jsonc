@@ -1,0 +1,9 @@
+// AASN website (aasn.theaahl.ca) as a Cloudflare Worker serving static files.
+// Deploy with: npx wrangler deploy --config aasn-site.jsonc
+// NOT named wrangler.jsonc on purpose: wrangler searches parent folders for that
+// name first, which made the API worker (workers/aabl-api) deploy this site instead.
+{
+  "name": "aasn-site",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "." }
+}
