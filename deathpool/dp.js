@@ -176,7 +176,7 @@
 
   // Notable deaths of people nobody picked, from Wikipedia's monthly "Deaths in <Month> <Year>"
   // lists. Filtered to well-known kinds of people; cached in this browser for 6 hours.
-  const OUT_KEY = 'aasn-dp-outside-v3', OUT_TTL = 6 * 36e5;
+  const OUT_KEY = 'aasn-dp-outside-v4', OUT_TTL = 6 * 36e5;
   const OUT_KINDS = /\b(actor|actress|singer|musician|rapper|comedian|television|presenter|film|director|songwriter|model|player|athlete|boxer|wrestler|politician|author|novelist|personality|host|broadcaster|drummer|guitarist|footballer|coach|publisher|poet|writer|journalist|cricketer|golfer|jockey|dancer|artist|chef|producer|composer)\b/i;
   let outList = null, outLoading = null, outErr = false;
   function fetchOutside() {
@@ -186,19 +186,25 @@
     if (now.getDate() <= 7) months.push(new Date(now.getFullYear(), now.getMonth() - 1, 1));
     outLoading = Promise.all(months.map(mo => {
       const page = 'Deaths in ' + mo.toLocaleDateString('en-US', { month: 'long' }) + ' ' + mo.getFullYear();
-      return fetch('https://en.wikipedia.org/w/api.php?action=parse&prop=wikitext&format=json&formatversion=2&origin=*&page=' + encodeURIComponent(page))
+      return fetch('https://en.wikipedia.org/w/api.php?action=parse&prop=text&format=json&formatversion=2&origin=*&page=' + encodeURIComponent(page))
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(j => {
           if (!j.parse) throw new Error((j.error && j.error.info) || 'no page');
+          const doc = new DOMParser().parseFromString(j.parse.text, 'text/html');
           const out = []; let day = 0;
-          String((j.parse && j.parse.wikitext) || '').split('\n').forEach(line => {
-            const h = line.match(/^=+\s*(.*?)\s*=+\s*$/);
-            if (h) { const n = h[1].replace(/\[\[(?:[^\]|]*\|)?([^\]]+)\]\]/g, '$1').match(/\b(\d{1,2})\b/); day = n && +n[1] <= 31 ? +n[1] : 0; return; }
-            const m = line.match(/^\*+\s*(?:\{\{[^}]*\}\}\s*)?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]\s*,\s*(?:(\d{1,3})(?:\s*[–-]\s*\d{1,3})?\s*,\s*)?(.+)$/);
-            if (!m || !day || /^(File|Image|Category):/i.test(m[1])) return;
-            const desc = m[4].replace(/<ref[^>]*\/>/g, '').replace(/<ref[\s\S]*?(<\/ref>|$)/g, '').replace(/\{\{[^}]*\}\}/g, '')
-              .replace(/\[\[(?:[^\]|]*\|)?([^\]]+)\]\]/g, '$1').replace(/''+/g, '').replace(/[.,\s]+$/, '').trim();
+          doc.querySelectorAll('h2, h3, li').forEach(el => {
+            if (el.tagName === 'H2') { day = 0; return; }
+            if (el.tagName === 'H3') { const n = el.textContent.match(/\b(\d{1,2})\b/); day = n && +n[1] <= 31 ? +n[1] : 0; return; }
+            if (!day || el.closest('.reflist, .references, .navbox')) return;
+            const a = el.querySelector(':scope > a'); if (!a) return;
+            const li = el.cloneNode(true); li.querySelectorAll('sup, ul').forEach(x => x.remove());
+            const name = a.textContent.trim(), text = li.textContent.replace(/\s+/g, ' ').trim();
+            if (!name || text.indexOf(name) !== 0) return;
+            const m = text.slice(name.length).match(/^\s*,\s*(?:(\d{1,3})(?:\s*[–-]\s*\d{1,3})?\s*,\s*)?(.+)$/);
+            if (!m) return;
+            const desc = m[2].replace(/\(death announced on this date\)/i, '').replace(/[.,\s]+$/, '').trim();
             if (!OUT_KINDS.test(desc)) return;
-            out.push({ name: (m[2] || m[1]).trim(), title: m[1].trim(), age: m[3] ? +m[3] : '', desc, t: +new Date(mo.getFullYear(), mo.getMonth(), day) });
+            const title = (a.getAttribute('title') || name).replace(/\s*\(page does not exist\)$/, '');
+            out.push({ name, title, age: m[1] ? +m[1] : '', desc, t: +new Date(mo.getFullYear(), mo.getMonth(), day) });
           });
           return out;
         }).catch(e => { console.warn('Not in the pool:', page, e); outErr = true; return []; });
