@@ -13,7 +13,18 @@ const ITEMS_PER_PLAYER = 2;
 const BATCH = 25;
 
 // Manual fixes for players the auto-match misses: { 'MLB id': 'ESPN id' }
-const OVERRIDES = {};
+const OVERRIDES = {
+  '650333': '39572',   // Luis Arraez
+  '643289': '35304',   // Mauricio Dubon
+  '673548': '4142424', // Seiya Suzuki
+  '646240': '33859',   // Rafael Devers
+  '680777': '41587',   // Ryan Jeffers
+  '664023': '34945',   // Ian Happ
+  '668227': '36488',   // Randy Arozarena
+  '670280': '38303',   // David Bednar
+  '641343': '35013',   // Jake Bauers
+  '664040': '39961',   // Brandon Lowe
+};
 
 // ESPN team abbreviations that differ from MLB's
 const TEAM_FIX = { ARI: 'AZ', CHW: 'CWS', OAK: 'ATH', WSN: 'WSH' };

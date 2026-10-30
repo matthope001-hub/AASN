@@ -1,5 +1,14 @@
 [
   {
+    "date": "2026-10-30",
+    "title": "Player news",
+    "items": [
+      "A small news icon now shows beside players with fresh news on My Team, Players and Boxes.",
+      "Open any player card to read the latest one or two updates: injuries, lineup changes, call-ups, hot streaks and more.",
+      "News comes from RotoWire via ESPN and refreshes every few hours."
+    ]
+  },
+  {
     "date": "2026-10-29",
     "title": "Seasonal themes",
     "items": [

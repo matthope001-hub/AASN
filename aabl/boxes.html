@@ -117,7 +117,7 @@ footer a { color: var(--dim); text-decoration: none; }
     const tag = o.isTwoWay ? `<span class="tag">${o.role === 'pitcher' ? 'P' : 'H'}</span>` : '';
     return `<div class="player" data-key="${esc(key)}" role="button" tabindex="0" aria-label="${esc(p.full_name)} player card">
       <img src="${esc(p.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-      <div><div class="pname">${esc(p.full_name)}${tag}</div><div class="pmeta">${esc(p.team_abbr || '—')} · ${esc(p.position || '')}${o.picked ? ` · <span title="Teams that picked him">Picked by ${o.picked}</span>` : ''}</div></div>
+      <div><div class="pname">${esc(p.full_name)}${aablCards.newsIcon(o.mlb_id)}${tag}</div><div class="pmeta">${esc(p.team_abbr || '—')} · ${esc(p.position || '')}${o.picked ? ` · <span title="Teams that picked him">Picked by ${o.picked}</span>` : ''}</div></div>
       ${COLS[o.role].map(([, k]) => `<span class="n">${fmt(s[k])}</span>`).join('')}
       <span class="pts">${fmt(s.points)}</span>
     </div>`;

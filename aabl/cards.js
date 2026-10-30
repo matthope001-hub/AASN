@@ -31,6 +31,54 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const num = v => Number(v) || 0;
   const fmt = v => { const x = num(v); return Number.isInteger(x) ? String(x) : x.toFixed(1); };
+
+  // ---------- Player news (RotoWire via ESPN, refreshed by the "AABL player news" job) ----------
+  // Lists show a small icon beside players with news from the last NEWS_DAYS;
+  // the player card shows the latest one or two items.
+  const NEWS_DAYS = 7;
+  const NEWS_SVG = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M3 1h7l3 3v11H3V1zm2 5v1h6V6H5zm0 3v1h6V9H5zm0 3v1h4v-1H5z"/></svg>';
+  let newsMap = null;
+  function recentNews(id) {
+    if (!newsMap) return null;
+    const items = newsMap.get(Number(id)) || [];
+    if (!items.length) return null;
+    const t = Date.parse(items[0].published || '');
+    return (t && Date.now() - t <= NEWS_DAYS * 864e5) ? items : null;
+  }
+  function newsIcon(id) {
+    const n = Number(id);
+    if (!n) return '';
+    const on = recentNews(n);
+    return `<span class="aabl-news${on ? ' on' : ''}" data-news-mlb="${n}"${on ? ' title="Has news - open the player card"' : ''}>${on ? NEWS_SVG : ''}</span>`;
+  }
+  function fillNewsSlots() {
+    document.querySelectorAll('.aabl-news[data-news-mlb]:not(.on)').forEach(el => {
+      if (recentNews(el.dataset.newsMlb)) { el.classList.add('on'); el.title = 'Has news - open the player card'; el.innerHTML = NEWS_SVG; }
+    });
+  }
+  function newsAgo(iso) {
+    const ms = Date.now() - Date.parse(iso || '');
+    if (!isFinite(ms)) return '';
+    const h = Math.floor(ms / 36e5);
+    if (h < 1) return 'Just now';
+    if (h < 24) return h + 'h ago';
+    const d = Math.floor(h / 24);
+    return d === 1 ? 'Yesterday' : d + 'd ago';
+  }
+  const newsReady = (typeof aasnSelect === 'function'
+    ? aasnSelect('player_news', 'select=mlb_id,data', 'aabl')
+    : Promise.resolve([]))
+    .then(rows => { newsMap = new Map((rows || []).filter(r => r.mlb_id).map(r => [Number(r.mlb_id), (r.data && r.data.items) || []])); })
+    .catch(() => { newsMap = new Map(); })
+    .then(() => { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fillNewsSlots); else fillNewsSlots(); });
+  function newsSection(id) {
+    const items = recentNews(id);
+    if (!items) return '';
+    return `<div class="aabl-fc-news"><small>LATEST NEWS</small>${items.map(it => `<div class="aabl-fc-news-it">`
+      + `<div class="hl">${esc(it.headline || '')}</div>`
+      + (it.story ? `<div class="st">${esc(it.story)}</div>` : '')
+      + `<div class="mt">${esc(newsAgo(it.published))} · RotoWire via ESPN</div></div>`).join('')}</div>`;
+  }
   const ip = outs => `${Math.floor(num(outs) / 3)}.${num(outs) % 3}`;
   const era = s => num(s.outs) ? (num(s.er) * 27 / num(s.outs)).toFixed(2) : '—';
   const whip = s => num(s.outs) ? ((num(s.bb_allowed) + num(s.h_allowed)) * 3 / num(s.outs)).toFixed(2) : '—';
@@ -93,6 +141,8 @@
     const [first, last] = splitName(p.full_name);
     const team = p.team_abbr || '';
     const rows = await scoring();
+    await newsReady;
+    const mlbId = o.mlbId || o.mlb_id || p.mlb_id;
     const ov = overlay();
     lastFocus = document.activeElement;
     ov.innerHTML = `
@@ -114,6 +164,7 @@
         </div>
         ${strips(o.role, s).map(strip).join('')}
         ${breakdown(rows, o.role, s)}
+        ${newsSection(mlbId)}
       </div>`;
     ov.querySelector('.aabl-fc-x').addEventListener('click', close);
     ov.classList.add('on');
@@ -150,5 +201,5 @@
     }
   });
 
-  window.aablCards = { open, close, cutout, FALLBACK, register: (key, data) => store.set(key, data) };
+  window.aablCards = { open, close, cutout, FALLBACK, newsIcon, register: (key, data) => store.set(key, data) };
 })();

@@ -1,6 +1,6 @@
 /* AABL player cards — same build as AAHL's cards (cards.js / style.css),
    restyled for the AABL navy/red theme. */
-.aabl-card-ov { position: fixed; inset: 0; background: rgba(4, 12, 24, .8); display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px; overflow-y: auto; }
+.aabl-card-ov { position: fixed; inset: 0; background: rgba(4, 12, 24, .8); display: none; align-items: center; justify-content: center; z-index: 200; padding: 16px; overflow-y: auto; overscroll-behavior: contain; }
 .aabl-card-ov.on { display: flex; }
 .aabl-fc { width: 100%; max-width: 440px; margin: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; position: relative; animation: aablPop .2s ease-out; color: var(--text); transform-style: preserve-3d; will-change: transform; }
 @keyframes aablPop { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -45,3 +45,13 @@
 .player[data-key] { cursor: pointer; transition: background .15s; }
 .player[data-key]:hover, .player[data-key]:focus-visible { background: color-mix(in srgb, var(--red) 18%, var(--panel)); outline: none; }
 @media (prefers-reduced-motion: reduce) { .aabl-fc { animation: none; } }
+
+/* Player news: list icon + card section */
+.aabl-news.on { display: inline-flex; align-items: center; color: var(--gold); margin-left: 5px; vertical-align: -1px; }
+.aabl-fc-news { margin: 0 12px 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); position: relative; transform: translateZ(10px); }
+.aabl-fc-news small { font-family: var(--mono); font-size: 10px; color: var(--gold); letter-spacing: .5px; }
+.aabl-fc-news-it { padding: 8px 0 2px; border-top: 1px solid var(--border); margin-top: 6px; }
+.aabl-fc-news-it:first-of-type { border-top: 0; margin-top: 0; }
+.aabl-fc-news .hl { font-family: var(--mono); font-size: 12px; font-weight: 700; line-height: 1.5; color: var(--text); }
+.aabl-fc-news .st { font-family: var(--mono); font-size: 11px; line-height: 1.6; color: var(--dim); margin-top: 4px; }
+.aabl-fc-news .mt { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-top: 5px; opacity: .8; }

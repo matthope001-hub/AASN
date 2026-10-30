@@ -168,7 +168,7 @@ tr[data-key]:hover, tr[data-key]:focus-visible { background: color-mix(in srgb, 
       <div class="aabl-pc-top">
         <div class="aabl-pc-info">
           <div class="aabl-pc-nm">${esc(first)}<br>${esc(rest.join(' '))}</div>
-          <div class="aabl-pc-meta">${esc(t || 'FA')} · ${esc(p.position || '')}${r.isTwoWay ? (r.role === 'pitcher' ? ' · PITCHING' : ' · HITTING') : ''}</div>
+          <div class="aabl-pc-meta">${esc(t || 'FA')} · ${esc(p.position || '')}${r.isTwoWay ? (r.role === 'pitcher' ? ' · PITCHING' : ' · HITTING') : ''}${aablCards.newsIcon(r.mlb_id)}</div>
           <div class="aabl-pc-box">BOX ${r.box_id}</div>
         </div>
         <div class="aabl-pc-hs">${p.headshot_url ? `<img src="${esc(aablCards.cutout(p.headshot_url))}" data-orig="${esc(p.headshot_url)}" alt="" loading="lazy" ${aablCards.FALLBACK}>` : ''}</div>
@@ -181,7 +181,7 @@ tr[data-key]:hover, tr[data-key]:focus-visible { background: color-mix(in srgb, 
   }
 
   function cellHtml(c, r) {
-    if (c.key === 'name') return `<span class="pcell"><img src="${esc(r.player.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">${esc(r.player.full_name)}${r.isTwoWay ? `<small>${r.role === 'pitcher' ? 'P' : 'H'}</small>` : ''}</span>`;
+    if (c.key === 'name') return `<span class="pcell"><img src="${esc(r.player.headshot_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">${esc(r.player.full_name)}${aablCards.newsIcon(r.mlb_id)}${r.isTwoWay ? `<small>${r.role === 'pitcher' ? 'P' : 'H'}</small>` : ''}</span>`;
     return c.txt(r);
   }
 
@@ -262,7 +262,7 @@ tr[data-key]:hover, tr[data-key]:focus-visible { background: color-mix(in srgb, 
       const key = 'p|' + o.box_id + '|' + o.mlb_id + '|' + o.role;
       const r = { ...o, key, s: stats.get(o.mlb_id + '|' + o.role) || {}, isTwoWay: roles.get(o.mlb_id).size > 1 };
       const list = byBox.get(o.box_id);
-      aablCards.register(key, { player: o.player, stats: r.s, role: o.role, isTwoWay: r.isTwoWay, box: boxes.get(o.box_id),
+      aablCards.register(key, { player: o.player, mlbId: o.mlb_id, stats: r.s, role: o.role, isTwoWay: r.isTwoWay, box: boxes.get(o.box_id),
         rank: list.indexOf(o) + 1, boxSize: list.length, statsSeason: STATS_SEASON });
       return r;
     });

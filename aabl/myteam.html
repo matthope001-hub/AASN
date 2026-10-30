@@ -256,14 +256,14 @@
     html += data.picks.map(pk => {
       const o = optById(pk.option_id) || { player: {} }, s = statOf(o), b = boxes.get(pk.box_id) || {};
       const key = 'mt|' + pk.box_id;
-      aablCards.register(key, { player: o.player, stats: s, role: o.role, box: b, statsSeason });
+      aablCards.register(key, { player: o.player, mlbId: o.mlb_id, stats: s, role: o.role, box: b, statsSeason });
       const others = opts.filter(x => x.box_id === pk.box_id && x.option_id !== pk.option_id)
         .sort((x, y) => num(statOf(y).points) - num(statOf(x).points));
       return `<div class="box" data-box="${pk.box_id}">
         <div class="box-row">
           <span class="bx">BOX ${pk.box_id}</span>
           <img src="${esc(o.player.headshot_url)}" alt="" onerror="this.style.visibility='hidden'">
-          <span class="nm" data-key="${esc(key)}" role="button" tabindex="0">${esc(o.player.full_name)}<small>${esc(b.name || '')} · ${esc(o.player.team_abbr || '—')}${o.role === 'pitcher' ? ' · P' : ''}</small></span>
+          <span class="nm" data-key="${esc(key)}" role="button" tabindex="0">${esc(o.player.full_name)}${aablCards.newsIcon(o.mlb_id)}<small>${esc(b.name || '')} · ${esc(o.player.team_abbr || '—')}${o.role === 'pitcher' ? ' · P' : ''}</small></span>
           <span class="pt">${fmt(s.points)}${num(pk.banked_points) ? ` <span style="color:var(--gold)">+${fmt(pk.banked_points)}</span>` : ''}<small>PTS${num(pk.banked_points) ? ' + BANKED' : ''}</small></span>
           ${canTrade ? `<button type="button" class="btn ghost" data-trade="${pk.box_id}" aria-expanded="${openBox === pk.box_id}">${data.preseason ? 'CHANGE' : 'TRADE'}</button>` : '<span></span>'}
         </div>
