@@ -93,7 +93,7 @@
   <section id="v-season">
     <div class="box" style="margin:0">
       <table class="st">
-        <thead><tr><th>#</th><th>Team</th><th class="n">Pts</th><th class="n">Correct</th><th class="n hide-sm">Wk wins</th><th class="n" id="lw-h">Last wk</th></tr></thead>
+        <thead><tr><th>#</th><th>Team</th><th class="n">Pts</th><th class="n">Correct</th><th class="n hide-sm">Wk wins</th><th class="n" id="lw-h">Last wk</th><th class="n" id="tw-h" hidden>This wk</th></tr></thead>
         <tbody id="st-body"><tr><td colspan="6" class="empty">Grading the season…</td></tr></tbody>
       </table>
     </div>
@@ -132,12 +132,16 @@
   function seasonTable() {
     const lw = ST.lastDone ? ST.lastDone.week : null;
     $('lw-h').textContent = lw ? 'Wk ' + lw : 'Last wk';
+    // Week in play: has final games but isn't finished yet. Shows correct picks so far (finals only).
+    const tw = [...ST.weeks].reverse().find(w => !w.done && w.graded > 0);
+    $('tw-h').hidden = !tw;
+    if (tw) $('tw-h').textContent = 'Wk ' + tw.week + ' so far';
     $('st-body').innerHTML = ST.teams.map(r => {
       const rk = r.rank <= 3 ? `<span class="md g${r.rank}">${r.rank}</span>` : r.rank;
       const mv = r.move > 0 ? `<span class="up">▲${r.move}</span>` : r.move < 0 ? `<span class="dn">▼${-r.move}</span>` : '';
       const last = lw ? r.byWeek[lw] : null;
-      const row = `<tr class="row" tabindex="0" data-id="${r.id}" aria-expanded="${openId === r.id}"><td class="rk">${rk}</td><td class="tn">${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${r.unpaid ? '<span class="unpaid" title="Entry fee not paid yet: picks don\'t count until it is">$ unpaid</span>' : ''}${mv}<span class="caret">${openId === r.id ? '▲' : '▼'}</span></td><td class="n"><b>${r.pts}</b></td><td class="n"${r.pct == null ? '' : ` title="${(r.pct * 100).toFixed(1)}% correct"`}>${r.pct == null ? '—' : r.real + '/' + r.graded}</td><td class="n hide-sm">${r.weekWins}</td><td class="n">${last ? last.pts + '/' + last.of : '—'}</td></tr>`;
-      return row + (openId === r.id ? `<tr class="det"><td colspan="6">${detail(r)}</td></tr>` : '');
+      const row = `<tr class="row" tabindex="0" data-id="${r.id}" aria-expanded="${openId === r.id}"><td class="rk">${rk}</td><td class="tn">${esc(r.name)}${r.human ? '<span class="h">(h)</span>' : ''}${r.unpaid ? '<span class="unpaid" title="Entry fee not paid yet: picks don\'t count until it is">$ unpaid</span>' : ''}${mv}<span class="caret">${openId === r.id ? '▲' : '▼'}</span></td><td class="n"><b>${r.pts}</b></td><td class="n"${r.pct == null ? '' : ` title="${(r.pct * 100).toFixed(1)}% correct"`}>${r.pct == null ? '—' : r.real + '/' + r.graded}</td><td class="n hide-sm">${r.weekWins}</td><td class="n">${last ? last.pts + '/' + last.of : '—'}</td>${tw ? `<td class="n tw">${r.byWeek[tw.week] ? r.byWeek[tw.week].pts + '/' + r.byWeek[tw.week].of : '—'}</td>` : ''}</tr>`;
+      return row + (openId === r.id ? `<tr class="det"><td colspan="${tw ? 7 : 6}">${detail(r)}</td></tr>` : '');
     }).join('');
     $('st-body').querySelectorAll('tr.row').forEach(tr => {
       const go = () => { openId = openId === tr.dataset.id ? null : tr.dataset.id; seasonTable(); };

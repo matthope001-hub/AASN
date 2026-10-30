@@ -1,6 +1,13 @@
 [
   {
     "date": "2026-10-30",
+    "title": "This week so far",
+    "items": [
+      "Standings now show how many picks each team has right in the week being played, updated as each game goes final."
+    ]
+  },
+  {
+    "date": "2026-10-30",
     "title": "More matchup info",
     "items": [
       "Tap ⓘ Matchup on any game to see each team's current streak, points scored and allowed per game, and division record.",
