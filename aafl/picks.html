@@ -317,6 +317,7 @@
   }
 
   function render() {
+    refreshEntryLabels();
     const open = openGames();
     const days = {};
     EV.forEach(e => { const k = dayLong(new Date(e.date)); (days[k] = days[k] || []).push(e); });
@@ -524,6 +525,17 @@
     clearTimeout(refreshT);
     refreshT = setTimeout(() => { if (!document.hidden) load(); else document.addEventListener('visibilitychange', load, { once: true }); }, live ? 30000 : 300000);
   }
+  // Team switcher labels show this week's progress: ✓ all games picked, ◐ some, ○ none.
+  function entryLabel(t) {
+    if (!EV.length) return t.name;
+    const L = window.AAFL;
+    const n = EV.filter(e => (MEMBER && t.id === MEMBER.id) ? saved[e.id] : (L && L.pick({ id: t.id }, e))).length;
+    return n >= EV.length ? `✓ ${t.name}` : n ? `◐ ${t.name} (${n}/${EV.length})` : `○ ${t.name}`;
+  }
+  function refreshEntryLabels() {
+    const sel = $('entry'); if (!sel) return;
+    [...sel.options].forEach(o => { const t = MINE.find(x => String(x.id) === o.value); if (t) o.textContent = entryLabel(t); });
+  }
   function paintMode() {
     const m = $('mode');
     if (MEMBER) {
@@ -538,7 +550,7 @@
         catch (err) { ev.target.checked = !ev.target.checked; toast('Could not save: ' + err.message); }
       });
       if (MINE.length > 1) {
-        $('me').innerHTML = '<label for="entry">Picking for</label> <select id="entry" class="entry">' + MINE.map(t => `<option value="${t.id}"${t.id === MEMBER.id ? ' selected' : ''}>${esc(t.name)}</option>`).join('') + '</select>';
+        $('me').innerHTML = '<label for="entry">Picking for</label> <select id="entry" class="entry">' + MINE.map(t => `<option value="${t.id}"${t.id === MEMBER.id ? ' selected' : ''}>${esc(entryLabel(t))}</option>`).join('') + '</select>';
         $('entry').addEventListener('change', ev => {
           if (!submitted && Object.keys(picks).length && !confirm('You have unsaved picks for ' + MEMBER.name + '. Switch anyway?')) { ev.target.value = MEMBER.id; return; }
           try { localStorage.setItem('aafl-entry', ev.target.value); } catch (e2) { /* ignore */ }
