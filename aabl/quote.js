@@ -1,9 +1,11 @@
 /* Quote of the Day — AABL
- * Shows one quote per day in a shuffled order (no repeats until the whole list has shown).
+ * One quote per day, counted from opening day (2027-03-24), in a shuffled order.
+ * Every day of the regular season gets a different quote; after that the list reshuffles.
  * Same quote for everyone all day; changes at midnight Toronto time.
  * To add quotes, add a line to QUOTES: ["Quote text", "Who said it"].
  */
 (function () {
+  var SEASON_START = '2027-03-24';
   var QUOTES = [
     ["It ain't over till it's over.", "Yogi Berra"],
     ["Baseball is ninety percent mental. The other half is physical.", "Yogi Berra"],
@@ -39,14 +41,163 @@
     ["Baseball, it is said, is only a game. True. And the Grand Canyon is only a hole in Arizona.", "George Will"],
     ["Can't anybody here play this game?", "Casey Stengel"],
     ["The secret of managing is to keep the guys who hate you away from the guys who are undecided.", "Casey Stengel"],
-    ["I'll never make the mistake of being seventy again.", "Casey Stengel"]
+    ["I'll never make the mistake of being seventy again.", "Casey Stengel"],
+    ["Baseball is almost the only orderly thing in a very unorderly world.", "Bill Veeck"],
+    ["There are only two seasons: winter and baseball.", "Bill Veeck"],
+    ["I can't believe they pay us to play baseball, something we did for free as kids.", "Sparky Anderson"],
+    ["The key to winning baseball games is pitching, fundamentals, and three-run homers.", "Earl Weaver"],
+    ["It ain't the heat, it's the humility.", "Yogi Berra"],
+    ["All pitchers are liars or crybabies.", "Yogi Berra"],
+    ["Slump? I ain't in no slump. I just ain't hittin'.", "Yogi Berra"],
+    ["If you don't know where you're going, you might end up some place else.", "Yogi Berra"],
+    ["I think Little League is wonderful. It keeps the kids out of the house.", "Yogi Berra"],
+    ["He hits from both sides of the plate. He's amphibious.", "Yogi Berra"],
+    ["I always thought that record would stand until it was broken.", "Yogi Berra"],
+    ["If the world was perfect, it wouldn't be.", "Yogi Berra"],
+    ["We made too many wrong mistakes.", "Yogi Berra"],
+    ["In baseball, you don't know nothing.", "Yogi Berra"],
+    ["The wind always seems to blow against catchers when they are running.", "Yogi Berra"],
+    ["You give 100 percent in the first half of the game. And if that isn't enough, in the second half, you give what's left.", "Yogi Berra"],
+    ["You wouldn't have won if we'd beaten you.", "Yogi Berra"],
+    ["If people don't want to come out to the ballpark, how are you going to stop them?", "Yogi Berra"],
+    ["I never said most of the things I said.", "Yogi Berra"],
+    ["Show me a good loser in professional sports, and I'll show you an idiot.", "Leo Durocher"],
+    ["I never questioned the integrity of an umpire. Their eyesight, yes.", "Leo Durocher"],
+    ["Never save a pitcher for tomorrow. Tomorrow it may rain.", "Leo Durocher"],
+    ["Baseball is like church. Many attend, few understand.", "Leo Durocher"],
+    ["The triple is the most exciting play of the game.", "George Foster"],
+    ["I wish I'd known early what I had to learn late.", "Richie Ashburn"],
+    ["The ballplayer who loses his head, who can't keep his cool, is worse than no ballplayer at all.", "Lou Gehrig"],
+    ["There is no room in baseball for discrimination. It is our national pastime and a game for all.", "Lou Gehrig"],
+    ["Winning is the most important thing in my life, after breathing. Breathing first, winning next.", "George Steinbrenner"],
+    ["Owning the Yankees is like owning the Mona Lisa.", "George Steinbrenner"],
+    ["I won't be active in the day-to-day operations of the club at all.", "George Steinbrenner, 1973"],
+    ["Gee, it's lonesome in the outfield. It's hard to keep awake with nothing to do.", "Babe Ruth"],
+    ["If it wasn't for baseball, I'd be in either the penitentiary or the cemetery.", "Babe Ruth"],
+    ["Baseball was, is, and always will be to me the best game in the world.", "Babe Ruth"],
+    ["Baseball has been good to me since I quit trying to play it.", "Whitey Herzog"],
+    ["Trying to hit Sandy Koufax was like trying to drink coffee with a fork.", "Willie Stargell"],
+    ["When you start the game, they don't say 'Work ball!' They say, 'Play ball!'", "Willie Stargell"],
+    ["They give you a round bat, and they throw you a round ball, and then they tell you to hit it square.", "Willie Stargell"],
+    ["My pitching philosophy is simple: keep the ball away from the bat.", "Satchel Paige"],
+    ["I never had a job. I just always played baseball.", "Satchel Paige"],
+    ["It ain't braggin' if you can back it up.", "Dizzy Dean"],
+    ["The good Lord was good to me. He gave me a strong body, a good right arm and a weak mind.", "Dizzy Dean"],
+    ["If Casey Stengel were alive today, he'd be spinning in his grave.", "Ralph Kiner"],
+    ["Cadillacs are down at the end of the bat.", "Ralph Kiner"],
+    ["The secret of my success was clean living and a fast outfield.", "Lefty Gomez"],
+    ["I didn't come to New York to be a star, I brought my star with me.", "Reggie Jackson"],
+    ["Fans don't boo nobodies.", "Reggie Jackson"],
+    ["I'm the straw that stirs the drink.", "Reggie Jackson"],
+    ["The only reason I don't like playing in the World Series is I can't watch myself play.", "Reggie Jackson"],
+    ["If a guy hits .300 every year, what does he have to look forward to?", "Bob Uecker"],
+    ["The way to catch a knuckleball is to wait until it stops rolling and then pick it up.", "Bob Uecker"],
+    ["Son, we'd like to keep you around this season but we're going to try and win a pennant.", "Casey Stengel"],
+    ["Good pitching will always stop good hitting and vice versa.", "Casey Stengel"],
+    ["Come out and see my Amazin' Mets. I been in the game a hundred years but I see new ways to lose I never knew existed.", "Casey Stengel"],
+    ["This has been a team effort. No one or two guys could have done all this.", "Casey Stengel"],
+    ["Every day is a new opportunity. You can build on yesterday's success or put its failures behind and start over again.", "Bob Feller"],
+    ["The only way to prove that you're a good sport is to lose.", "Ernie Banks"],
+    ["The difference between the impossible and the possible lies in a person's determination.", "Tommy Lasorda"],
+    ["Baseball is like driving. It's the one who gets home safely that counts.", "Tommy Lasorda"],
+    ["You can't hit what you can't see.", "Walter Johnson"],
+    ["It's a round ball and a round bat, and you got to hit it square.", "Pete Rose"],
+    ["Playing baseball for a living is like having a license to steal.", "Pete Rose"],
+    ["I've always felt that long, lazy summer days were an integral part of the baseball season.", "Tom Glavine"],
+    ["A baseball game is simply a nervous breakdown divided into nine innings.", "Earl Wilson"],
+    ["Baseball is not a game that builds character, it is a game that reveals it.", "John Thorn"],
+    ["The first thing a man has to learn in order to play baseball well is to catch a ball.", "Christy Mathewson"],
+    ["A baseball swing is a very finely tuned instrument. It is repetition, and more repetition, then a little more after that.", "Reggie Jackson"],
+    ["Baseball is a game of inches, and inches make the champion.", "Branch Rickey"],
+    ["Baseball is a good thing. Always was, always will be.", "Stephen King"],
+    ["Baseball was 100% of my life.", "Ty Cobb"],
+    ["Every great batter works on the theory that the pitcher is more afraid of him than he is of the pitcher.", "Ty Cobb"],
+    ["If you're going to play at all, you're out to win. Baseball, board games, Jeopardy, I hate to lose.", "Derek Jeter"],
+    ["I think I was the best baseball player I ever saw.", "Willie Mays"],
+    ["I don't compare 'em, I catch 'em.", "Willie Mays"],
+    ["I've come to the conclusion that the two most important things in life are good friends and a good bullpen.", "Bob Lemon"],
+    ["I never took the game home with me. I always left it in some bar.", "Bob Lemon"],
+    ["The game of baseball, in a nutshell, is this: you throw the ball, you hit the ball, you catch the ball.", "Joe Garagiola"],
+    ["I went through baseball as a player to be named later.", "Joe Garagiola"],
+    ["Baseball is like a poker game. Nobody wants to quit when he's losing; nobody wants you to quit when you're ahead.", "Jackie Robinson"],
+    ["A life is not important except in the impact it has on other lives.", "Jackie Robinson"],
+    ["I love baseball. The guys and the game, and that's that.", "Mickey Mantle"],
+    ["It's unbelievable how much you don't know about the game you've been playing your whole life.", "Mickey Mantle"],
+    ["Somebody once asked me if I ever went up to the plate trying to hit a home run. I said, 'Sure, every time.'", "Mickey Mantle"],
+    ["Juuuust a bit outside.", "Harry Doyle, Major League"],
+    ["How can you not get romantic about baseball?", "Billy Beane, Moneyball"],
+    ["It ain't nothin' till I call it.", "Bill Klem, umpire"],
+    ["A hot dog at the game beats roast beef at the Ritz.", "Humphrey Bogart"],
+    ["Close doesn't count in baseball. Close only counts in horseshoes and grenades.", "Frank Robinson"],
+    ["There is always some kid who may be seeing me for the first or last time. I owe him my best.", "Joe DiMaggio"],
+    ["I'd like to thank the good Lord for making me a Yankee.", "Joe DiMaggio"],
+    ["My motto was always to keep swinging. Whether I was in a slump or feeling badly or having trouble off the field, the only thing to do was keep swinging.", "Hank Aaron"],
+    ["It took me 17 years to get 3,000 hits in baseball, and I did it in one afternoon on the golf course.", "Hank Aaron"],
+    ["Remember these two things: Play hard and have fun.", "Tony Gwynn"],
+    ["The greatest feeling in the world is to win a major league game. The second greatest feeling is to lose a major league game.", "Chuck Tanner"],
+    ["There ain't much to being a ballplayer, if you're a ballplayer.", "Honus Wagner"],
+    ["Statistics are like bikinis. They show a lot, but never everything.", "Lou Piniella"],
+    ["A man who isn't willing to work from dreary morn till weary eve shouldn't think about becoming a pitcher.", "Cy Young"],
+    ["Anytime you think you have the game conquered, the game will turn around and punch you right in the nose.", "Mike Schmidt"],
+    ["Slumps are like a soft bed. They're easy to get into and hard to get out of.", "Johnny Bench"],
+    ["Lord, baseball is a worryin' thing.", "Stan Coveleski"],
+    ["Throw him low smoke and we'll go pound some Budweiser.", "Joe Schultz"],
+    ["Andre Dawson has a bruised knee and is listed as day-to-day. Aren't we all?", "Vin Scully"],
+    ["My goals are to hit .300, score 100 runs, and stay injury-prone.", "Mickey Rivers"],
+    ["We'll do all right if we can capitalize on our mistakes.", "Mickey Rivers"],
+    ["When I was a little boy I wanted to be a baseball player and join the circus. With the Yankees, I've accomplished both.", "Graig Nettles"],
+    ["There is nothing so limited as being a limited partner of George Steinbrenner.", "John McMullen"],
+    ["You gotta believe!", "Tug McGraw"],
+    ["Trying to sneak a pitch past Hank Aaron is like trying to sneak the sunrise past a rooster.", "Joe Adcock"],
+    ["If a horse won't eat it, I don't want to play on it.", "Dick Allen, on artificial turf"],
+    ["All I remember about my wedding day in 1967 is that the Cubs lost a doubleheader.", "George Will"],
+    ["Half this game is ninety percent mental.", "Danny Ozark"],
+    ["It is beyond my apprehension.", "Danny Ozark"],
+    ["It's called talent. I just have it. I can't explain it. You either have it or you don't.", "Barry Bonds"],
+    ["Ninety percent of this game is half mental.", "Yogi Berra"],
+    ["I knew I was going to take the wrong train, so I left early.", "Yogi Berra"],
+    ["He can run anytime he wants. I'm giving him the red light.", "Yogi Berra"],
+    ["I want to thank you for making this day necessary.", "Yogi Berra, on Yogi Berra Day"],
+    ["If you can't imitate him, don't copy him.", "Yogi Berra"],
+    ["Someone told me I looked cool. I said, 'Thanks, you don't look so hot yourself.'", "Yogi Berra"],
+    ["I got players with bad watches. They can't tell midnight from noon.", "Casey Stengel"],
+    ["I was such a dangerous hitter I even got intentional walks in batting practice.", "Casey Stengel"],
+    ["All right, everybody line up alphabetically according to your height.", "Casey Stengel"],
+    ["If we're going to win the pennant, we've got to start thinking we're not as good as we think we are.", "Casey Stengel"],
+    ["Managing is getting paid for home runs someone else hits.", "Casey Stengel"],
+    ["Nobody knows this yet, kid, but one of us has been traded to Kansas City.", "Casey Stengel"],
+    ["I feel honored to have a ballpark named after me, especially since I've been thrown out of so many.", "Casey Stengel"],
+    ["There comes a time in every man's life, and I've had plenty of them.", "Casey Stengel"],
+    ["It's wonderful to meet so many friends that I didn't used to like.", "Casey Stengel"],
+    ["Sure I played. Did you think I was born at age 70 sitting in a dugout trying to manage guys like you?", "Casey Stengel, to Mickey Mantle"],
+    ["He'd fall in a sewer and come up with a gold watch.", "Casey Stengel"],
+    ["Most ball games are lost, not won.", "Casey Stengel"],
+    ["Old-timers weekends and airplane landings are alike. If you can walk away from them, they're successful.", "Casey Stengel"],
+    ["The trick is growing up without growing old.", "Casey Stengel"],
+    ["You could look it up.", "Casey Stengel"],
+    ["You got to get twenty-seven outs to win.", "Casey Stengel"],
+    ["I got one that can throw but can't catch, and one that can catch but can't throw, and one who can hit but can't do either.", "Casey Stengel"],
+    ["Look at him. He doesn't drink, he doesn't smoke, he doesn't chew, he doesn't stay out late, and he still can't hit .250.", "Casey Stengel"],
+    ["The way our luck has been lately, our fellows have been getting hurt on their days off.", "Casey Stengel"],
+    ["They brought me up to the Brooklyn Dodgers, which at that time was in Brooklyn.", "Casey Stengel"],
+    ["We've got to learn to stay out of triple plays.", "Casey Stengel"],
+    ["Ain't it funny, Bill, how all of a sudden I got so smart and you got so dumb?", "Casey Stengel"],
+    ["He fields better on one leg than anybody else I got on two.", "Casey Stengel"],
+    ["Shea Stadium has 54 restrooms, and I need one now.", "Casey Stengel"],
+    ["Get out the rye bread and mustard, Grandma, it's grand salami time!", "Dave Niehaus"],
+    ["The season starts too early and finishes too late and there are too many games in between.", "Bill Veeck"],
+    ["If my uniform doesn't get dirty, I haven't done anything in the baseball game.", "Rickey Henderson"],
+    ["The doctors x-rayed my head and found nothing.", "Dizzy Dean"],
+    ["I'm glad I don't play anymore. I could never learn all of those handshakes.", "Phil Rizzuto"],
+    ["They broke it to me gently. The manager came up to me before a game and told me they didn't allow visitors in the clubhouse.", "Bob Uecker"],
+    ["He slides into second with a stand-up double.", "Jerry Coleman"],
+    ["Why does everyone stand up and sing 'Take Me Out to the Ball Game' when they're already there?", "Larry Andersen"],
+    ["They should move first base back a step to eliminate all those close plays.", "John Lowenstein"],
+    ["Picking up quicksilver with boxing gloves.", "Red Smith, on fielding"]
   ];
 
-  function todayNum() {
-    var s = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date());
-    var p = s.split('-');
-    return Math.floor(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 864e5);
-  }
+  function dayNum(s) { var p = s.split('-'); return Math.floor(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 864e5); }
+  function todayNum() { return dayNum(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date())); }
   function rng(seed) {
     return function () {
       seed = (seed + 0x6D2B79F5) | 0;
@@ -56,10 +207,11 @@
     };
   }
   function pick() {
-    var n = QUOTES.length, d = todayNum(), cycle = Math.floor(d / n), r = rng(cycle * 7919 + 400);
+    var n = QUOTES.length, idx = todayNum() - dayNum(SEASON_START);
+    var cycle = Math.floor(idx / n), pos = idx - cycle * n, r = rng(cycle * 7919 + 400);
     var order = QUOTES.map(function (_, i) { return i; });
     for (var i = n - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)); var t = order[i]; order[i] = order[j]; order[j] = t; }
-    return QUOTES[order[d % n]];
+    return QUOTES[order[pos]];
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function render() {
