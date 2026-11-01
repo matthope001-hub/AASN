@@ -1,5 +1,13 @@
 [
   {
+    "date": "2026-10-31",
+    "title": "Quote of the Day",
+    "items": [
+      "The Home page now shows a famous baseball quote, a new one every day.",
+      "It changes at midnight, and everyone sees the same quote that day."
+    ]
+  },
+  {
     "date": "2026-10-30",
     "title": "Player news",
     "items": [
