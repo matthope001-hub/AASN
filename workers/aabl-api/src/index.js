@@ -740,7 +740,8 @@ async function deathPoolWatch(env) {
     const m = String(c.wiki || '').match(/wikipedia\.org\/wiki\/([^?#]+)/);
     return (m ? decodeURIComponent(m[1]) : c.name).replace(/_/g, ' ').trim();
   };
-  const byTitle = new Map(celebs.map(c => [titleOf(c), c.name]));
+  const byTitle = new Map();  // one Wikipedia page can belong to more than one pool name (e.g. "Chris Hoy" and "Sir Chris Hoy")
+  celebs.forEach(c => { const t = titleOf(c); if (!byTitle.has(t)) byTitle.set(t, []); byTitle.get(t).push(c.name); });
   const titles = [...byTitle.keys()], qOf = new Map();
   for (let i = 0; i < titles.length; i += 50) {
     const chunk = titles.slice(i, i + 50);
@@ -751,7 +752,7 @@ async function deathPoolWatch(env) {
     for (const r of (j.query && j.query.redirects) || []) back.set(r.to, back.get(r.from) || r.from);
     for (const pg of Object.values((j.query && j.query.pages) || {})) {
       const q = pg.pageprops && pg.pageprops.wikibase_item, orig = back.get(pg.title);
-      if (q && orig && byTitle.has(orig)) qOf.set(q, byTitle.get(orig));
+      if (q && orig && byTitle.has(orig)) qOf.set(q, [...(qOf.get(q) || []), ...byTitle.get(orig)]);
     }
   }
   const ids = [...qOf.keys()], found = [];
@@ -763,13 +764,14 @@ async function deathPoolWatch(env) {
       if (!claim) continue;
       const v = claim.mainsnak.datavalue.value, dod = String(v.time || '').slice(1, 11);
       if (v.precision < 11 || !/^\d{4}-\d{2}-\d{2}$/.test(dod) || dod < start) continue;
-      found.push({ celeb: qOf.get(q), dod, source: 'https://www.wikidata.org/wiki/' + q });
+      qOf.get(q).forEach(name => found.push({ celeb: name, dod, source: 'https://www.wikidata.org/wiki/' + q }));
     }
   }
   const now = new Date().toISOString();
   if (found.length) await DB.batch(found.map(f => DB.prepare("INSERT OR IGNORE INTO death_alerts VALUES (?, ?, ?, ?, 'new')").bind(f.celeb, f.dod, f.source, now)));
-  const missing = celebs.filter(c => ![...qOf.values()].includes(c.name)).map(c => c.name);
-  const note = `Matched ${qOf.size} of ${celebs.length} on Wikipedia` + (found.length ? '. Found: ' + found.map(f => f.celeb).join(', ') : '') +
+  const matchedNames = new Set([...qOf.values()].flat());
+  const missing = celebs.filter(c => !matchedNames.has(c.name)).map(c => c.name);
+  const note = `Matched ${matchedNames.size} of ${celebs.length} on Wikipedia` + (found.length ? '. Found: ' + found.map(f => f.celeb).join(', ') : '') +
     (missing.length ? '. Not found on Wikipedia: ' + missing.slice(0, 40).join(', ') + (missing.length > 40 ? ' …' : '') : '');
   await DB.prepare('INSERT INTO watch_log VALUES (?, ?, ?, ?)').bind(now, celebs.length, found.length, note).run();
   if (found.length && env.GMAIL_FROM) {
@@ -782,7 +784,7 @@ async function deathPoolWatch(env) {
     await gmailSend(env, to, `Death Pool: ${found.length} possible death${found.length > 1 ? 's' : ''}`, lines.join('\n') + '\n\nRecord them at ' + link, html)
       .catch(e => console.log('Death Pool watch email: ' + e));
   }
-  return { checked: celebs.length, matched: qOf.size, found };
+  return { checked: celebs.length, matched: matchedNames.size, found };
 }
 
 // POST /deathpool/admin {password, action, ...} -> Death Pool commissioner tools (D1 database).
