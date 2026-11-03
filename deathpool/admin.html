@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Death Pool Admin — AASN</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07110A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="dp.css?v=9">
+<style>
+  .adm { display: grid; gap: 16px; padding: 18px 0 48px; }
+  .adm-tools:not([hidden]) { display: grid; gap: 16px; }
+  .adm .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .adm input[type=text], .adm input[type=password], .adm input[type=date], .adm input[type=number] {
+    min-height: 40px; padding: 0 12px; background: var(--bg); border: 1px solid var(--border-2); border-radius: 4px;
+    color: var(--text); font-family: var(--mono); font-size: 13px; }
+  .adm .grow { flex: 1 1 260px; }
+  .adm .go { min-height: 40px; padding: 0 16px; background: var(--g); color: #07110A; border: 0; border-radius: 4px;
+    font-family: var(--display); font-weight: 800; letter-spacing: 1px; font-size: 15px; cursor: pointer; }
+  .adm .go.sm { min-height: 30px; padding: 0 10px; font-size: 13px; }
+  .adm .bon { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 14px; margin: 12px 0; }
+  .adm .bon label { font-size: 14px; display: flex; gap: 6px; align-items: baseline; }
+  .adm .bon b { font-family: var(--mono); color: var(--g); }
+  .adm .msg { font-family: var(--mono); font-size: 13px; }
+  .adm .msg.err { color: #FF7A6B; }
+  .adm .msg.ok { color: var(--g); }
+  .adm .warn { color: #F2C14E; font-weight: 600; }
+  .adm .scroll { max-height: 480px; overflow-y: auto; }
+  .adm a { color: var(--g); }
+  .adm td.num, .adm th.num { text-align: right; }
+  .adm .cfg label { display: block; padding: 4px 0; font-family: var(--mono); font-size: 13px; }
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a href="./" class="brand" aria-label="Back to Death Pool">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#07110A" stroke="#8BE37A" stroke-width="1.5"/><path d="M3.5 12.5h4l1.6-3.2 2.4 6.4 2-8 1.8 4.8h5.2" fill="none" stroke="#8BE37A" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <div><b>DEATH POOL ADMIN</b><span>COMMISSIONER ONLY</span></div>
+    </a>
+  </div>
+</header>
+
+<main class="wrap adm">
+  <section class="panel" id="lock">
+    <h2>SIGN IN <small>AASN ADMIN PASSWORD</small></h2>
+    <div class="row">
+      <input type="password" id="pw" class="grow" placeholder="Admin password" autocomplete="current-password">
+      <button type="button" class="go" id="pw-go">UNLOCK</button>
+    </div>
+    <p class="msg err" id="pw-msg"></p>
+  </section>
+
+  <div id="tools" class="adm-tools" hidden>
+    <section class="panel">
+      <h2>RECORD A DEATH</h2>
+      <div class="row">
+        <input type="text" id="cs" list="celeb-list" class="grow" placeholder="Celebrity name" autocomplete="off">
+        <datalist id="celeb-list"></datalist>
+        <input type="date" id="dod">
+        <input type="number" id="ov" step="any" placeholder="Override total (optional)">
+      </div>
+      <p class="small" id="cs-info" style="margin-top:8px"></p>
+      <div class="bon" id="bon"></div>
+      <div class="row"><button type="button" class="go" id="save">SAVE DEATH</button><span class="msg" id="save-msg"></span></div>
+    </section>
+
+    <section class="panel">
+      <h2>STATUS CHECK <small>STILL ALIVE · MOST PICKED FIRST · TAP A NAME TO CHECK IT</small></h2>
+      <div class="row" style="margin-bottom:8px">
+        <input type="search" id="sf" class="search grow" placeholder="Filter by name or category">
+        <label class="small"><input type="checkbox" id="sp" checked> Only celebs someone picked</label>
+      </div>
+      <div class="tbl-wrap scroll" id="sl"></div>
+    </section>
+
+    <section class="panel">
+      <h2>PLAYERS <small>TICK WHEN PAID</small></h2>
+      <div class="tbl-wrap" id="pl"></div>
+    </section>
+
+    <section class="panel">
+      <h2>SETTINGS</h2>
+      <div class="cfg" id="cfg"></div>
+    </section>
+  </div>
+</main>
+
+<script src="../shared/config.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let PW = '', CELEBS = [], BONUSES = [];
+  try { PW = sessionStorage.getItem('dpAdminPw') || ''; } catch (e) { /* storage blocked */ }
+
+  const api = async (action, extra = {}) => {
+    const res = await fetch(AASN_API_URL + '/deathpool/admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: PW, action, ...extra })
+    });
+    return res.json().catch(() => ({ success: false, error: 'Bad response (' + res.status + ')' }));
+  };
+
+  const age = d => {
+    if (!d) return '';
+    const b = new Date(d + 'T00:00:00'), n = new Date();
+    let a = n.getFullYear() - b.getFullYear();
+    if (n < new Date(n.getFullYear(), b.getMonth(), b.getDate())) a--;
+    return a;
+  };
+  const wiki = c => c.wiki || ('https://en.wikipedia.org/wiki/Special:Search?search=' + encodeURIComponent(c.name));
+
+  async function unlock() {
+    PW = $('pw').value || PW;
+    $('pw-msg').textContent = '';
+    const s = await api('state');
+    if (!s.success) { $('pw-msg').textContent = s.error || 'Could not sign in.'; return; }
+    try { sessionStorage.setItem('dpAdminPw', PW); } catch (e) { /* storage blocked */ }
+    $('lock').hidden = true;
+    $('tools').hidden = false;
+    render(s);
+  }
+
+  function render(s) {
+    CELEBS = s.celebs;
+    BONUSES = s.bonuses;
+    $('celeb-list').innerHTML = CELEBS.filter(c => !c.dod).map(c => '<option value="' + esc(c.name) + '">').join('');
+    $('bon').innerHTML = BONUSES.map(b =>
+      '<label><input type="checkbox" value="' + esc(b.code) + '"> <b>' + esc(b.code) + '</b> <span>' + esc(b.label) +
+      ' <span class="small">(' + (b.points > 0 ? '+' : '') + b.points + ')</span></span></label>').join('');
+    statusList();
+    $('pl').innerHTML = '<table><thead><tr><th>PAID</th><th>CEMETERY</th><th>NAME</th><th class="hide-sm">PHONE</th></tr></thead><tbody>' +
+      s.players.map(p => '<tr><td><input type="checkbox" data-id="' + p.id + '"' + (p.paid ? ' checked' : '') + '></td><td>' + esc(p.cemetery) +
+        '</td><td>' + esc(p.name) + '</td><td class="hide-sm">' + esc(p.phone) + '</td></tr>').join('') + '</tbody></table>';
+    document.querySelectorAll('#pl input[data-id]').forEach(i => i.onchange = () => api('paid', { id: i.dataset.id, paid: i.checked }));
+    $('cfg').innerHTML = Object.entries(s.config).map(([k, v]) =>
+      '<label><input type="checkbox" data-k="' + esc(k) + '"' + (v === 'TRUE' ? ' checked' : '') + '> ' + esc(k) + '</label>').join('');
+    document.querySelectorAll('#cfg input[data-k]').forEach(i => i.onchange = () => api('config', { key: i.dataset.k, value: i.checked }));
+  }
+
+  function statusList() {
+    const f = $('sf').value.trim().toLowerCase(), only = $('sp').checked;
+    const list = CELEBS.filter(c => !c.dod && (!only || c.picked > 0) && (!f || (c.name + ' ' + (c.boxes || '')).toLowerCase().includes(f)))
+      .sort((a, b) => b.picked - a.picked || a.name.localeCompare(b.name));
+    $('sl').innerHTML = list.length
+      ? '<table><thead><tr><th>CELEB</th><th class="num">AGE</th><th class="num">PICKED</th><th></th></tr></thead><tbody>' +
+        list.map(c => '<tr><td><a href="' + esc(wiki(c)) + '" target="_blank" rel="noopener">' + esc(c.name) + '</a>' +
+          (c.wiki ? '' : ' <span class="small">(search)</span>') + '<div class="small">' + esc(c.boxes || '') + '</div></td><td class="num">' +
+          age(c.dob) + '</td><td class="num">' + c.picked + '</td><td><button type="button" class="go sm" data-n="' + esc(c.name) + '">DIED</button></td></tr>').join('') +
+        '</tbody></table>'
+      : '<p class="small" style="padding:12px">Nobody matches.</p>';
+    document.querySelectorAll('#sl button[data-n]').forEach(b => b.onclick = () => {
+      $('cs').value = b.dataset.n;
+      showInfo();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      $('dod').focus();
+    });
+  }
+
+  function showInfo() {
+    const c = CELEBS.find(x => x.name === $('cs').value);
+    if (!c) { $('cs-info').textContent = ''; return; }
+    $('cs-info').innerHTML = '<a href="' + esc(wiki(c)) + '" target="_blank" rel="noopener">Check ' + esc(c.name) + ' on Wikipedia →</a>' +
+      (c.mummy ? ' · <span class="warn">Mummy&#39;s Curse: scores −10 (B16 added automatically)</span>' : '') +
+      (c.dod ? ' · <span class="warn">Already recorded as died ' + esc(c.dod) + '</span>' : '');
+  }
+
+  async function save() {
+    const m = $('save-msg');
+    m.className = 'msg'; m.textContent = 'Saving…';
+    const r = await api('death', {
+      celeb: $('cs').value.trim(), dod: $('dod').value, override: $('ov').value,
+      bonuses: [...document.querySelectorAll('#bon input:checked')].map(i => i.value)
+    });
+    if (!r.success) { m.className = 'msg err'; m.textContent = r.error || 'Could not save.'; return; }
+    m.className = 'msg ok';
+    m.textContent = 'Saved: ' + r.celeb + ' = ' + Number(r.total).toFixed(2) + ' pts' + (r.bonuses.length ? ' (' + r.bonuses.join(', ') + ')' : '') + '. Site updated.';
+    $('cs').value = ''; $('ov').value = ''; $('cs-info').textContent = '';
+    document.querySelectorAll('#bon input:checked').forEach(i => { i.checked = false; });
+    const s = await api('state');
+    if (s.success) render(s);
+  }
+
+  $('pw-go').onclick = unlock;
+  $('pw').onkeydown = e => { if (e.key === 'Enter') unlock(); };
+  $('cs').oninput = showInfo;
+  $('sf').oninput = statusList;
+  $('sp').onchange = statusList;
+  $('save').onclick = save;
+  if (PW) unlock();
+})();
+</script>
+</body>
+</html>

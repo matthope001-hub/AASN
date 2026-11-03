@@ -73,6 +73,12 @@ export default {
         return json(request, env, await deathPoolMe(env, body));
       } catch (err) { console.log('Death Pool me failed: ' + (err && err.stack || err)); return json(request, env, { success: false, error: 'Something went wrong.' }, 500); }
     }
+    if (url.pathname === '/deathpool/admin' && request.method === 'POST') {
+      try {
+        let body = {}; try { body = JSON.parse(await request.text()); } catch (e) { /* ignore */ }
+        return json(request, env, await deathPoolAdmin(env, ctx, body));
+      } catch (err) { console.log('Death Pool admin failed: ' + (err && err.stack || err)); return json(request, env, { success: false, error: 'Something went wrong: ' + (err && err.message || err) }, 500); }
+    }
     if (url.pathname === '/deathpool/data') {
       try { return await deathPoolData(request, env, ctx); }
       catch (err) { console.log('Death Pool data failed: ' + (err && err.stack || err)); return json(request, env, { success: false }, 502); }
@@ -676,6 +682,80 @@ async function deathPoolData(request, env, ctx) {
   const out = await refreshDeathPool(env);
   if (!out) return json(request, env, { success: false }, 404);
   return json(request, env, pickKeys(out));
+}
+
+// POST /deathpool/admin {password, action, ...} -> Death Pool commissioner tools (D1 database).
+// Needs the ADMIN_PASSWORD secret. Actions: state, death, paid, config.
+async function deathPoolAdmin(env, ctx, body) {
+  if (!env.ADMIN_PASSWORD) return { success: false, error: 'Admin is not set up yet (ADMIN_PASSWORD secret missing).' };
+  if (!safeEqual(body.password, env.ADMIN_PASSWORD)) {
+    await new Promise(r => setTimeout(r, 800));
+    return { success: false, error: 'Wrong admin password.' };
+  }
+  if (!env.DB) return { success: false, error: 'Death Pool database is not connected (DB binding missing).' };
+  const DB = env.DB;
+  const all = async (sql, ...args) => (await DB.prepare(sql).bind(...args).all()).results;
+  const refresh = () => refreshDeathPool(env).catch(e => console.log('Death Pool refresh: ' + e));
+
+  if (body.action === 'state') {
+    const [config, players, celebs, bonuses] = await Promise.all([
+      all('SELECT key, value FROM config'),
+      all('SELECT id, cemetery, name, email, phone, paid FROM players ORDER BY cemetery'),
+      all(`SELECT c.name, c.dob, c.wiki, d.dod,
+        (SELECT COUNT(*) FROM picks k WHERE k.celeb = c.name) AS picked,
+        (SELECT GROUP_CONCAT(DISTINCT cat.name) FROM category_options o JOIN categories cat ON cat.slug = o.slug WHERE o.celeb = c.name) AS boxes,
+        EXISTS (SELECT 1 FROM category_options o WHERE o.slug = 'mummys_curse' AND o.celeb = c.name) AS mummy
+        FROM celebs c LEFT JOIN deaths d ON d.celeb = c.name ORDER BY c.name`),
+      all('SELECT code, label, points FROM bonus_rules ORDER BY CAST(SUBSTR(code, 2) AS INT)')
+    ]);
+    return { success: true, config: Object.fromEntries(config.map(r => [r.key, r.value])), players, celebs, bonuses };
+  }
+
+  if (body.action === 'death') {
+    const celeb = String(body.celeb || '').trim(), dod = String(body.dod || '').trim();
+    if (!celeb || !/^\d{4}-\d{2}-\d{2}$/.test(dod)) return { success: false, error: 'Pick a celeb and a date of death.' };
+    const c = await DB.prepare('SELECT dob FROM celebs WHERE name = ?').bind(celeb).first();
+    if (!c) return { success: false, error: 'That name is not in the pool list.' };
+    // Mummy's Curse celebs: no age points, always B16 (-10); other bonuses (e.g. Solo Pick) still count.
+    const mummy = await DB.prepare("SELECT 1 AS x FROM category_options WHERE slug = 'mummys_curse' AND celeb = ?").bind(celeb).first();
+    let bonuses = [...new Set((body.bonuses || []).map(String))].filter(b => /^B\d{1,2}$/.test(b));
+    if (mummy && !bonuses.includes('B16')) bonuses.push('B16');
+    if (!mummy) bonuses = bonuses.filter(b => b !== 'B16');
+    if (!mummy && !c.dob) return { success: false, error: 'No date of birth on file for ' + celeb + '.' };
+    const rules = Object.fromEntries((await all('SELECT code, points FROM bonus_rules')).map(r => [r.code, r.points]));
+    const yrs = (a, b) => {
+      const A = new Date(a + 'T00:00:00Z'), B = new Date(b + 'T00:00:00Z');
+      let y = B.getUTCFullYear() - A.getUTCFullYear();
+      let an = new Date(Date.UTC(A.getUTCFullYear() + y, A.getUTCMonth(), A.getUTCDate()));
+      if (an > B) { y--; an = new Date(Date.UTC(A.getUTCFullYear() + y, A.getUTCMonth(), A.getUTCDate())); }
+      const nx = new Date(Date.UTC(A.getUTCFullYear() + y + 1, A.getUTCMonth(), A.getUTCDate()));
+      return y + (B - an) / (nx - an);
+    };
+    const base = mummy ? 0 : Math.round((100 - yrs(c.dob, dod)) * 1e6) / 1e6;
+    const bonus = bonuses.reduce((s, b) => s + (rules[b] ?? 10), 0);
+    const override = body.override === '' || body.override == null ? null : Number(body.override);
+    const total = Number.isFinite(override) ? override : Math.round((base + bonus) * 1e6) / 1e6;
+    await DB.batch([
+      DB.prepare('INSERT OR REPLACE INTO deaths VALUES (?, ?, ?, ?, ?, ?)').bind(celeb, dod, bonuses.join(','), bonus, base, total),
+      DB.prepare("INSERT INTO confirmations VALUES (datetime('now'), ?, ?, NULL, ?, '✅ Confirmed (admin)')").bind(celeb, dod, bonuses.join(','))
+    ]);
+    await refresh();
+    return { success: true, celeb, base, bonus, total, bonuses };
+  }
+
+  if (body.action === 'paid') {
+    await DB.prepare('UPDATE players SET paid = ? WHERE id = ?').bind(body.paid ? 1 : 0, Number(body.id)).run();
+    return { success: true };
+  }
+
+  if (body.action === 'config') {
+    const key = String(body.key || '');
+    if (!/^[A-Z0-9_]+$/.test(key)) return { success: false, error: 'Bad setting name.' };
+    await DB.prepare('INSERT OR REPLACE INTO config VALUES (?, ?)').bind(key, body.value ? 'TRUE' : 'FALSE').run();
+    return { success: true };
+  }
+
+  return { success: false, error: 'Unknown action.' };
 }
 
 // POST /deathpool/me {accessToken} -> the cemeteries owned by the signed-in email(s).
