@@ -684,6 +684,43 @@ async function deathPoolData(request, env, ctx) {
   return json(request, env, pickKeys(out));
 }
 
+// Death Pool bonuses that can be worked out from the date and pick data.
+// Cause-of-death bonuses (B4-B7, and the cancer part of B12/B13) stay manual.
+function easterSunday(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return Date.UTC(y, month - 1, day);
+}
+
+async function deathPoolAutoBonuses(DB, celeb, dod) {
+  const c = await DB.prepare(`SELECT c.dob, c.black,
+      (SELECT COUNT(*) FROM picks k WHERE k.celeb = c.name) AS picked,
+      EXISTS (SELECT 1 FROM category_options o WHERE o.slug = 'mummys_curse' AND o.celeb = c.name) AS mummy
+    FROM celebs c WHERE c.name = ?`).bind(celeb).first();
+  if (!c) return { bonuses: [], notes: [] };
+  const D = new Date(dod + 'T00:00:00Z'), y = D.getUTCFullYear(), mo = D.getUTCMonth() + 1, day = D.getUTCDate();
+  const earlier = await DB.prepare('SELECT COUNT(*) AS n FROM deaths WHERE dod < ? AND celeb <> ?').bind(dod, celeb).first();
+  const sameDay = (await DB.prepare('SELECT celeb FROM deaths WHERE dod = ? AND celeb <> ?').bind(dod, celeb).all()).results.map(r => r.celeb);
+  const easter = easterSunday(y), t = D.getTime(), dayMs = 86400000;
+  const out = [], notes = [];
+  if (!earlier.n) out.push('B1');
+  if (sameDay.length) { out.push('B2'); notes.push('Daily Double with ' + sameDay.join(', ') + ' (they get B2 too).'); }
+  if (Number(c.picked) === 1) out.push('B3');
+  if (c.dob && Number(c.dob.slice(5, 7)) === mo) out.push('B8');
+  if (c.black && mo === 2) out.push('B9');
+  if (t >= easter - 2 * dayMs && t <= easter + dayMs) out.push('B10');
+  if (day === 13 && D.getUTCDay() === 5) out.push('B11');
+  if (mo === 12 && day <= 25) out.push('B14');
+  if (mo === 12 && day === 31) out.push('B15');
+  if (c.mummy) out.push('B16');
+  if (mo === 9) notes.push('September: tick B12 if it was prostate cancer.');
+  if (mo === 10) notes.push('October: tick B13 if it was breast cancer.');
+  notes.push('Check cause of death for B4 (suicide), B5 (overdose), B6 (murdered), B7 (aircraft).');
+  return { bonuses: out, notes };
+}
+
 // POST /deathpool/admin {password, action, ...} -> Death Pool commissioner tools (D1 database).
 // Needs the ADMIN_PASSWORD secret. Actions: state, death, paid, config.
 async function deathPoolAdmin(env, ctx, body) {
@@ -709,6 +746,12 @@ async function deathPoolAdmin(env, ctx, body) {
       all('SELECT code, label, points FROM bonus_rules ORDER BY CAST(SUBSTR(code, 2) AS INT)')
     ]);
     return { success: true, config: Object.fromEntries(config.map(r => [r.key, r.value])), players, celebs, bonuses };
+  }
+
+  if (body.action === 'suggest') {
+    const celeb = String(body.celeb || '').trim(), dod = String(body.dod || '').trim();
+    if (!celeb || !/^\d{4}-\d{2}-\d{2}$/.test(dod)) return { success: false, error: 'Pick a celeb and a date.' };
+    return { success: true, ...(await deathPoolAutoBonuses(DB, celeb, dod)) };
   }
 
   if (body.action === 'death') {
@@ -739,8 +782,19 @@ async function deathPoolAdmin(env, ctx, body) {
       DB.prepare('INSERT OR REPLACE INTO deaths VALUES (?, ?, ?, ?, ?, ?)').bind(celeb, dod, bonuses.join(','), bonus, base, total),
       DB.prepare("INSERT INTO confirmations VALUES (datetime('now'), ?, ?, NULL, ?, '✅ Confirmed (admin)')").bind(celeb, dod, bonuses.join(','))
     ]);
+    // Daily Double goes to every pool celeb who died that day, so give it to the earlier one(s) too.
+    let alsoUpdated = [];
+    if (bonuses.includes('B2')) {
+      const pts = rules.B2 ?? 10;
+      const others = (await all("SELECT celeb, bonuses FROM deaths WHERE dod = ? AND celeb <> ?", dod, celeb))
+        .filter(o => !String(o.bonuses || '').split(',').includes('B2'));
+      if (others.length) {
+        await DB.batch(others.map(o => DB.prepare("UPDATE deaths SET bonuses = TRIM(COALESCE(bonuses, '') || ',B2', ','), bonus_pts = bonus_pts + ?, total = total + ? WHERE celeb = ?").bind(pts, pts, o.celeb)));
+        alsoUpdated = others.map(o => o.celeb);
+      }
+    }
     await refresh();
-    return { success: true, celeb, base, bonus, total, bonuses };
+    return { success: true, celeb, base, bonus, total, bonuses, alsoUpdated };
   }
 
   if (body.action === 'paid') {

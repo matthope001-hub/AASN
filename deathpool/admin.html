@@ -26,6 +26,7 @@
   .adm .msg { font-family: var(--mono); font-size: 13px; }
   .adm .msg.err { color: #FF7A6B; }
   .adm .msg.ok { color: var(--g); }
+  .adm .auto { color: var(--g); font-family: var(--mono); font-size: 11px; }
   .adm .warn { color: #F2C14E; font-weight: 600; }
   .adm .scroll { max-height: 480px; overflow-y: auto; }
   .adm a { color: var(--g); }
@@ -64,6 +65,7 @@
       </div>
       <p class="small" id="cs-info" style="margin-top:8px"></p>
       <div class="bon" id="bon"></div>
+      <p class="small" id="bon-notes" style="margin:-4px 0 12px"></p>
       <div class="row"><button type="button" class="go" id="save">SAVE DEATH</button><span class="msg" id="save-msg"></span></div>
     </section>
 
@@ -168,6 +170,25 @@
       (c.dod ? ' · <span class="warn">Already recorded as died ' + esc(c.dod) + '</span>' : '');
   }
 
+  // Tick the bonuses that follow from the date and pick data; you can still change them before saving.
+  let sugTimer;
+  function suggest() {
+    clearTimeout(sugTimer);
+    sugTimer = setTimeout(async () => {
+      const celeb = $('cs').value.trim(), dod = $('dod').value;
+      document.querySelectorAll('#bon .auto').forEach(e => e.remove());
+      $('bon-notes').textContent = '';
+      if (!celeb || !dod || !CELEBS.some(c => c.name === celeb)) return;
+      const r = await api('suggest', { celeb, dod });
+      if (!r.success) return;
+      document.querySelectorAll('#bon input').forEach(i => {
+        i.checked = r.bonuses.includes(i.value);
+        if (i.checked) i.parentElement.insertAdjacentHTML('beforeend', ' <span class="auto small">auto</span>');
+      });
+      $('bon-notes').innerHTML = r.notes.map(esc).join('<br>');
+    }, 250);
+  }
+
   async function save() {
     const m = $('save-msg');
     m.className = 'msg'; m.textContent = 'Saving…';
@@ -177,8 +198,10 @@
     });
     if (!r.success) { m.className = 'msg err'; m.textContent = r.error || 'Could not save.'; return; }
     m.className = 'msg ok';
-    m.textContent = 'Saved: ' + r.celeb + ' = ' + Number(r.total).toFixed(2) + ' pts' + (r.bonuses.length ? ' (' + r.bonuses.join(', ') + ')' : '') + '. Site updated.';
-    $('cs').value = ''; $('ov').value = ''; $('cs-info').textContent = '';
+    m.textContent = 'Saved: ' + r.celeb + ' = ' + Number(r.total).toFixed(2) + ' pts' + (r.bonuses.length ? ' (' + r.bonuses.join(', ') + ')' : '') +
+      (r.alsoUpdated && r.alsoUpdated.length ? '. Daily Double also added to ' + r.alsoUpdated.join(', ') : '') + '. Site updated.';
+    $('cs').value = ''; $('ov').value = ''; $('cs-info').textContent = ''; $('bon-notes').textContent = '';
+    document.querySelectorAll('#bon .auto').forEach(e => e.remove());
     document.querySelectorAll('#bon input:checked').forEach(i => { i.checked = false; });
     const s = await api('state');
     if (s.success) render(s);
@@ -186,7 +209,8 @@
 
   $('pw-go').onclick = unlock;
   $('pw').onkeydown = e => { if (e.key === 'Enter') unlock(); };
-  $('cs').oninput = showInfo;
+  $('cs').oninput = () => { showInfo(); suggest(); };
+  $('dod').onchange = suggest;
   $('sf').oninput = statusList;
   $('sp').onchange = statusList;
   $('save').onclick = save;
