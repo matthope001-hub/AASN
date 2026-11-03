@@ -56,6 +56,12 @@
 
   <div id="tools" class="adm-tools" hidden>
     <section class="panel">
+      <h2>POSSIBLE DEATHS <small id="al-sub">CHECKED EVERY 3 HOURS ON WIKIPEDIA</small></h2>
+      <div id="al"></div>
+      <div class="row" style="margin-top:8px"><button type="button" class="go sm" id="watch">CHECK NOW</button><span class="msg" id="watch-msg"></span></div>
+    </section>
+
+    <section class="panel">
       <h2>RECORD A DEATH</h2>
       <div class="row">
         <input type="text" id="cs" list="celeb-list" class="grow" placeholder="Celebrity name" autocomplete="off">
@@ -134,6 +140,7 @@
       '<label><input type="checkbox" value="' + esc(b.code) + '"> <b>' + esc(b.code) + '</b> <span>' + esc(b.label) +
       ' <span class="small">(' + (b.points > 0 ? '+' : '') + b.points + ')</span></span></label>').join('');
     statusList();
+    alerts(s);
     $('pl').innerHTML = '<table><thead><tr><th>PAID</th><th>CEMETERY</th><th>NAME</th><th class="hide-sm">PHONE</th></tr></thead><tbody>' +
       s.players.map(p => '<tr><td><input type="checkbox" data-id="' + p.id + '"' + (p.paid ? ' checked' : '') + '></td><td>' + esc(p.cemetery) +
         '</td><td>' + esc(p.name) + '</td><td class="hide-sm">' + esc(p.phone) + '</td></tr>').join('') + '</tbody></table>';
@@ -141,6 +148,28 @@
     $('cfg').innerHTML = Object.entries(s.config).map(([k, v]) =>
       '<label><input type="checkbox" data-k="' + esc(k) + '"' + (v === 'TRUE' ? ' checked' : '') + '> ' + esc(k) + '</label>').join('');
     document.querySelectorAll('#cfg input[data-k]').forEach(i => i.onchange = () => api('config', { key: i.dataset.k, value: i.checked }));
+  }
+
+  function alerts(s) {
+    const l = s.alerts || [];
+    const lc = s.lastCheck;
+    $('al-sub').textContent = 'CHECKED EVERY 3 HOURS ON WIKIPEDIA' + (lc ? ' · LAST ' + new Date(lc.ts).toLocaleString() + ' · ' + lc.checked + ' CELEBS' : '');
+    $('al').innerHTML = l.length
+      ? '<div class="tbl-wrap"><table><thead><tr><th>CELEB</th><th>DIED</th><th></th></tr></thead><tbody>' +
+        l.map(a => '<tr><td><b>' + esc(a.celeb) + '</b> <a class="small" href="' + esc(a.source) + '" target="_blank" rel="noopener">source</a>' +
+          (CELEBS.find(c => c.name === a.celeb) ? ' · <a class="small" href="' + esc(wiki(CELEBS.find(c => c.name === a.celeb))) + '" target="_blank" rel="noopener">Wikipedia</a>' : '') +
+          '</td><td>' + esc(a.dod) + '</td><td class="row"><button type="button" class="go sm" data-rec="' + esc(a.celeb) + '" data-dod="' + esc(a.dod) + '">VERIFY &amp; RECORD</button>' +
+          '<button type="button" class="go sm" style="background:var(--border-2);color:var(--text)" data-dis="' + esc(a.celeb) + '">NOT DEAD</button></td></tr>').join('') +
+        '</tbody></table></div>'
+      : '<p class="small">No new deaths found.</p>';
+    document.querySelectorAll('#al button[data-rec]').forEach(b => b.onclick = () => {
+      $('cs').value = b.dataset.rec; $('dod').value = b.dataset.dod; showInfo(); suggest();
+      $('cs').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    document.querySelectorAll('#al button[data-dis]').forEach(b => b.onclick = async () => {
+      await api('dismiss', { celeb: b.dataset.dis });
+      const s2 = await api('state'); if (s2.success) render(s2);
+    });
   }
 
   function statusList() {
@@ -214,6 +243,13 @@
   $('sf').oninput = statusList;
   $('sp').onchange = statusList;
   $('save').onclick = save;
+  $('watch').onclick = async () => {
+    $('watch-msg').className = 'msg'; $('watch-msg').textContent = 'Checking Wikipedia… (about 20 seconds)';
+    const r = await api('watch');
+    $('watch-msg').className = 'msg ' + (r.success ? 'ok' : 'err');
+    $('watch-msg').textContent = r.success ? 'Checked ' + r.checked + ' celebs, found ' + r.found + ' new.' : (r.error || 'Check failed.');
+    const s = await api('state'); if (s.success) render(s);
+  };
   if (PW) unlock();
 })();
 </script>

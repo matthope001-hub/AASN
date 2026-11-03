@@ -120,6 +120,8 @@ export default {
       ctx.waitUntil(aaflOutbox(env, sendAs).catch(err => console.log('AAFL outbox failed: ' + (err && err.stack || err))));
       ctx.waitUntil(aaflReminders(env, tick).catch(err => console.log('AAFL reminders failed: ' + (err && err.stack || err))));
       if (tick.getUTCMinutes() % 10 === 4) ctx.waitUntil(aaflSync(env).catch(err => console.log('AAFL sync failed: ' + (err && err.stack || err))));
+      // Death Pool: check Wikipedia/Wikidata for deaths every 3 hours (at :37).
+      if (tick.getUTCMinutes() === 37 && tick.getUTCHours() % 3 === 0) ctx.waitUntil(deathPoolWatch(env).catch(err => console.log('Death Pool watch failed: ' + (err && err.stack || err))));
     }
     // Live points only run noon-3:59am Eastern (16:00-07:59 UTC), as before; mornings are AAFL-only.
     const h = tick.getUTCHours();
@@ -722,6 +724,64 @@ async function deathPoolAutoBonuses(DB, celeb, dod) {
   return { bonuses: out, notes };
 }
 
+// Death Pool watch: looks up every living picked celeb on Wikipedia -> Wikidata (date of death, P570).
+// New deaths become alerts on the admin page and an email to the commissioner; nothing is scored
+// until it's recorded on the admin page (the pool rules say every death gets verified).
+async function deathPoolWatch(env) {
+  if (!env.DB) return { checked: 0, found: [] };
+  const DB = env.DB, UA = { 'User-Agent': 'AASN-DeathPool/1.0 (https://aasn.theaahl.ca/deathpool/)' };
+  const start = ((await DB.prepare("SELECT value FROM config WHERE key = 'POOL_START'").first()) || {}).value
+    || new Date().getUTCFullYear() + '-01-01';
+  const celebs = (await DB.prepare(`SELECT c.name, c.wiki FROM celebs c
+      WHERE NOT EXISTS (SELECT 1 FROM deaths d WHERE d.celeb = c.name)
+        AND NOT EXISTS (SELECT 1 FROM death_alerts a WHERE a.celeb = c.name)
+        AND (EXISTS (SELECT 1 FROM picks k WHERE k.celeb = c.name) OR EXISTS (SELECT 1 FROM category_options o WHERE o.celeb = c.name))`).all()).results;
+  const titleOf = c => {
+    const m = String(c.wiki || '').match(/wikipedia\.org\/wiki\/([^?#]+)/);
+    return (m ? decodeURIComponent(m[1]) : c.name).replace(/_/g, ' ').trim();
+  };
+  const byTitle = new Map(celebs.map(c => [titleOf(c), c.name]));
+  const titles = [...byTitle.keys()], qOf = new Map();
+  for (let i = 0; i < titles.length; i += 50) {
+    const chunk = titles.slice(i, i + 50);
+    const u = 'https://en.wikipedia.org/w/api.php?action=query&format=json&redirects=1&prop=pageprops&ppprop=wikibase_item&titles=' + encodeURIComponent(chunk.join('|'));
+    const j = await (await fetch(u, { headers: UA })).json();
+    const back = new Map(chunk.map(t => [t, t]));
+    for (const n of (j.query && j.query.normalized) || []) back.set(n.to, back.get(n.from) || n.from);
+    for (const r of (j.query && j.query.redirects) || []) back.set(r.to, back.get(r.from) || r.from);
+    for (const pg of Object.values((j.query && j.query.pages) || {})) {
+      const q = pg.pageprops && pg.pageprops.wikibase_item, orig = back.get(pg.title);
+      if (q && orig && byTitle.has(orig)) qOf.set(q, byTitle.get(orig));
+    }
+  }
+  const ids = [...qOf.keys()], found = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const u = 'https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&props=claims&ids=' + ids.slice(i, i + 50).join('|');
+    const j = await (await fetch(u, { headers: UA })).json();
+    for (const [q, e] of Object.entries(j.entities || {})) {
+      const claim = ((e.claims && e.claims.P570) || []).find(c => c.mainsnak && c.mainsnak.datavalue);
+      if (!claim) continue;
+      const v = claim.mainsnak.datavalue.value, dod = String(v.time || '').slice(1, 11);
+      if (v.precision < 11 || !/^\d{4}-\d{2}-\d{2}$/.test(dod) || dod < start) continue;
+      found.push({ celeb: qOf.get(q), dod, source: 'https://www.wikidata.org/wiki/' + q });
+    }
+  }
+  const now = new Date().toISOString();
+  if (found.length) await DB.batch(found.map(f => DB.prepare("INSERT OR IGNORE INTO death_alerts VALUES (?, ?, ?, ?, 'new')").bind(f.celeb, f.dod, f.source, now)));
+  await DB.prepare('INSERT INTO watch_log VALUES (?, ?, ?, ?)').bind(now, celebs.length, found.length, found.map(f => f.celeb).join(', ') || null).run();
+  if (found.length && env.GMAIL_FROM) {
+    const to = env.DIGEST_TO || (String(env.GMAIL_FROM).match(/<([^>]+)>/) || [null, env.GMAIL_FROM])[1];
+    const lines = found.map(f => `${f.celeb} - died ${f.dod}`);
+    const link = (env.SITE_URL || 'https://aasn.theaahl.ca') + '/deathpool/admin.html';
+    const html = '<p>Possible Death Pool deaths found on Wikipedia/Wikidata:</p><ul>' +
+      found.map(f => `<li><b>${f.celeb.replace(/[<>&]/g, '')}</b> - died ${f.dod} (<a href="${f.source}">source</a>)</li>`).join('') +
+      `</ul><p>Verify and record them on the <a href="${link}">Death Pool admin page</a>.</p>`;
+    await gmailSend(env, to, `Death Pool: ${found.length} possible death${found.length > 1 ? 's' : ''}`, lines.join('\n') + '\n\nRecord them at ' + link, html)
+      .catch(e => console.log('Death Pool watch email: ' + e));
+  }
+  return { checked: celebs.length, found };
+}
+
 // POST /deathpool/admin {password, action, ...} -> Death Pool commissioner tools (D1 database).
 // Needs the ADMIN_PASSWORD secret. Actions: state, death, paid, config.
 async function deathPoolAdmin(env, ctx, body) {
@@ -748,7 +808,19 @@ async function deathPoolAdmin(env, ctx, body) {
         FROM celebs c LEFT JOIN deaths d ON d.celeb = c.name ORDER BY c.name`),
       all('SELECT code, label, points FROM bonus_rules ORDER BY CAST(SUBSTR(code, 2) AS INT)')
     ]);
-    return { success: true, config: Object.fromEntries(config.map(r => [r.key, r.value])), players, celebs, bonuses };
+    const alerts = await all("SELECT * FROM death_alerts WHERE status = 'new' ORDER BY dod");
+    const lastCheck = await DB.prepare('SELECT * FROM watch_log ORDER BY ts DESC LIMIT 1').first();
+    return { success: true, config: Object.fromEntries(config.map(r => [r.key, r.value])), players, celebs, bonuses, alerts, lastCheck };
+  }
+
+  if (body.action === 'watch') {
+    const r = await deathPoolWatch(env);
+    return { success: true, checked: r.checked, found: r.found.length };
+  }
+
+  if (body.action === 'dismiss') {
+    await DB.prepare("UPDATE death_alerts SET status = 'dismissed' WHERE celeb = ?").bind(String(body.celeb || '')).run();
+    return { success: true };
   }
 
   if (body.action === 'suggest') {
@@ -783,7 +855,8 @@ async function deathPoolAdmin(env, ctx, body) {
     const total = Number.isFinite(override) ? override : Math.round((base + bonus) * 1e6) / 1e6;
     await DB.batch([
       DB.prepare('INSERT OR REPLACE INTO deaths VALUES (?, ?, ?, ?, ?, ?)').bind(celeb, dod, bonuses.join(','), bonus, base, total),
-      DB.prepare("INSERT INTO confirmations VALUES (datetime('now'), ?, ?, NULL, ?, '✅ Confirmed (admin)')").bind(celeb, dod, bonuses.join(','))
+      DB.prepare("INSERT INTO confirmations VALUES (datetime('now'), ?, ?, NULL, ?, '✅ Confirmed (admin)')").bind(celeb, dod, bonuses.join(',')),
+      DB.prepare("UPDATE death_alerts SET status = 'recorded' WHERE celeb = ?").bind(celeb)
     ]);
     // Daily Double goes to every pool celeb who died that day, so give it to the earlier one(s) too.
     let alsoUpdated = [];
