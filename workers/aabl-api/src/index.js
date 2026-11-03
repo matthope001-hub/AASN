@@ -952,16 +952,22 @@ async function deathPoolWatch(env) {
       if (q && orig && byTitle.has(orig)) qOf.set(q, [...(qOf.get(q) || []), ...byTitle.get(orig)]);
     }
   }
+  // One small Wikidata query for every celeb's date of death (P570). Much lighter than downloading
+  // each person's full Wikidata record, so the check stays inside the free plan's CPU limit.
   const ids = [...qOf.keys()], found = [];
-  for (let i = 0; i < ids.length; i += 50) {
-    const u = 'https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&props=claims&ids=' + ids.slice(i, i + 50).join('|');
-    const j = await (await fetch(u, { headers: UA })).json();
-    for (const [q, e] of Object.entries(j.entities || {})) {
-      const claim = ((e.claims && e.claims.P570) || []).find(c => c.mainsnak && c.mainsnak.datavalue);
-      if (!claim) continue;
-      const v = claim.mainsnak.datavalue.value, dod = String(v.time || '').slice(1, 11);
-      if (v.precision < 11 || !/^\d{4}-\d{2}-\d{2}$/.test(dod) || dod < start) continue;
-      qOf.get(q).forEach(name => found.push({ celeb: name, dod, source: 'https://www.wikidata.org/wiki/' + q }));
+  for (let i = 0; i < ids.length; i += 200) {
+    const sparql = 'SELECT ?item ?dod ?prec WHERE { VALUES ?item { ' + ids.slice(i, i + 200).map(q => 'wd:' + q).join(' ') +
+      ' } ?item p:P570/psv:P570 ?v . ?v wikibase:timeValue ?dod ; wikibase:timePrecision ?prec . }';
+    const r = await fetch('https://query.wikidata.org/sparql', {
+      method: 'POST', headers: { ...UA, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/sparql-results+json' },
+      body: 'query=' + encodeURIComponent(sparql)
+    });
+    if (!r.ok) throw new Error('Wikidata query: ' + r.status);
+    const j = await r.json();
+    for (const b of (j.results && j.results.bindings) || []) {
+      const q = String(b.item.value).split('/').pop(), dod = String(b.dod.value).slice(0, 10), prec = Number(b.prec.value);
+      if (prec < 11 || !/^\d{4}-\d{2}-\d{2}$/.test(dod) || dod < start || !qOf.has(q)) continue;
+      qOf.get(q).forEach(name => { if (!found.some(f => f.celeb === name)) found.push({ celeb: name, dod, source: 'https://www.wikidata.org/wiki/' + q }); });
     }
   }
   // TMZ's death feed often beats Wikipedia; only picked celebs are matched.
