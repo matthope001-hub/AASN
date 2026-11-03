@@ -2,7 +2,7 @@
  * every page client-side. Hash routes: #home #standings #graveyard #deathrow
  * #birthdays #boxes #rules. Refreshes every 10 minutes while open. */
 (function () {
-  const VIEWS = ['home', 'standings', 'graveyard', 'deathrow', 'birthdays', 'boxes', 'rules', 'mine', 'whatsnew', 'notable'];
+  const VIEWS = ['home', 'dashboard', 'standings', 'graveyard', 'deathrow', 'birthdays', 'boxes', 'rules', 'mine', 'whatsnew', 'notable'];
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = v => v == null ? '—' : (Math.round(v * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -144,6 +144,11 @@
   const cemBtn = name => `<button type="button" class="linkbtn" data-cem="${esc(name)}">${logo(name, 20)}${esc(name)}</button>`;
   const leaderPts = () => (D.standings[0] && D.standings[0].points) || 0;
   const sortedStandings = () => [...D.standings].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
+  // 🥇 first, 🥈 second, 🪦 last place (as on the old Apps Script site).
+  const medal = r => {
+    const s = D.standings, last = s.length > 2 ? Math.max(...s.map(x => x.rank ?? 0)) : null;
+    return r.rank === 1 ? ' 🥇' : r.rank === 2 ? ' 🥈' : (last && r.rank === last ? ' 🪦' : '');
+  };
 
   function renderHome() {
     const s = sortedStandings(), lead = leaderPts();
@@ -155,7 +160,7 @@
     $('k-cem').textContent = s.length;
     $('h-count').textContent = s.length;
 
-    const row = (r, cls) => `<div class="st-row ${cls || ''}"><span class="rk">${r.rank ?? ''}</span>${cemBtn(r.name)}<span class="num">${fmt(r.points)}</span><span class="hide-sm"><span class="bar" style="display:block"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></span></span></div>`;
+    const row = (r, cls) => `<div class="st-row ${cls || ''}"><span class="rk">${r.rank ?? ''}</span><span style="display:flex;align-items:center;gap:6px;min-width:0">${cemBtn(r.name)}${medal(r)}</span><span class="num">${fmt(r.points)}</span><span class="hide-sm"><span class="bar" style="display:block"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></span></span></div>`;
     $('h-top').innerHTML = s.slice(0, 20).map(r => row(r, r.rank === 1 ? 'top1' : '')).join('');
     // Signed in: your cemeteries outside the top 20 are pinned underneath.
     const mine = (me && me.success && me.cemeteries) || [];
@@ -276,7 +281,7 @@
     $('s-body').innerHTML = sortedStandings().filter(r => !q || key(r.name).includes(q)).map(r => {
       const c = cemByName.get(key(r.name));
       const dead = c ? c.picks.filter(p => deadMap.has(key(p.celeb))).length : null;
-      return `<tr class="${r.rank === 1 ? 'top1' : ''}"><td class="rk">${r.rank ?? ''}</td><td>${cemBtn(r.name)}</td><td class="num">${fmt(r.points)}</td>${DM ? `<td class="hide-sm">${move(r)}</td>` : ''}<td class="num hide-sm">${dead ?? '—'}</td><td class="hide-sm"><div class="bar"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></div></td></tr>`;
+      return `<tr class="${r.rank === 1 ? 'top1' : ''}"><td class="rk">${r.rank ?? ''}</td><td>${cemBtn(r.name)}${medal(r)}</td><td class="num">${fmt(r.points)}</td>${DM ? `<td class="hide-sm">${move(r)}</td>` : ''}<td class="num hide-sm">${dead ?? '—'}</td><td class="hide-sm"><div class="bar"><i style="width:${lead ? Math.max(2, r.points / lead * 100) : 0}%"></i></div></td></tr>`;
     }).join('') || '<tr><td colspan="6" class="small">No match.</td></tr>';
     renderRace();
   }
@@ -374,6 +379,49 @@
   }
   let raceResizeT = null;
   window.addEventListener('resize', () => { clearTimeout(raceResizeT); raceResizeT = setTimeout(() => { if (D && !$('v-standings').hidden) renderRace(); }, 200); });
+
+  // ---------- dashboard (the old site's Dashboard tab)
+  const POOL_END = new Date(2026, 11, 31, 23, 59, 59);
+  function tickCountdown() {
+    const ms = Math.max(0, POOL_END - new Date());
+    const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+    set('cd-d', Math.floor(ms / 864e5)); set('cd-h', Math.floor(ms / 36e5) % 24); set('cd-m', Math.floor(ms / 6e4) % 60); set('cd-s', Math.floor(ms / 1e3) % 60);
+  }
+  setInterval(tickCountdown, 1000);
+  function renderDashboard() {
+    tickCountdown();
+    const g = D.graveyard;
+    const total = g.reduce((s, x) => s + (x.points || 0), 0);
+    const top = g.reduce((b, x) => (b && b.points >= x.points) ? b : x, null);
+    const celebs = D.celebs || [];
+    const most = celebs.reduce((b, c) => (b && (b.picked || 0) >= (c.picked || 0)) ? b : c, null);
+    const catDead = new Map();
+    D.cemeteries.forEach(c => c.picks.forEach(p => {
+      if (!deadMap.has(key(p.celeb))) return;
+      if (!catDead.has(p.category)) catDead.set(p.category, new Set());
+      catDead.get(p.category).add(key(p.celeb));
+    }));
+    const topCat = [...catDead.entries()].sort((a, b) => b[1].size - a[1].size)[0];
+    const ages = g.map(x => { const c = celebMap.get(key(x.name)); const a = c && parseInt(c.ageAtDeath, 10); return Number.isFinite(a) ? { name: x.name, age: a } : null; }).filter(Boolean);
+    const oldest = ages.reduce((b, x) => (b && b.age >= x.age) ? b : x, null);
+    const youngest = ages.reduce((b, x) => (b && b.age <= x.age) ? b : x, null);
+    const kpi = (label, val, sub, gold) => `<div class="kpi"><span>${label}</span><b${gold ? ' class="gold"' : ''}>${val}</b>${sub ? `<span style="color:var(--text);letter-spacing:0">${sub}</span>` : ''}</div>`;
+    $('db-stats').innerHTML = kpi('TOTAL DEATHS', g.length) + kpi('TOTAL POINTS SCORED', fmt(total)) +
+      kpi('HIGHEST SINGLE SCORE', top ? fmt(top.points) : '—', top ? celebBtn(top.name) : '', true) +
+      kpi('MOST PICKED CELEB', most ? (most.picked || 0) + '×' : '—', most ? celebBtn(most.name) : '');
+    $('db-stats2').innerHTML = kpi('DEADLIEST CATEGORY', topCat ? topCat[1].size : '—', topCat ? `<button type="button" class="linkbtn" data-cat="${esc(topCat[0])}">${esc(topCat[0])}</button>` : '') +
+      kpi('OLDEST TO DIE', oldest ? oldest.age : '—', oldest ? celebBtn(oldest.name) : '') +
+      kpi('YOUNGEST TO DIE', youngest ? youngest.age : '—', youngest ? celebBtn(youngest.name) : '', true) +
+      kpi('STILL ON DEATH ROW', D.deathRow.filter(x => !x.died).length);
+    const t0 = today();
+    const close = D.deathRow.filter(x => !x.died).map(x => {
+      const d = parseDate(x.rescheduled) || parseDate(x.scheduled);
+      return d ? { ...x, d, days: Math.round((d - t0) / 864e5) } : null;
+    }).filter(x => x && x.days >= 0 && x.days <= 90).sort((a, b) => a.days - b.days);
+    $('db-close').innerHTML = close.length
+      ? close.map(x => `<div class="mini"><div>${celebBtn(x.name)}<div class="sub">${esc(x.state || '')}</div></div><span class="val${x.days <= 7 ? ' g' : ''}">${x.d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${x.days === 0 ? 'TODAY' : 'IN ' + x.days + 'D'}</span></div>`).join('')
+      : '<p class="small" style="padding-top:6px">No executions scheduled in the next 90 days.</p>';
+  }
 
   function renderGraveyard() {
     const q = key($('g-search').value);
@@ -522,7 +570,7 @@
       owners.get(key(p.celeb)).push({ cem: c.name, category: p.category });
     }));
     DM = deathMove();
-    renderMine(); renderHome(); renderStandings(); renderGraveyard(); renderDeathRow(); renderBirthdays(); renderBoxes(); renderRules();
+    renderMine(); renderHome(); renderDashboard(); renderStandings(); renderGraveyard(); renderDeathRow(); renderBirthdays(); renderBoxes(); renderRules();
     $('stamp').textContent = 'UPDATED ' + new Date(D.updatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
 

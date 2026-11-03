@@ -122,6 +122,14 @@ export default {
       if (tick.getUTCMinutes() % 10 === 4) ctx.waitUntil(aaflSync(env).catch(err => console.log('AAFL sync failed: ' + (err && err.stack || err))));
       // Death Pool: check Wikipedia/Wikidata for deaths every 3 hours (at :37).
       if (tick.getUTCMinutes() === 37 && tick.getUTCHours() % 3 === 0) ctx.waitUntil(deathPoolWatch(env).catch(err => console.log('Death Pool watch failed: ' + (err && err.stack || err))));
+      // Health news every 2 hours (at :07); database check daily at 11:07 UTC (6:07am Eastern).
+      if (tick.getUTCMinutes() === 7 && tick.getUTCHours() % 2 === 0) ctx.waitUntil(deathPoolNews(env).catch(err => console.log('Death Pool news failed: ' + (err && err.stack || err))));
+      if (tick.getUTCMinutes() === 17 && tick.getUTCHours() === 11) ctx.waitUntil(deathPoolHealth(env).catch(err => console.log('Death Pool health failed: ' + (err && err.stack || err))));
+      // Year-end settlement: first tick at/after Jan 1 2027 12:01am Eastern (05:01 UTC), once.
+      if (env.DB && tick.getTime() >= Date.UTC(2027, 0, 1, 5, 1) && tick.getTime() < Date.UTC(2027, 0, 8) && tick.getUTCMinutes() % 5 === 1) {
+        ctx.waitUntil(env.DB.prepare('SELECT COUNT(*) AS n FROM final_results WHERE season = 2026').first()
+          .then(r => r.n ? null : deathPoolSettlement(env, true)).catch(err => console.log('Death Pool settlement failed: ' + (err && err.stack || err))));
+      }
     }
     // Live points only run noon-3:59am Eastern (16:00-07:59 UTC), as before; mornings are AAFL-only.
     const h = tick.getUTCHours();
@@ -697,7 +705,7 @@ function easterSunday(y) {
 }
 
 async function deathPoolAutoBonuses(DB, celeb, dod) {
-  const c = await DB.prepare(`SELECT c.dob, c.black,
+  const c = await DB.prepare(`SELECT c.dob, c.black, c.wiki,
       (SELECT COUNT(*) FROM picks k WHERE k.celeb = c.name) AS picked,
       (EXISTS (SELECT 1 FROM picks k WHERE k.category = 'mummys_curse' AND k.celeb = c.name)
         OR EXISTS (SELECT 1 FROM category_options o WHERE o.slug = 'mummys_curse' AND o.celeb = c.name)) AS mummy
@@ -718,10 +726,199 @@ async function deathPoolAutoBonuses(DB, celeb, dod) {
   if (mo === 12 && day <= 25) out.push('B14');
   if (mo === 12 && day === 31) out.push('B15');
   if (c.mummy) out.push('B16');
-  if (mo === 9) notes.push('September: tick B12 if it was prostate cancer.');
-  if (mo === 10) notes.push('October: tick B13 if it was breast cancer.');
-  notes.push('Check cause of death for B4 (suicide), B5 (overdose), B6 (murdered), B7 (aircraft).');
-  return { bonuses: out, notes };
+  // Cause of death (B4-B7, B12, B13), read from the Wikipedia summary like the old Death Confirmation Agent.
+  const wiki = await dpWikiSummary(celeb, c.wiki);
+  const cause = dpCauseBonuses(wiki.extract, mo);
+  cause.forEach(b => { if (!out.includes(b)) out.push(b); });
+  if (cause.length) notes.push('From the Wikipedia summary: ' + cause.join(', ') + '. Double-check the cause of death.');
+  else notes.push(wiki.extract ? 'No cause-of-death bonus found in the Wikipedia summary. Check B4-B7, B12, B13 yourself if the cause is known.' : 'Wikipedia summary not available. Check B4-B7, B12, B13 yourself.');
+  return { bonuses: out, notes, excerpt: wiki.extract.slice(0, 400), photo: wiki.photo, wiki: wiki.url };
+}
+
+// Who gets Death Pool emails: the digest address plus Matt's Rocketmail (as the Apps Script did).
+function dpRecipients(env) {
+  const main = env.DIGEST_TO || (String(env.GMAIL_FROM || '').match(/<([^>]+)>/) || [null, env.GMAIL_FROM])[1];
+  return [...new Set([main, 'matt.hope@rocketmail.com'].filter(Boolean))].join(', ');
+}
+const dpEsc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const DP_UA = { 'User-Agent': 'AASN-DeathPool/1.0 (https://aasn.theaahl.ca/deathpool/)' };
+const dpAdminLink = env => (env.SITE_URL || 'https://aasn.theaahl.ca') + '/deathpool/admin.html';
+
+async function dpWikiSummary(name, wikiUrl) {
+  const m = String(wikiUrl || '').match(/wikipedia\.org\/wiki\/([^?#]+)/);
+  const title = m ? m[1] : encodeURIComponent(String(name).replace(/ /g, '_'));
+  try {
+    const r = await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + title, { headers: DP_UA });
+    if (!r.ok) return { extract: '', photo: null, url: wikiUrl || '' };
+    const j = await r.json();
+    return { extract: String(j.extract || ''), photo: j.thumbnail ? j.thumbnail.source : null,
+      url: (j.content_urls && j.content_urls.desktop && j.content_urls.desktop.page) || wikiUrl || '' };
+  } catch (e) { return { extract: '', photo: null, url: wikiUrl || '' }; }
+}
+
+function dpCauseBonuses(extract, month) {
+  const x = String(extract || '');
+  const out = [];
+  const suicide = /suicide|took (his|her|their) own life|self-inflicted/i.test(x);
+  const drugs = /overdose/i.test(x);
+  const execution = /executed|execution|lethal injection|death row|electric chair/i.test(x);
+  if (suicide && !drugs) out.push('B4');
+  if (drugs) out.push('B5');
+  if (/\b(murdered|assassinated|homicide|shot dead|stabbed to death|killed by)\b/i.test(x) && !execution) out.push('B6');
+  if (/plane crash|aircraft|aviation accident|helicopter crash|mid-air|hang glid|balloon crash/i.test(x)) out.push('B7');
+  if (month === 9 && /prostate cancer/i.test(x)) out.push('B12');
+  if (month === 10 && /breast cancer/i.test(x)) out.push('B13');
+  return out;
+}
+
+// Email sent when a death is recorded (replaces the Apps Script Death Confirmation Agent).
+async function dpConfirmationEmail(env, DB, celeb, dod, bonuses, base, total) {
+  const c = await DB.prepare('SELECT wiki FROM celebs WHERE name = ?').bind(celeb).first();
+  const w = await dpWikiSummary(celeb, c && c.wiki);
+  const labels = Object.fromEntries((await DB.prepare('SELECT code, label FROM bonus_rules').all()).results.map(r => [r.code, r.label]));
+  const owners = (await DB.prepare('SELECT DISTINCT p.cemetery FROM picks k JOIN players p ON p.id = k.player_id WHERE k.celeb = ? ORDER BY p.cemetery').bind(celeb).all()).results.map(r => r.cemetery);
+  const pts = v => (Math.round(v * 100) / 100).toFixed(2);
+  const bl = bonuses.map(b => `${b}: ${labels[b] || ''}`);
+  const text = `DEATH RECORDED: ${celeb}\nDate: ${dod}\nPoints: ${pts(base)} base + bonuses = ${pts(total)}\nBonuses: ${bl.join('; ') || 'none'}\nPicked by: ${owners.join(', ') || 'nobody'}\nWikipedia: ${w.url}\n\n"${w.extract.slice(0, 400)}"\n\nWrong? Remove it on the admin page: ${dpAdminLink(env)}`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:520px;padding:20px">` +
+    (w.photo ? `<img src="${dpEsc(w.photo)}" alt="" style="width:120px;height:auto;border-radius:8px;margin-bottom:12px;display:block">` : '') +
+    `<h2 style="color:#b71c1c;margin:0 0 4px">DEATH RECORDED</h2><h3 style="margin:0 0 8px">${dpEsc(celeb)}</h3>` +
+    `<p style="margin:0 0 4px"><b>Date:</b> ${dpEsc(dod)}</p><p style="margin:0 0 4px"><b>Points:</b> ${pts(base)} base, <b>${pts(total)} total</b></p>` +
+    `<p style="margin:0 0 4px"><b>Picked by:</b> ${dpEsc(owners.join(', ') || 'nobody')}</p>` +
+    (w.url ? `<p style="margin:0 0 12px"><b>Wikipedia:</b> <a href="${dpEsc(w.url)}">${dpEsc(w.url)}</a></p>` : '') +
+    (w.extract ? `<p style="background:#f5f5f5;padding:10px;border-left:4px solid #999;font-style:italic;font-size:13px">${dpEsc(w.extract.slice(0, 400))}</p>` : '') +
+    `<h4 style="margin:16px 0 8px">Bonuses</h4><ul style="margin:0;padding-left:20px">${bl.map(b => `<li>${dpEsc(b)}</li>`).join('') || '<li>None</li>'}</ul>` +
+    `<hr style="margin-top:24px"><p style="font-size:12px;color:#666">Wrong? Remove it on the <a href="${dpAdminLink(env)}">admin page</a>. Death Pool</p></div>`;
+  await gmailSend(env, dpRecipients(env), `Death Pool: ${celeb} recorded (${pts(total)} pts)`, text, html);
+}
+
+// TMZ death feed: picked names in TMZ death headlines (replaces runTMZDeathCheck).
+async function dpTmzCheck(DB, names) {
+  let xml = '';
+  try { const r = await fetch('https://www.tmz.com/death/feed/', { headers: DP_UA }); if (!r.ok) return []; xml = await r.text(); } catch (e) { return []; }
+  const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
+  const found = [];
+  for (const it of items) {
+    const t = ((it.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || it.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || '').trim();
+    const link = ((it.match(/<link>([\s\S]*?)<\/link>/) || [])[1] || '').trim();
+    const pub = ((it.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || [])[1] || '').trim();
+    if (!t) continue;
+    const lt = t.toLowerCase();
+    for (const n of names) {
+      const ln = n.toLowerCase(), last = ln.split(' ').pop();
+      if (lt.includes(ln) || (last.length > 4 && lt.includes(last) && /dead|dies|died|death|passed|obituary/i.test(t))) {
+        const d = pub ? new Date(pub) : new Date();
+        found.push({ celeb: n, dod: new Date(d.getTime() - 5 * 3600e3).toISOString().slice(0, 10), source: link || 'https://www.tmz.com/', headline: t });
+      }
+    }
+  }
+  return found;
+}
+
+// Google News health watch (replaces runGeneralNewsCheck): every 2 hours, the next 30 living picked celebs.
+async function deathPoolNews(env) {
+  if (!env.DB) return { checked: 0, found: 0 };
+  const DB = env.DB, BATCH = 30;
+  const names = (await DB.prepare(`SELECT DISTINCT k.celeb AS name FROM picks k
+      WHERE NOT EXISTS (SELECT 1 FROM deaths d WHERE d.celeb = k.celeb) ORDER BY k.celeb`).all()).results.map(r => r.name);
+  const st = await DB.prepare("SELECT value FROM watch_state WHERE key = 'news_idx'").first();
+  let start = Number(st && st.value) || 0;
+  if (start >= names.length) start = 0;
+  const batch = names.slice(start, start + BATCH);
+  const HEALTH = /diagnos|cancer|hospitali[sz]|health scare|surger|stroke|heart attack|\bALS\b|dementia|alzheimer|life support|critical condition|hospice|passed away|\bdies\b|\bdied\b|\bdead\b/i;
+  const found = [];
+  for (const name of batch) {
+    try {
+      const r = await fetch('https://news.google.com/rss/search?q=' + encodeURIComponent('"' + name + '" when:7d') + '&hl=en-US&gl=US&ceid=US:en', { headers: DP_UA });
+      if (!r.ok) continue;
+      const items = ((await r.text()).match(/<item>[\s\S]*?<\/item>/g) || []).slice(0, 5);
+      for (const it of items) {
+        const t = ((it.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || it.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || '').trim()
+          .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+        const link = ((it.match(/<link>([\s\S]*?)<\/link>/) || [])[1] || '').trim();
+        const pub = ((it.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || [])[1] || '').trim();
+        if (t && link && HEALTH.test(t)) found.push({ name, t, link, pub });
+      }
+    } catch (e) { /* skip this name */ }
+  }
+  const now = new Date().toISOString();
+  let fresh = [];
+  if (found.length) {
+    const known = new Set((await DB.prepare(`SELECT link FROM news_watch WHERE link IN (${found.map(() => '?').join(',')})`).bind(...found.map(f => f.link)).all()).results.map(r => r.link));
+    fresh = found.filter(f => !known.has(f.link));
+    if (fresh.length) await DB.batch(fresh.map(f => DB.prepare('INSERT OR IGNORE INTO news_watch VALUES (?, ?, ?, ?, ?)').bind(f.link, now, f.name, f.t, f.pub)));
+  }
+  await DB.prepare("INSERT OR REPLACE INTO watch_state VALUES ('news_idx', ?)").bind(String(start + batch.length)).run();
+  if (fresh.length && env.GMAIL_FROM) {
+    const text = fresh.map(f => `${f.name}\n${f.t}\n${f.link}`).join('\n\n') + '\n\nFull list: ' + dpAdminLink(env);
+    const html = '<p>Google News health headlines for picked celebs:</p><ul>' + fresh.map(f => `<li><b>${dpEsc(f.name)}</b>: <a href="${dpEsc(f.link)}">${dpEsc(f.t)}</a></li>`).join('') +
+      `</ul><p>Full list on the <a href="${dpAdminLink(env)}">Death Pool admin page</a> (News Watch).</p>`;
+    await gmailSend(env, dpRecipients(env), `Death Pool: ${fresh.length} health news item${fresh.length > 1 ? 's' : ''}`, text, html).catch(e => console.log('News email: ' + e));
+  }
+  return { checked: batch.length, found: fresh.length, of: names.length, from: start };
+}
+
+// Daily database check (replaces the Sheet Health Monitor). Read-only; emails only when something is wrong.
+async function deathPoolHealth(env) {
+  if (!env.DB) return [];
+  const DB = env.DB, issues = [];
+  const q = async sql => (await DB.prepare(sql).all()).results;
+  const orphanPicks = await q('SELECT DISTINCT celeb FROM picks WHERE celeb NOT IN (SELECT name FROM celebs)');
+  if (orphanPicks.length) issues.push(`${orphanPicks.length} picked name(s) not in the celeb list: ${orphanPicks.slice(0, 8).map(r => r.celeb).join(', ')}`);
+  const orphanDeaths = await q('SELECT celeb FROM deaths WHERE celeb NOT IN (SELECT name FROM celebs)');
+  if (orphanDeaths.length) issues.push(`${orphanDeaths.length} recorded death(s) not in the celeb list: ${orphanDeaths.map(r => r.celeb).join(', ')}`);
+  const noDob = await q("SELECT DISTINCT c.name FROM celebs c JOIN picks k ON k.celeb = c.name WHERE (c.dob IS NULL OR c.dob = '') AND k.category <> 'mummys_curse'");
+  if (noDob.length) issues.push(`${noDob.length} picked celeb(s) with no date of birth (points can't be worked out): ${noDob.slice(0, 8).map(r => r.name).join(', ')}`);
+  const badCat = await q('SELECT DISTINCT category FROM picks WHERE category NOT IN (SELECT slug FROM categories)');
+  if (badCat.length) issues.push(`Pick categories with no name: ${badCat.map(r => r.category).join(', ')}`);
+  const dupCem = await q('SELECT cemetery, COUNT(*) n FROM players GROUP BY LOWER(TRIM(cemetery)) HAVING n > 1');
+  if (dupCem.length) issues.push(`Duplicate cemetery names: ${dupCem.map(r => r.cemetery).join(', ')}`);
+  const lastWatch = await DB.prepare('SELECT ts FROM watch_log ORDER BY ts DESC LIMIT 1').first();
+  if (!lastWatch || Date.now() - Date.parse(lastWatch.ts) > 7 * 3600e3) issues.push('The Wikipedia death check has not run in over 7 hours.');
+  const now = new Date().toISOString();
+  if (!issues.length) await DB.prepare("INSERT INTO health_log VALUES (?, 'OK', 'All checks passed.')").bind(now).run();
+  else {
+    await DB.batch(issues.map(i => DB.prepare("INSERT INTO health_log VALUES (?, 'ISSUE', ?)").bind(now, i)));
+    if (env.GMAIL_FROM) await gmailSend(env, dpRecipients(env), 'Death Pool: database check found ' + issues.length + ' issue' + (issues.length > 1 ? 's' : ''),
+      issues.join('\n') + '\n\n' + dpAdminLink(env), '<ul>' + issues.map(i => `<li>${dpEsc(i)}</li>`).join('') + `</ul><p><a href="${dpAdminLink(env)}">Death Pool admin</a></p>`).catch(e => console.log('Health email: ' + e));
+  }
+  return issues;
+}
+
+// Year-end settlement (replaces the Settlement Agent). Preview any time; on Jan 1 it locks and emails.
+async function deathPoolSettlement(env, save) {
+  const DB = env.DB;
+  const season = 2026;
+  const data = await loadDeathPool(env);
+  const paid = await DB.prepare('SELECT COUNT(*) AS n FROM players WHERE paid = 1').first();
+  const players = await DB.prepare('SELECT COUNT(*) AS n FROM players').first();
+  const pot = 20 * Number(paid.n || 0);
+  const st = data.standings;
+  const deadBy = new Map(data.cemeteries.map(c => [c.name, c.picks.filter(p => p.points != null).length]));
+  const payout = new Map();
+  const first = st.filter(r => r.rank === 1);
+  if (first.length > 1) first.forEach(r => payout.set(r.name, pot / first.length));
+  else {
+    if (first[0]) payout.set(first[0].name, pot * 0.75);
+    const r2 = st.find(r => r.rank > 1);
+    const second = r2 ? st.filter(r => r.rank === r2.rank) : [];
+    second.forEach(r => payout.set(r.name, pot * 0.25 / second.length));
+  }
+  const rows = st.map(r => ({ rank: r.rank, cemetery: r.name, points: Math.round(r.points * 100) / 100, dead: deadBy.get(r.name) || 0,
+    youngest: r.youngestDead, payout: payout.has(r.name) ? '$' + payout.get(r.name).toFixed(2) : '' }));
+  const totalDeaths = data.graveyard.length;
+  if (save) {
+    const now = new Date().toISOString();
+    await DB.batch(rows.map(r => DB.prepare('INSERT OR REPLACE INTO final_results VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(season, r.rank, r.cemetery, r.points, r.dead, r.youngest, r.payout, now)));
+    const medal = (r, i) => r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : i === rows.length - 1 ? '🪦' : r.rank + '.';
+    const lines = rows.map((r, i) => `${medal(r, i)} ${r.cemetery}: ${r.points.toFixed(2)} pts (${r.dead} dead)${r.payout ? ' - ' + r.payout : ''}`);
+    const win = rows.filter(r => r.rank === 1).map(r => r.cemetery).join(' & '), last = rows[rows.length - 1];
+    const text = `DEATH POOL ${season}: FINAL RESULTS\n\nWINNER: ${win}\nLast place: ${last.cemetery}\nTotal deaths: ${totalDeaths}\nPot: $${pot} (${paid.n} of ${players.n} paid)\n\n${lines.join('\n')}\n\nScores are unofficial until every name is verified.`;
+    const html = `<div style="font-family:Arial,sans-serif;max-width:560px"><h2>🪦 Death Pool ${season}: Final Results</h2><p><b>Winner:</b> ${dpEsc(win)}<br><b>Last place:</b> ${dpEsc(last.cemetery)}<br><b>Total deaths:</b> ${totalDeaths}<br><b>Pot:</b> $${pot} (${paid.n} of ${players.n} paid)</p><ol style="padding-left:20px">${lines.map(l => `<li style="list-style:none">${dpEsc(l)}</li>`).join('')}</ol><p style="font-size:12px;color:#666">Scores are unofficial until every name is verified. Saved on the admin page.</p></div>`;
+    if (env.GMAIL_FROM) await gmailSend(env, dpRecipients(env), `🏆 Death Pool ${season}: Final Results`, text, html);
+  }
+  return { season, pot, paid: paid.n, players: players.n, totalDeaths, rows };
 }
 
 // Death Pool watch: looks up every living picked celeb on Wikipedia -> Wikidata (date of death, P570).
@@ -767,6 +964,10 @@ async function deathPoolWatch(env) {
       qOf.get(q).forEach(name => found.push({ celeb: name, dod, source: 'https://www.wikidata.org/wiki/' + q }));
     }
   }
+  // TMZ's death feed often beats Wikipedia; only picked celebs are matched.
+  const pickedAlive = (await DB.prepare(`SELECT DISTINCT k.celeb AS n FROM picks k WHERE NOT EXISTS (SELECT 1 FROM deaths d WHERE d.celeb = k.celeb)
+      AND NOT EXISTS (SELECT 1 FROM death_alerts a WHERE a.celeb = k.celeb)`).all()).results.map(r => r.n);
+  for (const t of await dpTmzCheck(DB, pickedAlive)) if (!found.some(f => f.celeb === t.celeb)) found.push(t);
   const now = new Date().toISOString();
   if (found.length) await DB.batch(found.map(f => DB.prepare("INSERT OR IGNORE INTO death_alerts VALUES (?, ?, ?, ?, 'new')").bind(f.celeb, f.dod, f.source, now)));
   const matchedNames = new Set([...qOf.values()].flat());
@@ -775,11 +976,11 @@ async function deathPoolWatch(env) {
     (missing.length ? '. Not found on Wikipedia: ' + missing.slice(0, 40).join(', ') + (missing.length > 40 ? ' …' : '') : '');
   await DB.prepare('INSERT INTO watch_log VALUES (?, ?, ?, ?)').bind(now, celebs.length, found.length, note).run();
   if (found.length && env.GMAIL_FROM) {
-    const to = env.DIGEST_TO || (String(env.GMAIL_FROM).match(/<([^>]+)>/) || [null, env.GMAIL_FROM])[1];
-    const lines = found.map(f => `${f.celeb} - died ${f.dod}`);
+    const to = dpRecipients(env);
+    const lines = found.map(f => `${f.celeb} - died ${f.dod}` + (f.headline ? ` (TMZ: ${f.headline})` : ''));
     const link = (env.SITE_URL || 'https://aasn.theaahl.ca') + '/deathpool/admin.html';
     const html = '<p>Possible Death Pool deaths found on Wikipedia/Wikidata:</p><ul>' +
-      found.map(f => `<li><b>${f.celeb.replace(/[<>&]/g, '')}</b> - died ${f.dod} (<a href="${f.source}">source</a>)</li>`).join('') +
+      found.map(f => `<li><b>${dpEsc(f.celeb)}</b> - died ${f.dod} (<a href="${dpEsc(f.source)}">${f.headline ? 'TMZ: ' + dpEsc(f.headline) : 'source'}</a>)</li>`).join('') +
       `</ul><p>Verify and record them on the <a href="${link}">Death Pool admin page</a>.</p>`;
     await gmailSend(env, to, `Death Pool: ${found.length} possible death${found.length > 1 ? 's' : ''}`, lines.join('\n') + '\n\nRecord them at ' + link, html)
       .catch(e => console.log('Death Pool watch email: ' + e));
@@ -815,12 +1016,63 @@ async function deathPoolAdmin(env, ctx, body) {
     ]);
     const alerts = await all("SELECT * FROM death_alerts WHERE status = 'new' ORDER BY dod");
     const lastCheck = await DB.prepare('SELECT * FROM watch_log ORDER BY ts DESC LIMIT 1').first();
-    return { success: true, config: Object.fromEntries(config.map(r => [r.key, r.value])), players, celebs, bonuses, alerts, lastCheck };
+    const deaths = await all('SELECT celeb, dod, bonuses, base_pts, total FROM deaths ORDER BY dod DESC, rowid DESC');
+    const news = await all('SELECT * FROM news_watch ORDER BY ts DESC LIMIT 40');
+    const health = await all('SELECT * FROM health_log ORDER BY ts DESC LIMIT 5');
+    const finals = await all('SELECT * FROM final_results WHERE season = 2026 ORDER BY rank');
+    return { success: true, config: Object.fromEntries(config.map(r => [r.key, r.value])), players, celebs, bonuses, alerts, lastCheck, deaths, news, health, finals };
   }
 
   if (body.action === 'watch') {
     const r = await deathPoolWatch(env);
     return { success: true, checked: r.checked, matched: r.matched, found: r.found.length };
+  }
+
+  if (body.action === 'news') {
+    const r = await deathPoolNews(env);
+    return { success: true, ...r };
+  }
+
+  if (body.action === 'health') {
+    const issues = await deathPoolHealth(env);
+    return { success: true, issues };
+  }
+
+  if (body.action === 'settle_preview') {
+    return { success: true, ...(await deathPoolSettlement(env, false)) };
+  }
+
+  // Remove a recorded death (false alarm). Needs confirm: 'REMOVE'. The removed row is kept in removed_deaths.
+  if (body.action === 'remove') {
+    const celeb = String(body.celeb || '').trim();
+    if (body.confirm !== 'REMOVE') return { success: false, error: 'Removal not confirmed.' };
+    const d = await DB.prepare('SELECT * FROM deaths WHERE celeb = ?').bind(celeb).first();
+    if (!d) return { success: false, error: celeb + ' is not recorded as dead.' };
+    const now = new Date().toISOString();
+    const stmts = [
+      DB.prepare('INSERT INTO removed_deaths VALUES (?, ?, ?, ?, ?, ?, ?)').bind(now, d.celeb, d.dod, d.bonuses, d.bonus_pts, d.base_pts, d.total),
+      DB.prepare('DELETE FROM deaths WHERE celeb = ?').bind(celeb),
+      DB.prepare("INSERT INTO confirmations VALUES (datetime('now'), ?, ?, NULL, NULL, '❌ CANCELLED - False Alarm')").bind(celeb, d.dod),
+      DB.prepare("UPDATE death_alerts SET status = 'dismissed' WHERE celeb = ?").bind(celeb)
+    ];
+    // If this was half of a Daily Double and nobody else died that day, take B2 back off the other celeb.
+    let alsoUpdated = [];
+    if (String(d.bonuses || '').split(',').includes('B2')) {
+      const others = await all('SELECT celeb, bonuses FROM deaths WHERE dod = ? AND celeb <> ?', d.dod, celeb);
+      if (others.length === 1 && String(others[0].bonuses || '').split(',').includes('B2')) {
+        const pts = ((await DB.prepare("SELECT points FROM bonus_rules WHERE code = 'B2'").first()) || {}).points ?? 10;
+        const nb = String(others[0].bonuses).split(',').filter(b => b !== 'B2').join(',');
+        stmts.push(DB.prepare('UPDATE deaths SET bonuses = ?, bonus_pts = bonus_pts - ?, total = total - ? WHERE celeb = ?').bind(nb || null, pts, pts, others[0].celeb));
+        alsoUpdated = [others[0].celeb];
+      }
+    }
+    await DB.batch(stmts);
+    await refresh();
+    if (env.GMAIL_FROM) ctx.waitUntil(gmailSend(env, dpRecipients(env), 'Death Pool: FALSE ALARM - ' + celeb,
+      `The death entry for ${celeb} (${d.dod}) has been removed. Disregard the earlier email.` + (alsoUpdated.length ? `\nDaily Double taken back off ${alsoUpdated.join(', ')}.` : ''),
+      `<p>The death entry for <b>${dpEsc(celeb)}</b> (${dpEsc(d.dod)}) has been removed. Disregard the earlier email.</p>` + (alsoUpdated.length ? `<p>Daily Double taken back off ${dpEsc(alsoUpdated.join(', '))}.</p>` : ''))
+      .catch(e => console.log('False alarm email: ' + e)));
+    return { success: true, removed: celeb, alsoUpdated };
   }
 
   if (body.action === 'dismiss') {
@@ -876,6 +1128,7 @@ async function deathPoolAdmin(env, ctx, body) {
       }
     }
     await refresh();
+    if (env.GMAIL_FROM) ctx.waitUntil(dpConfirmationEmail(env, DB, celeb, dod, bonuses, base, total).catch(e => console.log('Confirmation email: ' + e)));
     return { success: true, celeb, base, bonus, total, bonuses, alsoUpdated };
   }
 
@@ -1100,7 +1353,7 @@ async function loadDeathPool(env) {
   out.bonuses = bonusRules.map((b) => ({ code: b.code, text: b.label }));
   out.deathRow = deathRow.map((r) => ({
     name: r.name,
-    delayed: "",
+    delayed: r.notes || "",
     born: md(r.dob),
     died: md(r.dod),
     age: ageStr(r.dob, r.dod),

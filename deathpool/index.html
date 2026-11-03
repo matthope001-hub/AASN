@@ -29,6 +29,7 @@
       <details class="more" id="more">
         <summary>More ▾</summary>
         <div class="more-menu">
+          <a href="#dashboard">Dashboard</a>
           <a href="#notable">Notable Deaths</a>
           <a href="#birthdays">Birthdays</a>
           <a href="#rules">Rules</a>
@@ -76,6 +77,26 @@
           <div id="h-bdays"></div>
         </section>
       </aside>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="view" id="v-dashboard" hidden>
+    <div class="sec-title" style="margin-top:18px">DASHBOARD <small>THE 2026 POOL IN NUMBERS</small></div>
+    <div class="panel" style="margin-top:10px">
+      <h2>TIME LEFT IN 2026 <small>POOL CLOSES DEC 31, 11:59 PM</small></h2>
+      <div class="kpis4" style="padding:6px 0 0" id="cd">
+        <div class="kpi"><span>DAYS</span><b id="cd-d">—</b></div>
+        <div class="kpi"><span>HOURS</span><b id="cd-h">—</b></div>
+        <div class="kpi"><span>MINUTES</span><b id="cd-m">—</b></div>
+        <div class="kpi"><span>SECONDS</span><b id="cd-s">—</b></div>
+      </div>
+    </div>
+    <div class="kpis4" id="db-stats"></div>
+    <div class="kpis4" id="db-stats2" style="padding-top:0"></div>
+    <div class="panel">
+      <h2>CLOSE CALLS <small>EXECUTIONS SCHEDULED IN THE NEXT 90 DAYS</small></h2>
+      <div id="db-close"></div>
     </div>
   </section>
 
@@ -172,6 +193,6 @@
 <script src="../shared/seasons.js?v=2" defer></script>
 <script src="../shared/logos.js?v=5"></script>
 <script src="../shared/auth.js?v=4"></script>
-<script src="dp.js?v=19"></script>
+<script src="dp.js?v=20"></script>
 </body>
 </html>

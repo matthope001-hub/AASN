@@ -86,6 +86,30 @@
     </section>
 
     <section class="panel">
+      <h2>RECORDED DEATHS <small>NEWEST FIRST · REMOVE ONLY FOR A FALSE ALARM</small></h2>
+      <div class="tbl-wrap scroll" id="rd"></div>
+      <p class="msg" id="rd-msg"></p>
+    </section>
+
+    <section class="panel">
+      <h2>NEWS WATCH <small>GOOGLE NEWS HEALTH HEADLINES · 30 CELEBS EVERY 2 HOURS</small></h2>
+      <div class="tbl-wrap scroll" id="nw"></div>
+      <div class="row" style="margin-top:8px"><button type="button" class="go sm" id="nw-go">CHECK NEXT 30 NOW</button><span class="msg" id="nw-msg"></span></div>
+    </section>
+
+    <section class="panel">
+      <h2>FINAL RESULTS <small>LOCKED AND EMAILED AUTOMATICALLY JAN 1, 12:01 AM</small></h2>
+      <div id="fr"></div>
+      <div class="row" style="margin-top:8px"><button type="button" class="go sm" id="fr-go">PREVIEW FINAL RESULTS</button><span class="msg" id="fr-msg"></span></div>
+    </section>
+
+    <section class="panel">
+      <h2>DATABASE CHECK <small>DAILY AT 6 AM · EMAILS ONLY IF SOMETHING IS WRONG</small></h2>
+      <div id="hl"></div>
+      <div class="row" style="margin-top:8px"><button type="button" class="go sm" id="hl-go">RUN CHECK NOW</button></div>
+    </section>
+
+    <section class="panel">
       <h2>PLAYERS <small>TICK WHEN PAID</small></h2>
       <div class="tbl-wrap" id="pl"></div>
     </section>
@@ -142,6 +166,7 @@
       ' <span class="small">(' + (b.points > 0 ? '+' : '') + b.points + ')</span></span></label>').join('');
     statusList();
     alerts(s);
+    extras(s);
     $('pl').innerHTML = '<table><thead><tr><th>PAID</th><th>CEMETERY</th><th>NAME</th><th class="hide-sm">PHONE</th></tr></thead><tbody>' +
       s.players.map(p => '<tr><td><input type="checkbox" data-id="' + p.id + '"' + (p.paid ? ' checked' : '') + '></td><td>' + esc(p.cemetery) +
         '</td><td>' + esc(p.name) + '</td><td class="hide-sm">' + esc(p.phone) + '</td></tr>').join('') + '</tbody></table>';
@@ -172,6 +197,35 @@
       await api('dismiss', { celeb: b.dataset.dis });
       const s2 = await api('state'); if (s2.success) render(s2);
     });
+  }
+
+  const when = ts => ts ? new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const money = rows => '<div class="tbl-wrap"><table><thead><tr><th>RK</th><th>CEMETERY</th><th class="num">POINTS</th><th class="num">DEAD</th><th class="num">YOUNGEST</th><th class="num">PAYOUT</th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td>' + r.rank + '</td><td>' + esc(r.cemetery) + '</td><td class="num">' + Number(r.points).toFixed(2) + '</td><td class="num">' + (r.dead ?? r.dead_picks ?? '') +
+      '</td><td class="num">' + (r.youngest ?? r.youngest_dead ?? '—') + '</td><td class="num"><b>' + esc(r.payout || '') + '</b></td></tr>').join('') + '</tbody></table></div>';
+
+  function extras(s) {
+    $('rd').innerHTML = (s.deaths || []).length
+      ? '<table><thead><tr><th>CELEB</th><th>DIED</th><th>BONUSES</th><th class="num">TOTAL</th><th></th></tr></thead><tbody>' +
+        s.deaths.map(d => '<tr><td>' + esc(d.celeb) + '</td><td>' + esc(d.dod) + '</td><td class="small">' + esc(d.bonuses || '') + '</td><td class="num">' + Number(d.total).toFixed(2) +
+          '</td><td><button type="button" class="go sm" style="background:#5a2a2a;color:#FFB4AB" data-rm="' + esc(d.celeb) + '">REMOVE</button></td></tr>').join('') + '</tbody></table>'
+      : '<p class="small" style="padding:12px">No deaths recorded.</p>';
+    document.querySelectorAll('#rd button[data-rm]').forEach(b => b.onclick = async () => {
+      const n = b.dataset.rm;
+      if (!window.confirm('Remove the recorded death of ' + n + '?\n\nOnly do this for a false alarm. Their points come off the standings and a False Alarm email is sent. A copy of the entry is kept.')) return;
+      const r = await api('remove', { celeb: n, confirm: 'REMOVE' });
+      $('rd-msg').className = 'msg ' + (r.success ? 'ok' : 'err');
+      $('rd-msg').textContent = r.success ? 'Removed ' + r.removed + (r.alsoUpdated.length ? '. Daily Double taken off ' + r.alsoUpdated.join(', ') : '') + '. Site updated.' : (r.error || 'Could not remove.');
+      const s2 = await api('state'); if (s2.success) render(s2);
+    });
+    $('nw').innerHTML = (s.news || []).length
+      ? '<table><thead><tr><th>FOUND</th><th>CELEB</th><th>HEADLINE</th></tr></thead><tbody>' +
+        s.news.map(n => '<tr><td class="small">' + when(n.ts) + '</td><td>' + esc(n.celeb) + '</td><td><a href="' + esc(n.link) + '" target="_blank" rel="noopener">' + esc(n.headline) + '</a></td></tr>').join('') + '</tbody></table>'
+      : '<p class="small" style="padding:12px">No health headlines yet.</p>';
+    $('fr').innerHTML = (s.finals || []).length ? '<p class="small">Locked ' + when(s.finals[0].saved_at) + ':</p>' + money(s.finals) : '<p class="small">Not locked yet.</p>';
+    $('hl').innerHTML = (s.health || []).length
+      ? s.health.map(h => '<div class="small">' + when(h.ts) + ' · <span class="' + (h.status === 'OK' ? 'auto' : 'warn') + '">' + esc(h.status) + '</span> ' + esc(h.issue) + '</div>').join('')
+      : '<p class="small">No checks yet (first one runs at 6 am).</p>';
   }
 
   function statusList() {
@@ -216,7 +270,8 @@
         i.checked = r.bonuses.includes(i.value);
         if (i.checked) i.parentElement.insertAdjacentHTML('beforeend', ' <span class="auto small">auto</span>');
       });
-      $('bon-notes').innerHTML = r.notes.map(esc).join('<br>');
+      $('bon-notes').innerHTML = (r.photo ? '<img src="' + esc(r.photo) + '" alt="" style="float:right;width:70px;border-radius:6px;margin:0 0 6px 10px">' : '') +
+        (r.excerpt ? '<i>"' + esc(r.excerpt) + '"</i><br>' : '') + r.notes.map(esc).join('<br>');
     }, 250);
   }
 
@@ -245,6 +300,22 @@
   $('sf').oninput = statusList;
   $('sp').onchange = statusList;
   $('save').onclick = save;
+  $('nw-go').onclick = async () => {
+    $('nw-msg').className = 'msg'; $('nw-msg').textContent = 'Checking Google News…';
+    const r = await api('news');
+    $('nw-msg').className = 'msg ' + (r.success ? 'ok' : 'err');
+    $('nw-msg').textContent = r.success ? 'Checked ' + r.checked + ' celebs (' + (r.from + 1) + '–' + (r.from + r.checked) + ' of ' + r.of + '), ' + r.found + ' new headline(s).' : (r.error || 'Failed.');
+    const s = await api('state'); if (s.success) render(s);
+  };
+  $('fr-go').onclick = async () => {
+    $('fr-msg').className = 'msg'; $('fr-msg').textContent = 'Working it out…';
+    const r = await api('settle_preview');
+    if (!r.success) { $('fr-msg').className = 'msg err'; $('fr-msg').textContent = r.error || 'Failed.'; return; }
+    $('fr-msg').className = 'msg ok';
+    $('fr-msg').textContent = 'Preview only (nothing saved). Pot $' + r.pot + ' from ' + r.paid + ' of ' + r.players + ' paid · ' + r.totalDeaths + ' deaths.';
+    $('fr').innerHTML = money(r.rows);
+  };
+  $('hl-go').onclick = async () => { await api('health'); const s = await api('state'); if (s.success) render(s); };
   $('watch').onclick = async () => {
     $('watch-msg').className = 'msg'; $('watch-msg').textContent = 'Checking Wikipedia… (about 20 seconds)';
     const r = await api('watch');
