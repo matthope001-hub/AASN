@@ -828,7 +828,7 @@ async function loadDeathPool(env) {
   const catName = (slug, name) => slug === "death_row" ? "Death Row (Pick 1)" : slug === "death_row_2" ? "Death Row (Pick 2)" : slug === "write_in" ? "Celebrity Write In" : name || slug;
   const [players, picks, deaths, bonusRules, deathRow, celebs, boxes, cats] = await Promise.all([
     q("SELECT id, cemetery, email FROM players ORDER BY id"),
-    q("SELECT k.player_id, k.category, k.celeb, d.total FROM picks k LEFT JOIN deaths d ON d.celeb = k.celeb ORDER BY k.rowid"),
+    q("SELECT k.player_id, k.category, k.celeb, d.total, d.dod, c.dob FROM picks k LEFT JOIN deaths d ON d.celeb = k.celeb LEFT JOIN celebs c ON c.name = k.celeb ORDER BY k.rowid"),
     q("SELECT d.*, (SELECT COUNT(*) FROM picks k WHERE k.celeb = d.celeb) AS picked FROM deaths d ORDER BY d.dod, d.rowid"),
     q("SELECT code, label FROM bonus_rules ORDER BY CAST(SUBSTR(code, 2) AS INT)"),
     q("SELECT * FROM death_row ORDER BY rowid"),
@@ -850,16 +850,20 @@ async function loadDeathPool(env) {
     return {
       name: p.cemetery,
       total: Math.round(list.reduce((s, x) => s + (x.total || 0), 0) * 1e6) / 1e6,
+      // Tiebreaker: youngest dead pick (whole years at death; Mummy's Curse picks don't count)
+      youngest: list.filter((x) => x.dod && x.dob && x.category !== "mummys_curse").reduce((m, x) => Math.min(m, Math.floor(years(x.dob, x.dod))), Infinity),
       picks: list.map((x) => ({ category: catMap.get(x.category) || x.category, celeb: x.celeb, points: x.total == null ? null : x.total }))
     };
   });
-  const sorted = [...out.cemeteries].sort((a, b) => b.total - a.total);
+  const sorted = [...out.cemeteries].sort((a, b) => b.total - a.total || a.youngest - b.youngest);
   let rank = 0, last = null;
   out.standings = sorted.map((x, i) => {
-    if (x.total !== last) rank = i + 1;
-    last = x.total;
-    return { rank, name: x.name, points: x.total };
+    const key = x.total + "|" + x.youngest;
+    if (key !== last) rank = i + 1;
+    last = key;
+    return { rank, name: x.name, points: x.total, youngestDead: Number.isFinite(x.youngest) ? x.youngest : null };
   });
+  out.cemeteries.forEach((x) => delete x.youngest);
   const owners = new Map();
   players.forEach((p) => owners.set(p.id, p.cemetery));
   const pickedBy = new Map();
