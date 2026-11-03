@@ -58,6 +58,7 @@
     <section class="panel">
       <h2>POSSIBLE DEATHS <small id="al-sub">CHECKED EVERY 3 HOURS ON WIKIPEDIA</small></h2>
       <div id="al"></div>
+      <p class="small" id="al-log" style="margin-top:8px"></p>
       <div class="row" style="margin-top:8px"><button type="button" class="go sm" id="watch">CHECK NOW</button><span class="msg" id="watch-msg"></span></div>
     </section>
 
@@ -154,6 +155,7 @@
     const l = s.alerts || [];
     const lc = s.lastCheck;
     $('al-sub').textContent = 'CHECKED EVERY 3 HOURS ON WIKIPEDIA' + (lc ? ' · LAST ' + new Date(lc.ts).toLocaleString() + ' · ' + lc.checked + ' CELEBS' : '');
+    $('al-log').textContent = lc && lc.note ? 'Last check: ' + lc.note + '.' : '';
     $('al').innerHTML = l.length
       ? '<div class="tbl-wrap"><table><thead><tr><th>CELEB</th><th>DIED</th><th></th></tr></thead><tbody>' +
         l.map(a => '<tr><td><b>' + esc(a.celeb) + '</b> <a class="small" href="' + esc(a.source) + '" target="_blank" rel="noopener">source</a>' +
@@ -247,7 +249,7 @@
     $('watch-msg').className = 'msg'; $('watch-msg').textContent = 'Checking Wikipedia… (about 20 seconds)';
     const r = await api('watch');
     $('watch-msg').className = 'msg ' + (r.success ? 'ok' : 'err');
-    $('watch-msg').textContent = r.success ? 'Checked ' + r.checked + ' celebs, found ' + r.found + ' new.' : (r.error || 'Check failed.');
+    $('watch-msg').textContent = r.success ? 'Checked ' + r.checked + ' celebs (' + r.matched + ' matched on Wikipedia), found ' + r.found + ' new.' : (r.error || 'Check failed.');
     const s = await api('state'); if (s.success) render(s);
   };
   if (PW) unlock();

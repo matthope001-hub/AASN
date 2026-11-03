@@ -768,7 +768,10 @@ async function deathPoolWatch(env) {
   }
   const now = new Date().toISOString();
   if (found.length) await DB.batch(found.map(f => DB.prepare("INSERT OR IGNORE INTO death_alerts VALUES (?, ?, ?, ?, 'new')").bind(f.celeb, f.dod, f.source, now)));
-  await DB.prepare('INSERT INTO watch_log VALUES (?, ?, ?, ?)').bind(now, celebs.length, found.length, found.map(f => f.celeb).join(', ') || null).run();
+  const missing = celebs.filter(c => ![...qOf.values()].includes(c.name)).map(c => c.name);
+  const note = `Matched ${qOf.size} of ${celebs.length} on Wikipedia` + (found.length ? '. Found: ' + found.map(f => f.celeb).join(', ') : '') +
+    (missing.length ? '. Not found on Wikipedia: ' + missing.slice(0, 40).join(', ') + (missing.length > 40 ? ' …' : '') : '');
+  await DB.prepare('INSERT INTO watch_log VALUES (?, ?, ?, ?)').bind(now, celebs.length, found.length, note).run();
   if (found.length && env.GMAIL_FROM) {
     const to = env.DIGEST_TO || (String(env.GMAIL_FROM).match(/<([^>]+)>/) || [null, env.GMAIL_FROM])[1];
     const lines = found.map(f => `${f.celeb} - died ${f.dod}`);
@@ -779,7 +782,7 @@ async function deathPoolWatch(env) {
     await gmailSend(env, to, `Death Pool: ${found.length} possible death${found.length > 1 ? 's' : ''}`, lines.join('\n') + '\n\nRecord them at ' + link, html)
       .catch(e => console.log('Death Pool watch email: ' + e));
   }
-  return { checked: celebs.length, found };
+  return { checked: celebs.length, matched: qOf.size, found };
 }
 
 // POST /deathpool/admin {password, action, ...} -> Death Pool commissioner tools (D1 database).
@@ -815,7 +818,7 @@ async function deathPoolAdmin(env, ctx, body) {
 
   if (body.action === 'watch') {
     const r = await deathPoolWatch(env);
-    return { success: true, checked: r.checked, found: r.found.length };
+    return { success: true, checked: r.checked, matched: r.matched, found: r.found.length };
   }
 
   if (body.action === 'dismiss') {
