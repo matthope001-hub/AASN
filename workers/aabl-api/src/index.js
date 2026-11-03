@@ -854,7 +854,8 @@ async function deathPoolAdmin(env, ctx, body) {
       const nx = new Date(Date.UTC(A.getUTCFullYear() + y + 1, A.getUTCMonth(), A.getUTCDate()));
       return y + (B - an) / (nx - an);
     };
-    const base = mummy ? 0 : Math.round((100 - yrs(c.dob, dod)) * 1e6) / 1e6;
+    // 100 minus age at death; anyone who dies at 100 or older (outside Mummy's Curse) still gets 1 point, as in the 2026 sheet.
+    const base = mummy ? 0 : Math.max(1, Math.round((100 - yrs(c.dob, dod)) * 1e6) / 1e6);
     const bonus = bonuses.reduce((s, b) => s + (rules[b] ?? 10), 0);
     const override = body.override === '' || body.override == null ? null : Number(body.override);
     const total = Number.isFinite(override) ? override : Math.round((base + bonus) * 1e6) / 1e6;
