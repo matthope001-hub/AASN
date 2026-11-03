@@ -12,6 +12,12 @@ keep_vars = true
 [triggers]
 crons = ["13 12 * * 1", "* * * * *"]
 
+# Death Pool data (Cloudflare D1). The Death Pool page reads from here; without it, it falls back to the Google Sheet.
+[[d1_databases]]
+binding = "DB"
+database_name = "deathpool"
+database_id = "04f67ba6-cde9-4544-9bc3-241d85f9b04f"
+
 [observability]
 enabled = true
 

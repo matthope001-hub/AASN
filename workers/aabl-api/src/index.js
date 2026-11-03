@@ -801,6 +801,117 @@ async function refreshDeathPool(env) {
 }
 
 async function loadDeathPool(env) {
+  if (!env.DB) return loadDeathPoolSheet(env);
+  const q = async (sql) => (await env.DB.prepare(sql).all()).results;
+  const md = (iso) => {
+    if (!iso) return "";
+    const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+    return y ? `${m}/${d}/${y}` : "";
+  };
+  const ageStr = (a, b) => {
+    if (!a || !b) return "";
+    const A = new Date(a + "T00:00:00Z"), B = new Date(b + "T00:00:00Z");
+    let y = B.getUTCFullYear() - A.getUTCFullYear(), m = B.getUTCMonth() - A.getUTCMonth(), d = B.getUTCDate() - A.getUTCDate();
+    if (d < 0) { m--; d += new Date(Date.UTC(B.getUTCFullYear(), B.getUTCMonth(), 0)).getUTCDate(); }
+    if (m < 0) { y--; m += 12; }
+    return `${y}y, ${m}m, ${d}d `;
+  };
+  const years = (a, b) => {
+    if (!a || !b) return null;
+    const A = new Date(a + "T00:00:00Z"), B = new Date(b + "T00:00:00Z");
+    let y = B.getUTCFullYear() - A.getUTCFullYear();
+    let an = new Date(Date.UTC(A.getUTCFullYear() + y, A.getUTCMonth(), A.getUTCDate()));
+    if (an > B) { y--; an = new Date(Date.UTC(A.getUTCFullYear() + y, A.getUTCMonth(), A.getUTCDate())); }
+    const nx = new Date(Date.UTC(A.getUTCFullYear() + y + 1, A.getUTCMonth(), A.getUTCDate()));
+    return y + (B - an) / (nx - an);
+  };
+  const catName = (slug, name) => slug === "death_row" ? "Death Row (Pick 1)" : slug === "death_row_2" ? "Death Row (Pick 2)" : slug === "write_in" ? "Celebrity Write In" : name || slug;
+  const [players, picks, deaths, bonusRules, deathRow, celebs, boxes, cats] = await Promise.all([
+    q("SELECT id, cemetery, email FROM players ORDER BY id"),
+    q("SELECT k.player_id, k.category, k.celeb, d.total FROM picks k LEFT JOIN deaths d ON d.celeb = k.celeb ORDER BY k.rowid"),
+    q("SELECT d.*, (SELECT COUNT(*) FROM picks k WHERE k.celeb = d.celeb) AS picked FROM deaths d ORDER BY d.dod, d.rowid"),
+    q("SELECT code, label FROM bonus_rules ORDER BY CAST(SUBSTR(code, 2) AS INT)"),
+    q("SELECT * FROM death_row ORDER BY rowid"),
+    q("SELECT c.*, d.dod, d.total, (SELECT COUNT(*) FROM picks k WHERE k.celeb = c.name) AS picked FROM celebs c LEFT JOIN deaths d ON d.celeb = c.name ORDER BY c.rowid"),
+    q("SELECT c.slug, c.name, c.descr, GROUP_CONCAT(o.celeb, '|') AS celebs FROM categories c JOIN category_options o ON o.slug = c.slug GROUP BY c.slug ORDER BY c.sort"),
+    q("SELECT k.category AS slug, c.name, MIN(k.rowid) AS r FROM picks k LEFT JOIN categories c ON c.slug = k.category GROUP BY k.category ORDER BY r")
+  ]);
+  const catMap = new Map(cats.map((x) => [x.slug, catName(x.slug, x.name)]));
+  const out = { success: true, updatedAt: (new Date()).toISOString() };
+  const byPlayer = new Map();
+  picks.forEach((p) => {
+    if (!byPlayer.has(p.player_id)) byPlayer.set(p.player_id, []);
+    byPlayer.get(p.player_id).push(p);
+  });
+  out.categories = cats.map((x) => catMap.get(x.slug));
+  out._owners = players.filter((p) => p.cemetery && String(p.email || "").includes("@")).map((p) => ({ cemetery: p.cemetery, email: String(p.email).trim().toLowerCase() }));
+  out.cemeteries = players.filter((p) => p.cemetery).map((p) => {
+    const list = byPlayer.get(p.id) || [];
+    return {
+      name: p.cemetery,
+      total: Math.round(list.reduce((s, x) => s + (x.total || 0), 0) * 1e6) / 1e6,
+      picks: list.map((x) => ({ category: catMap.get(x.category) || x.category, celeb: x.celeb, points: x.total == null ? null : x.total }))
+    };
+  });
+  const sorted = [...out.cemeteries].sort((a, b) => b.total - a.total);
+  let rank = 0, last = null;
+  out.standings = sorted.map((x, i) => {
+    if (x.total !== last) rank = i + 1;
+    last = x.total;
+    return { rank, name: x.name, points: x.total };
+  });
+  const owners = new Map();
+  players.forEach((p) => owners.set(p.id, p.cemetery));
+  const pickedBy = new Map();
+  picks.forEach((p) => {
+    if (!pickedBy.has(p.celeb)) pickedBy.set(p.celeb, []);
+    pickedBy.get(p.celeb).push(owners.get(p.player_id));
+  });
+  out.graveyard = deaths.map((d) => ({
+    name: d.celeb,
+    died: md(d.dod),
+    bonuses: String(d.bonuses || "").split(",").filter(Boolean),
+    bonus: d.bonus_pts,
+    base: d.base_pts,
+    points: d.total,
+    picked: d.picked,
+    cemeteries: [...new Set(pickedBy.get(d.celeb) || [])].filter(Boolean)
+  }));
+  out.bonuses = bonusRules.map((b) => ({ code: b.code, text: b.label }));
+  out.deathRow = deathRow.map((r) => ({
+    name: r.name,
+    delayed: "",
+    born: md(r.dob),
+    died: md(r.dod),
+    age: ageStr(r.dob, r.dod),
+    scheduled: md(r.expected),
+    rescheduled: md(r.new_date),
+    state: r.state || ""
+  }));
+  out.birthdays = celebs.filter((c) => c.dob).map((c) => ({ name: c.name, born: md(c.dob), md: c.dob.slice(5, 7) + c.dob.slice(8, 10) }));
+  out.boxes = boxes.map((b) => ({ name: b.name, celebs: String(b.celebs || "").split("|").filter(Boolean) }));
+  const jan1 = (new Date()).getUTCFullYear() + "-01-01";
+  out.celebs = celebs.map((c) => {
+    const age = c.dob ? Math.floor(years(c.dob, jan1)) : null;
+    const yrs = c.dod ? years(c.dob, c.dod) : null;
+    return {
+      name: c.name,
+      age,
+      born: md(c.dob),
+      died: md(c.dod),
+      ageAtDeath: ageStr(c.dob, c.dod),
+      value: yrs == null ? null : Math.round((100 - yrs) * 1e6) / 1e6,
+      picked: c.picked,
+      points: c.total == null ? 0 : c.total,
+      category: c.category || "",
+      wiki: /^https?:\/\//i.test(c.wiki || "") ? c.wiki : ""
+    };
+  });
+  out.categoryInfo = boxes.filter((b) => b.descr).map((b) => ({ name: b.name, desc: b.descr }));
+  return out;
+}
+
+async function loadDeathPoolSheet(env) {
   const [cfg] = await sb(env, 'aasn_private?select=value&key=eq.deathpool_sheet_id', { headers: { 'Accept-Profile': 'public' } });
   if (!cfg) return null;
   const tab = async (name, extra = '') => {
