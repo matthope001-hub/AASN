@@ -697,7 +697,8 @@ function easterSunday(y) {
 async function deathPoolAutoBonuses(DB, celeb, dod) {
   const c = await DB.prepare(`SELECT c.dob, c.black,
       (SELECT COUNT(*) FROM picks k WHERE k.celeb = c.name) AS picked,
-      EXISTS (SELECT 1 FROM category_options o WHERE o.slug = 'mummys_curse' AND o.celeb = c.name) AS mummy
+      (EXISTS (SELECT 1 FROM picks k WHERE k.category = 'mummys_curse' AND k.celeb = c.name)
+        OR EXISTS (SELECT 1 FROM category_options o WHERE o.slug = 'mummys_curse' AND o.celeb = c.name)) AS mummy
     FROM celebs c WHERE c.name = ?`).bind(celeb).first();
   if (!c) return { bonuses: [], notes: [] };
   const D = new Date(dod + 'T00:00:00Z'), y = D.getUTCFullYear(), mo = D.getUTCMonth() + 1, day = D.getUTCDate();
@@ -740,8 +741,10 @@ async function deathPoolAdmin(env, ctx, body) {
       all('SELECT id, cemetery, name, email, phone, paid FROM players ORDER BY cemetery'),
       all(`SELECT c.name, c.dob, c.wiki, d.dod,
         (SELECT COUNT(*) FROM picks k WHERE k.celeb = c.name) AS picked,
-        (SELECT GROUP_CONCAT(DISTINCT cat.name) FROM category_options o JOIN categories cat ON cat.slug = o.slug WHERE o.celeb = c.name) AS boxes,
-        EXISTS (SELECT 1 FROM category_options o WHERE o.slug = 'mummys_curse' AND o.celeb = c.name) AS mummy
+        COALESCE((SELECT GROUP_CONCAT(DISTINCT cat.name) FROM picks k JOIN categories cat ON cat.slug = k.category WHERE k.celeb = c.name),
+                 (SELECT GROUP_CONCAT(DISTINCT cat.name) FROM category_options o JOIN categories cat ON cat.slug = o.slug WHERE o.celeb = c.name)) AS boxes,
+        (EXISTS (SELECT 1 FROM picks k WHERE k.category = 'mummys_curse' AND k.celeb = c.name)
+          OR EXISTS (SELECT 1 FROM category_options o WHERE o.slug = 'mummys_curse' AND o.celeb = c.name)) AS mummy
         FROM celebs c LEFT JOIN deaths d ON d.celeb = c.name ORDER BY c.name`),
       all('SELECT code, label, points FROM bonus_rules ORDER BY CAST(SUBSTR(code, 2) AS INT)')
     ]);
@@ -760,7 +763,7 @@ async function deathPoolAdmin(env, ctx, body) {
     const c = await DB.prepare('SELECT dob FROM celebs WHERE name = ?').bind(celeb).first();
     if (!c) return { success: false, error: 'That name is not in the pool list.' };
     // Mummy's Curse celebs: no age points, always B16 (-10); other bonuses (e.g. Solo Pick) still count.
-    const mummy = await DB.prepare("SELECT 1 AS x FROM category_options WHERE slug = 'mummys_curse' AND celeb = ?").bind(celeb).first();
+    const mummy = await DB.prepare("SELECT 1 AS x FROM picks WHERE category = 'mummys_curse' AND celeb = ?1 UNION SELECT 1 FROM category_options WHERE slug = 'mummys_curse' AND celeb = ?1").bind(celeb).first();
     let bonuses = [...new Set((body.bonuses || []).map(String))].filter(b => /^B\d{1,2}$/.test(b));
     if (mummy && !bonuses.includes('B16')) bonuses.push('B16');
     if (!mummy) bonuses = bonuses.filter(b => b !== 'B16');

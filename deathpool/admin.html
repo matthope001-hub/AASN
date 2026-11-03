@@ -70,7 +70,7 @@
     </section>
 
     <section class="panel">
-      <h2>STATUS CHECK <small>STILL ALIVE · MOST PICKED FIRST · TAP A NAME TO CHECK IT</small></h2>
+      <h2>STATUS CHECK <small>EVERYONE STILL ALIVE · MOST PICKED FIRST · TAP A NAME TO CHECK THEM ON WIKIPEDIA</small></h2>
       <div class="row" style="margin-bottom:8px">
         <input type="search" id="sf" class="search grow" placeholder="Filter by name or category">
         <label class="small"><input type="checkbox" id="sp" checked> Only celebs someone picked</label>
@@ -151,7 +151,7 @@
       ? '<table><thead><tr><th>CELEB</th><th class="num">AGE</th><th class="num">PICKED</th><th></th></tr></thead><tbody>' +
         list.map(c => '<tr><td><a href="' + esc(wiki(c)) + '" target="_blank" rel="noopener">' + esc(c.name) + '</a>' +
           (c.wiki ? '' : ' <span class="small">(search)</span>') + '<div class="small">' + esc(c.boxes || '') + '</div></td><td class="num">' +
-          age(c.dob) + '</td><td class="num">' + c.picked + '</td><td><button type="button" class="go sm" data-n="' + esc(c.name) + '">DIED</button></td></tr>').join('') +
+          age(c.dob) + '</td><td class="num">' + c.picked + '</td><td><button type="button" class="go sm" data-n="' + esc(c.name) + '">RECORD DEATH</button></td></tr>').join('') +
         '</tbody></table>'
       : '<p class="small" style="padding:12px">Nobody matches.</p>';
     document.querySelectorAll('#sl button[data-n]').forEach(b => b.onclick = () => {
