@@ -16,6 +16,7 @@
  */
 
 import { aaflOutbox, aaflSync, aaflReminders } from './aafl.js';
+import { aablJobs } from './aabl-jobs.js';
 
 const VERSION = '2026-10-23';
 const TOTAL_BOXES = 21;
@@ -120,6 +121,8 @@ export default {
       ctx.waitUntil(aaflOutbox(env, sendAs).catch(err => console.log('AAFL outbox failed: ' + (err && err.stack || err))));
       ctx.waitUntil(aaflReminders(env, tick, sendAs).catch(err => console.log('AAFL reminders failed: ' + (err && err.stack || err))));
       if (tick.getUTCMinutes() % 10 === 4) ctx.waitUntil(aaflSync(env).catch(err => console.log('AAFL sync failed: ' + (err && err.stack || err))));
+      // AABL jobs (moved off GitHub Actions): nightly stats, backup to D1, schedule import, player news.
+      ctx.waitUntil(aablJobs(env, tick).catch(err => console.log('AABL jobs failed: ' + (err && err.stack || err))));
       // Death Pool: check Wikipedia/Wikidata for deaths every 3 hours (at :37).
       if (tick.getUTCMinutes() === 37 && tick.getUTCHours() % 3 === 0) ctx.waitUntil(deathPoolWatch(env).catch(err => console.log('Death Pool watch failed: ' + (err && err.stack || err))));
       // Health news every 2 hours (at :07); database check daily at 11:07 UTC (6:07am Eastern).
