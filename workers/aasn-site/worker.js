@@ -48,8 +48,21 @@ async function headshot(pid, preview, env, ctx) {
   return new Response(buf, { headers: png(preview ? 'no-store' : 'public, max-age=86400') });
 }
 
+// Cloudflare Web Analytics (free, no cookies): the beacon is added to every HTML page as it's served.
+const BEACON = '<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon=\'{"token": "a70a8bfa80344e47afc415beeb1fd96a"}\'></script>';
+function withBeacon(res) {
+  if (!(res.headers.get('Content-Type') || '').includes('text/html')) return res;
+  return new HTMLRewriter().on('body', { element(el) { el.append(BEACON, { html: true }); } }).transform(res);
+}
+
 export default {
   async fetch(request, env, ctx) {
+    return withBeacon(await handle(request, env, ctx));
+  }
+};
+
+async function handle(request, env, ctx) {
+  {
     const url = new URL(request.url);
     const hs = url.pathname.match(/^\/aabl\/headshots(-preview)?\/(\d{4,7})\.png$/);
     if (hs && env.SITE_FILES && request.method === 'GET') return headshot(hs[2], !!hs[1], env, ctx);
@@ -66,7 +79,7 @@ export default {
     out.headers.set('x-aasn-source', 'live');
     return out;
   }
-};
+}
 
 // Same lookups as the static files: /x/ -> /x/index.html, /x -> /x.html or /x/index.html.
 // The list of changed files ("__index" in KV) is read at most once a minute per server, so requests for

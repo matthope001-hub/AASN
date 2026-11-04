@@ -9,6 +9,8 @@
 //                                    (it can always be rebuilt from MLB box scores). Kept 30 days.
 //   Schedule        10:05–10:08 UTC  MLB regular-season schedule in 4 date chunks + pick deadline.
 //   Player news     every 4h, :41–:46 ESPN/RotoWire news, one batch of 25 players per tick.
+//   Site health     every 15 min (:12) AASN pages + Supabase; emails when something is down twice in a row,
+//                                    and again when it's back.
 
 const MLB = 'https://statsapi.mlb.com/api/v1';
 const ESPN = 'https://site.api.espn.com/apis';
@@ -41,13 +43,17 @@ async function poolSeason(env) {
 }
 
 // ---------- dispatcher ----------
-export async function aablJobs(env, tick) {
+// send(to, subject, text, html) is aasn-api's Gmail sender, used for site health alerts.
+export async function aablJobs(env, tick, send) {
   if (!env.SUPABASE_SERVICE_KEY) return;
   const h = tick.getUTCHours(), m = tick.getUTCMinutes();
-  if (h === 8 && m >= 17 && m <= 36) return logRun('nightly', aablNightly(env, { part: m - 17 }));
-  if (h === 9 && m >= 30 && env.DB) return logRun('backup', aablBackup(env, tick));
-  if (h === 10 && m >= 5 && m <= 8) return logRun('schedule', aablSchedule(env, { chunk: m - 5 }));
-  if (h % 4 === 0 && m >= 41 && m <= 46) return logRun('news', aablNews(env, { batch: m - 41 }));
+  const jobs = [];
+  if (m % 15 === 12 && env.DB) jobs.push(logRun('health', siteHealth(env, send)));
+  if (h === 8 && m >= 17 && m <= 36) jobs.push(logRun('nightly', aablNightly(env, { part: m - 17 })));
+  else if (h === 9 && m >= 30 && env.DB) jobs.push(logRun('backup', aablBackup(env, tick)));
+  else if (h === 10 && m >= 5 && m <= 8) jobs.push(logRun('schedule', aablSchedule(env, { chunk: m - 5 })));
+  else if (h % 4 === 0 && m >= 41 && m <= 46) jobs.push(logRun('news', aablNews(env, { batch: m - 41 })));
+  await Promise.all(jobs);
 }
 async function logRun(name, p) {
   const out = await p;
@@ -318,6 +324,45 @@ export async function aablBackup(env, tick = new Date()) {
   out.removed = (await env.DB.prepare("DELETE FROM aabl_backups WHERE day < date(?, '-30 days')").bind(day).run()).meta.changes;
   out.finished = true;
   return out;
+}
+
+// ---------- Site health ----------
+const HEALTH_PAGES = [
+  ['AASN home', 'https://aasn.theaahl.ca/'], ['Death Pool', 'https://aasn.theaahl.ca/deathpool/'],
+  ['AAFL', 'https://aasn.theaahl.ca/aafl/'], ['AABL', 'https://aasn.theaahl.ca/aabl/']
+];
+export async function siteHealth(env, send) {
+  const check = async (name, fn) => { try { const d = await fn(); return [name, true, d]; } catch (e) { return [name, false, String(e.message || e).slice(0, 150)]; } };
+  const results = await Promise.all([
+    ...HEALTH_PAGES.map(([name, url]) => check(name, async () => {
+      const r = await fetch(url, { headers: { 'User-Agent': 'AASN-health' } });
+      const t = await r.text();
+      if (!r.ok || t.length < 500) throw new Error(`HTTP ${r.status}`);
+      return `HTTP ${r.status}`;
+    })),
+    check('Supabase', async () => { await sb(env, 'config?select=season&limit=1'); return 'ok'; })
+  ]);
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS site_health (name TEXT PRIMARY KEY, ok INTEGER, fails INTEGER, alerted INTEGER, since TEXT, detail TEXT)').run();
+  const prev = new Map((await env.DB.prepare('SELECT * FROM site_health').all()).results.map(r => [r.name, r]));
+  const now = new Date().toISOString(), down = [], back = [], writes = [];
+  for (const [name, ok, detail] of results) {
+    const p = prev.get(name) || { ok: 1, fails: 0, alerted: 0, since: now };
+    const fails = ok ? 0 : n(p.fails) + 1;
+    let alerted = n(p.alerted);
+    if (!ok && fails >= 2 && !alerted) { down.push(`${name}: ${detail}`); alerted = 1; }
+    if (ok && alerted) { back.push(name); alerted = 0; }
+    const since = n(p.ok) === (ok ? 1 : 0) ? p.since : now;
+    writes.push(env.DB.prepare('INSERT OR REPLACE INTO site_health VALUES (?, ?, ?, ?, ?, ?)').bind(name, ok ? 1 : 0, fails, alerted, since, detail));
+  }
+  await env.DB.batch(writes);
+  const to = env.DIGEST_TO || (String(env.GMAIL_FROM || '').match(/<([^>]+)>/) || [null, env.GMAIL_FROM])[1];
+  if (send && to && (down.length || back.length)) {
+    const lines = [...(down.length ? ['DOWN (failed two checks in a row):', ...down.map(x => '- ' + x)] : []), ...(back.length ? ['BACK UP:', ...back.map(x => '- ' + x)] : []),
+      '', 'Checked every 15 minutes. You will get another email when anything changes.'];
+    const subject = down.length ? `AASN alert: ${down.map(x => x.split(':')[0]).join(', ')} down` : `AASN: ${back.join(', ')} back up`;
+    await send(to, subject, lines.join('\n'), '<pre style="font:14px monospace">' + lines.join('\n').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</pre>');
+  }
+  return { down: results.filter(r => !r[1]).map(r => r[0]), emailed: down.length + back.length };
 }
 
 // ---------- test hook (read-only for nightly/schedule/news; backup writes only to D1) ----------
