@@ -1267,10 +1267,15 @@ async function refreshDeathPool(env) {
   }
   try { await saveDeathPoolSnapshot(env, out); } catch (e) { console.log('snapshot: ' + e); }
   try { await addDeathPoolHistory(env, out); } catch (e) { console.log('history: ' + e); }
-  await sb(env, 'deathpool_cache?on_conflict=id', {
-    method: 'POST', headers: { 'Accept-Profile': 'public', 'Content-Profile': 'public', Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify({ id: 1, data: out, updated_at: new Date().toISOString() })
-  });
+  // Saving a copy to Supabase is optional: if it fails (e.g. no Supabase key), the site still gets fresh data.
+  try {
+    await sb(env, 'deathpool_cache?on_conflict=id', {
+      method: 'POST', headers: { 'Accept-Profile': 'public', 'Content-Profile': 'public', Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ id: 1, data: out, updated_at: new Date().toISOString() })
+    });
+  } catch (e) {
+    console.log('Death Pool cache save skipped: ' + (e && e.message || e));
+  }
   await caches.default.put(new Request(DP_EDGE_KEY), new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } }));
   return out;
 }
