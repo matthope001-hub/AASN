@@ -169,20 +169,62 @@ export async function aaflSync(env) {
   if (picks.length) await pub(env, 'aafl_picks?on_conflict=team_id,game_id', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(picks) });
 }
 
-// Weekly reminder emails: the worker starts the GitHub "AAFL reminders" job on time (GitHub's own
-// timer can run hours late). Tuesday 9:07am Eastern = "picks are open"; Thursday 12:07pm = "picks lock
-// tonight" (only players still missing picks). Eastern time is worked out here, so daylight time is handled.
-export async function aaflReminders(env, tick) {
-  if (!env.GH_TOKEN) return;
+// Weekly reminder emails, sent from here (moved off GitHub, 2026-11-04). Tuesday 9:07am Eastern =
+// "picks are open" to every human player; Thursday 12:07pm = "picks lock tonight" to players still missing
+// picks. Eastern time is worked out here, so daylight time is handled. Players can turn reminders off on
+// the Picks page (aafl_teams.email_reminders). One email per person, listing all their teams.
+export async function aaflReminders(env, tick, send) {
+  if (!send || !env.GMAIL_REFRESH_TOKEN) return;
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Toronto', weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(tick).map(x => [x.type, x.value]));
   const at = `${p.weekday} ${+p.hour}:${String(+p.minute).padStart(2, '0')}`;
   const kind = at === 'Tue 9:07' ? 'open' : at === 'Thu 12:07' ? 'lock' : null;
   if (!kind) return;
-  const res = await fetch('https://api.github.com/repos/matthope001-hub/AASN/actions/workflows/aafl-reminders.yml/dispatches', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env.GH_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'aasn-api', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ref: 'main', inputs: { kind, dry_run: '0' } })
-  });
-  if (!res.ok) throw new Error(`GitHub reminders dispatch: ${res.status} ${await res.text()}`);
-  console.log('AAFL ' + kind + ' reminders started');
+  const n = await aaflSendReminders(env, kind, send);
+  console.log('AAFL ' + kind + ' reminders sent: ' + n);
+}
+
+export async function aaflSendReminders(env, kind, send) {
+  const SITE = 'https://aasn.theaahl.ca/aafl/';
+  const fmt = d => new Date(d).toLocaleString('en-US', { timeZone: 'America/Toronto', weekday: 'long', hour: 'numeric', minute: '2-digit' }) + ' ET';
+  const week = await pub(env, 'rpc/aafl_current_week', { method: 'POST', body: JSON.stringify({ p_season: SEASON }) });
+  const games = await pub(env, `aafl_games?select=id,kickoff&season=eq.${SEASON}&week=eq.${week}`);
+  if (!games || !games.length) return 0;
+  const lock = new Date(Math.min(...games.map(g => +new Date(g.kickoff))));
+  if (Date.now() >= +lock) return 0;
+  const teams = await pub(env, `aafl_teams?select=id,name,invite_code,paid&season=eq.${SEASON}&is_bot=eq.false&email_reminders=eq.true`);
+  const invites = await pub(env, `aafl_invites?select=code,email,team_id,unsub_token&season=eq.${SEASON}`);
+  const ids = games.map(g => g.id).join(',');
+  const picks = teams.length ? await pub(env, `aafl_picks?select=team_id&game_id=in.(${ids})&team_id=in.(${teams.map(t => t.id).join(',')})`) : [];
+  const count = {}; picks.forEach(x => { count[x.team_id] = (count[x.team_id] || 0) + 1; });
+  const byEmail = {};
+  for (const t of teams) {
+    const inv = invites.find(i => i.code === t.invite_code) || invites.find(i => i.team_id === t.id);
+    if (!inv) continue;
+    (byEmail[inv.email.toLowerCase()] = byEmail[inv.email.toLowerCase()] || []).push({ ...t, have: count[t.id] || 0 });
+  }
+  const total = games.length;
+  const cfg = ((await pub(env, `aafl_config?select=entry_fee,pay_to&season=eq.${SEASON}`)) || [])[0] || {};
+  const fee = +cfg.entry_fee || 0;
+  const owing = list => { const u = fee > 0 ? list.filter(t => !t.paid) : []; return u.length ? [`Entry fee owing: $${fee * u.length} (${u.map(t => t.name).join(', ')}). Send an Interac e-Transfer to ${cfg.pay_to} with "AAFL" and your team name in the message. Picks don't count in the standings until it's paid.`] : []; };
+  let sent = 0;
+  for (const [email, list] of Object.entries(byEmail)) {
+    const tok = (invites.find(i => i.email.toLowerCase() === email && i.unsub_token) || {}).unsub_token;
+    const unsub = tok ? UNSUB + tok : null;
+    const hi = list.length === 1 ? list[0].name : 'there';
+    let subject, msg;
+    if (kind === 'open') {
+      subject = `AAFL: Week ${week} picks are open`;
+      msg = { title: `Week ${week} picks are open`, paras: [`Hi ${hi},`, `Week ${week} has ${total} games. Picks lock at the first kickoff: ${fmt(lock)}.`, ...(list.length > 1 ? [list.map(t => '- ' + t.name).join('\n')] : []), ...owing(list)],
+        button: 'Make your picks', url: `${SITE}picks.html`, footer: 'You can also turn these off on the Picks page.', unsub };
+    } else {
+      const missing = list.filter(t => t.have < total);
+      if (!missing.length) continue;
+      subject = `AAFL: Week ${week} picks lock tonight`;
+      msg = { title: `Week ${week} picks lock tonight`, paras: [`Hi ${hi},`, `Still to pick for Week ${week}:`, missing.map(t => `- ${t.name}: ${t.have} of ${total} picked`).join('\n'), `Picks lock at ${fmt(lock)}.`, ...owing(list)],
+        button: 'Finish your picks', url: `${SITE}picks.html`, footer: 'You can also turn these off on the Picks page.', unsub };
+    }
+    try { await send(email, subject, textEmail(msg), htmlEmail(msg), unsub); sent++; }
+    catch (e) { console.log('AAFL reminder to ' + email + ' failed: ' + (e && e.message || e)); }
+  }
+  return sent;
 }

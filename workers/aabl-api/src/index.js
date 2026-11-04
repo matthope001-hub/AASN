@@ -118,7 +118,7 @@ export default {
     if (event.cron !== DIGEST_CRON) {
       const sendAs = (to, subject, text, html, unsub) => gmailSend(env, to, subject, text, html, { from: aaflFrom(env), unsub });
       ctx.waitUntil(aaflOutbox(env, sendAs).catch(err => console.log('AAFL outbox failed: ' + (err && err.stack || err))));
-      ctx.waitUntil(aaflReminders(env, tick).catch(err => console.log('AAFL reminders failed: ' + (err && err.stack || err))));
+      ctx.waitUntil(aaflReminders(env, tick, sendAs).catch(err => console.log('AAFL reminders failed: ' + (err && err.stack || err))));
       if (tick.getUTCMinutes() % 10 === 4) ctx.waitUntil(aaflSync(env).catch(err => console.log('AAFL sync failed: ' + (err && err.stack || err))));
       // Death Pool: check Wikipedia/Wikidata for deaths every 3 hours (at :37).
       if (tick.getUTCMinutes() === 37 && tick.getUTCHours() % 3 === 0) ctx.waitUntil(deathPoolWatch(env).catch(err => console.log('Death Pool watch failed: ' + (err && err.stack || err))));
