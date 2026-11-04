@@ -6,7 +6,7 @@
 //                                    then standings snapshot + season totals rebuild.
 //   Backup          09:30–09:59 UTC  every AABL table, AAFL tables and champions, as CSV pages,
 //                                    into D1 (table aabl_backups). stats_game only on Sundays
-//                                    (it can always be rebuilt from MLB box scores).
+//                                    (it can always be rebuilt from MLB box scores). Kept 30 days.
 //   Schedule        10:05–10:08 UTC  MLB regular-season schedule in 4 date chunks + pick deadline.
 //   Player news     every 4h, :41–:46 ESPN/RotoWire news, one batch of 25 players per tick.
 
@@ -314,6 +314,8 @@ export async function aablBackup(env, tick = new Date()) {
     if (budget <= 0) return out;
   }
   await env.DB.prepare('INSERT OR REPLACE INTO aabl_backups VALUES (?, ?, 0, 0, ?, ?)').bind(day, '__done', weekly ? 'with stats_game' : 'without stats_game', new Date().toISOString()).run();
+  // Keep 30 days of backups.
+  out.removed = (await env.DB.prepare("DELETE FROM aabl_backups WHERE day < date(?, '-30 days')").bind(day).run()).meta.changes;
   out.finished = true;
   return out;
 }
