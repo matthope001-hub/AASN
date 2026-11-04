@@ -614,9 +614,23 @@ function parseCsv(text) {
 
 async function deathPool(request, env, ctx) {
   const cache = caches.default;
-  const key = new Request('https://aasn-cache.internal/deathpool-v1');
+  const key = new Request('https://aasn-cache.internal/deathpool-v2');
   const hit = await cache.match(key);
   if (hit) return json(request, env, await hit.json());
+  // Read from D1 (fast). The Google Sheet below is only a fallback if D1 isn't bound.
+  if (env.DB) {
+    const d = await loadDeathPool(env);
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', month: '2-digit', day: '2-digit' }).format(new Date()).replace('-', '');
+    const dead = new Set((d.graveyard || []).map(g => g.name));
+    const lead = (d.standings || [])[0];
+    const bdays = (d.birthdays || []).filter(x => x.md === today && !dead.has(x.name)).map(x => x.name);
+    const out2 = { success: true, updatedAt: d.updatedAt, entries: (d.standings || []).length, graveyard: (d.graveyard || []).length,
+      deathRow: (d.deathRow || []).filter(r => !r.died).length };
+    if (lead) { out2.leader = lead.name; out2.leaderPts = lead.points; }
+    if (bdays.length) out2.birthdays = bdays.join(', ');
+    ctx.waitUntil(cache.put(key, new Response(JSON.stringify(out2), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } })));
+    return json(request, env, out2);
+  }
 
   const [row] = await sb(env, 'aasn_private?select=value&key=eq.deathpool_sheet_id', { headers: { 'Accept-Profile': 'public' } });
   if (!row) return json(request, env, { success: false }, 404);
