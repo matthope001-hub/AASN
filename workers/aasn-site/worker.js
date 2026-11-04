@@ -10,9 +10,49 @@ const TYPES = {
 };
 const typeOf = p => TYPES[(p.split('.').pop() || '').toLowerCase()] || 'application/octet-stream';
 
+// AABL headshots: anything not already in the site's files is made on demand from MLB's photo with
+// Cloudflare's background removal (Images "segment=foreground"), then kept in KV.
+// Only players in the current AABL pool (Supabase aabl.box_options) are allowed, so random ids can't use up
+// the free 5,000 transformations a month.
+const SUPABASE_URL = 'https://tetgrmgurobacdohhiby.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldGdybWd1cm9iYWNkb2hoaWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5Njc4MTYsImV4cCI6MjEwNDU0MzgxNn0.Jn0MdAdYslGv7znS0DFiSUjlZ6rpw0qsvQwiNq63vWk';
+let pool = null, poolAt = 0;
+async function poolIds() {
+  if (!pool || Date.now() - poolAt > 600000) {
+    const s = await fetch(SUPABASE_URL + '/rest/v1/config?select=season&order=season.desc&limit=1', { headers: { apikey: SUPABASE_ANON, 'Accept-Profile': 'aabl' } }).then(r => r.json());
+    const season = s && s[0] && s[0].season;
+    const rows = season ? await fetch(SUPABASE_URL + '/rest/v1/box_options?select=mlb_id&season=eq.' + season, { headers: { apikey: SUPABASE_ANON, 'Accept-Profile': 'aabl' } }).then(r => r.json()) : [];
+    pool = new Set((Array.isArray(rows) ? rows : []).map(r => String(r.mlb_id)));
+    poolAt = Date.now();
+  }
+  return pool;
+}
+async function makeCutout(pid) {
+  const src = 'https://img.mlbstatic.com/mlb-photos/image/upload/w_426,q_auto:best/v1/people/' + pid + '/headshot/67/current';
+  const r = await fetch(src, { cf: { image: { segment: 'foreground', width: 300, height: 300, fit: 'scale-down', format: 'png' } } });
+  const type = r.headers.get('content-type') || '';
+  if (!r.ok || !type.startsWith('image/')) return null;
+  return r.arrayBuffer();
+}
+async function headshot(pid, preview, env, ctx) {
+  const key = '/aabl/headshots/' + pid + '.png';
+  const png = h => new Headers({ 'Content-Type': 'image/png', 'Cache-Control': h, 'x-aasn-source': 'cutout' });
+  if (!preview) {
+    const saved = await env.SITE_FILES.get(key, { type: 'arrayBuffer', cacheTtl: 3600 });
+    if (saved) return new Response(saved, { headers: png('public, max-age=86400') });
+  }
+  if (!(await poolIds()).has(pid)) return new Response('Not found', { status: 404 });
+  const buf = await makeCutout(pid);
+  if (!buf) return new Response('Not found', { status: 404 });  // the site falls back to the original photo
+  if (!preview) ctx.waitUntil(env.SITE_FILES.put(key, buf, { metadata: { type: 'image/png', source: 'cloudflare-segment', updated: new Date().toISOString() } }));
+  return new Response(buf, { headers: png(preview ? 'no-store' : 'public, max-age=86400') });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const hs = url.pathname.match(/^\/aabl\/headshots(-preview)?\/(\d{4,7})\.png$/);
+    if (hs && env.SITE_FILES && request.method === 'GET') return headshot(hs[2], !!hs[1], env, ctx);
     if (request.method === 'GET' || request.method === 'HEAD') {
       const hit = await fromKv(env, decodeURIComponent(url.pathname), url);
       if (hit) return request.method === 'HEAD' ? new Response(null, { headers: hit.headers }) : hit;
