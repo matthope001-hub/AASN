@@ -1039,6 +1039,14 @@ async function deathPoolAdmin(env, ctx, body) {
     return { success: true, ...r };
   }
 
+  if (body.action === 'test_email') {
+    if (!env.GMAIL_FROM) return { success: false, error: 'Gmail is not set up (GMAIL_FROM missing).' };
+    const to = dpRecipients(env);
+    await gmailSend(env, to, 'Death Pool: test email', 'This is a test from the Death Pool admin page. If you got this, Death Pool emails are working.\n\n' + dpAdminLink(env),
+      `<p>This is a test from the <a href="${dpAdminLink(env)}">Death Pool admin page</a>.</p><p>If you got this, Death Pool emails are working.</p>`);
+    return { success: true, to };
+  }
+
   if (body.action === 'health') {
     const issues = await deathPoolHealth(env);
     return { success: true, issues };

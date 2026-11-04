@@ -106,7 +106,7 @@
     <section class="panel">
       <h2>DATABASE CHECK <small>DAILY AT 6 AM · EMAILS ONLY IF SOMETHING IS WRONG</small></h2>
       <div id="hl"></div>
-      <div class="row" style="margin-top:8px"><button type="button" class="go sm" id="hl-go">RUN CHECK NOW</button></div>
+      <div class="row" style="margin-top:8px"><button type="button" class="go sm" id="hl-go">RUN CHECK NOW</button><button type="button" class="go sm" id="te-go">SEND TEST EMAIL</button><span class="msg" id="te-msg"></span></div>
     </section>
 
     <section class="panel">
@@ -314,6 +314,12 @@
     $('fr-msg').className = 'msg ok';
     $('fr-msg').textContent = 'Preview only (nothing saved). Pot $' + r.pot + ' from ' + r.paid + ' of ' + r.players + ' paid · ' + r.totalDeaths + ' deaths.';
     $('fr').innerHTML = money(r.rows);
+  };
+  $('te-go').onclick = async () => {
+    $('te-msg').className = 'msg'; $('te-msg').textContent = 'Sending…';
+    const r = await api('test_email');
+    $('te-msg').className = 'msg ' + (r.success ? 'ok' : 'err');
+    $('te-msg').textContent = r.success ? 'Sent to ' + r.to + '. Check both inboxes.' : (r.error || 'Failed.');
   };
   $('hl-go').onclick = async () => { await api('health'); const s = await api('state'); if (s.success) render(s); };
   $('watch').onclick = async () => {
