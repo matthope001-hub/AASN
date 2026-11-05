@@ -2,12 +2,12 @@
 // Work is split across several one-minute ticks so each run stays inside the free plan
 // (50 outside requests and a few ms of CPU per run). Nothing here touches AAHL.
 //
-//   Nightly stats   08:17–08:36 UTC  yesterday's (Eastern) final games, 3 box scores per tick,
+//   Nightly stats   08:17–08:59 UTC  yesterday's (Eastern) final games, 3 box scores per tick,
 //                                    then standings snapshot + season totals rebuild.
 //   Backup          09:30–09:59 UTC  every AABL table, AAFL tables and champions, as CSV pages,
 //                                    into D1 (table aabl_backups). stats_game only on Sundays
 //                                    (it can always be rebuilt from MLB box scores). Kept 30 days.
-//   Schedule        10:05–10:08 UTC  MLB regular-season schedule in 4 date chunks + pick deadline.
+//   Schedule        10:05–10:24 UTC  MLB regular-season schedule in 4 date chunks + pick deadline.
 //   Player news     every 4h, :41–:46 ESPN/RotoWire news, one batch of 25 players per tick.
 //   Site health     every 15 min (:12) AASN pages + Supabase; emails when something is down twice in a row,
 //                                    and again when it's back.
@@ -49,9 +49,9 @@ export async function aablJobs(env, tick, send) {
   const h = tick.getUTCHours(), m = tick.getUTCMinutes();
   const jobs = [];
   if (m % 15 === 12 && env.DB) jobs.push(logRun('health', siteHealth(env, send)));
-  if (h === 8 && m >= 17 && m <= 36) jobs.push(logRun('nightly', aablNightly(env, { part: m - 17 })));
+  if (h === 8 && m >= 17) jobs.push(logRun('nightly', aablNightly(env, { force: m >= 57 })));
   else if (h === 9 && m >= 30 && env.DB) jobs.push(logRun('backup', aablBackup(env, tick)));
-  else if (h === 10 && m >= 5 && m <= 8) jobs.push(logRun('schedule', aablSchedule(env, { chunk: m - 5 })));
+  else if (h === 10 && m >= 5 && m <= 24) jobs.push(logRun('schedule', aablSchedule(env, { minute: m })));
   else if (h % 4 === 0 && m >= 41 && m <= 46) jobs.push(logRun('news', aablNews(env, { batch: m - 41 })));
   await Promise.all(jobs);
 }
@@ -63,7 +63,7 @@ async function logRun(name, p) {
 
 // ---------- Nightly stats ----------
 const FINAL = /^(final|game over|completed early)/i;
-const PER_TICK = 3, PARTS = 20;
+const PER_TICK = 3;
 function yesterdayET() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const d = new Date(today + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - 1);
@@ -83,16 +83,33 @@ const score = (line, w) => Math.round(Object.entries(w).reduce((t, [k, p]) => t 
 const ZERO = { singles: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, runs: 0, bb: 0, hbp: 0, sb: 0, so: 0, cs: 0,
   outs: 0, k: 0, w: 0, qs: 0, sv: 0, hld: 0, er: 0, l: 0, bb_allowed: 0, h_allowed: 0 };
 
-// opts: part (0..), date (YYYY-MM-DD, default yesterday Eastern), dry (true = read only, no writes)
-export async function aablNightly(env, { part = 0, date = yesterdayET(), dry = false } = {}) {
+// Each tick (08:17-08:59 UTC) does the next 3 final games that aren't in stats_game yet, so a missed
+// or failed tick is simply picked up by the next one. When none are left it snapshots standings,
+// rebuilds season totals and logs the run (once). force = last ticks: finish with whatever is in.
+// Testing: part (0..) + dry (read only) processes a fixed slice of any past date.
+export async function aablNightly(env, { part = null, date = yesterdayET(), dry = false, force = false } = {}) {
   const season = Number(date.slice(0, 4));
+  if (part === null) {
+    const done = await sb(env, `job_runs?select=id&job=eq.nightly&run_date=eq.${date}&ok=eq.true&detail->>source=eq.cloudflare&limit=1`);
+    if (done.length) return null;
+  }
   const sched = await getJson(`${MLB}/schedule?sportId=1&date=${date}&gameType=R&fields=dates,games,gamePk,status,detailedState`);
   const games = (sched.dates || []).flatMap(d => d.games || []);
   const finals = games.filter(g => FINAL.test((g.status && g.status.detailedState) || '')).sort((a, b) => a.gamePk - b.gamePk);
-  const slice = finals.slice(part * PER_TICK, part * PER_TICK + PER_TICK);
-  const last = finals.length ? Math.ceil(finals.length / PER_TICK) - 1 : 0;
-  if (part > last) return null;
-  const out = { date, part, games: slice.length, of: finals.length, rows: 0, dry };
+  let slice, finishing, missing = 0;
+  if (part !== null) {
+    const last = finals.length ? Math.ceil(finals.length / PER_TICK) - 1 : 0;
+    if (part > last) return null;
+    slice = finals.slice(part * PER_TICK, part * PER_TICK + PER_TICK);
+    finishing = part === last;
+  } else {
+    const have = new Set((finals.length ? await sb(env, `stats_game?select=game_pk&game_date=eq.${date}`) : []).map(r => r.game_pk));
+    const todo = finals.filter(g => !have.has(g.gamePk));
+    missing = todo.length;
+    slice = todo.slice(0, PER_TICK);
+    finishing = todo.length <= PER_TICK || force;
+  }
+  const out = { date, part, games: slice.length, of: finals.length, missing, rows: 0, dry };
   try {
     if (slice.length) {
       const [scoring, teams] = await Promise.all([sb(env, 'scoring?select=player_type,stat,points'), getJson(`${MLB}/teams?sportId=1&season=${season}&fields=teams,id,abbreviation`)]);
@@ -130,7 +147,7 @@ export async function aablNightly(env, { part = 0, date = yesterdayET(), dry = f
         await upsert(env, 'stats_game', statRows, 'mlb_id,game_pk,role');
       }
     }
-    if (part === last && !dry) {
+    if (finishing && !dry) {
       if (finals.length) {
         const ps = Number(env.AABL_POOL_SEASON || season);
         out.snapshots = n(await rpc(env, 'snapshot_standings', { p_pool_season: ps, p_stats_season: season, p_date: date }));
@@ -142,15 +159,23 @@ export async function aablNightly(env, { part = 0, date = yesterdayET(), dry = f
     }
   } catch (e) {
     out.error = String(e.message || e).slice(0, 400);
-    if (!dry) await sb(env, 'job_runs', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ job: 'nightly', run_date: date, finished_at: new Date().toISOString(), ok: false, detail: { source: 'cloudflare', part, error: out.error } }) }).catch(() => {});
+    if (!dry && (finishing || force)) await sb(env, 'job_runs', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ job: 'nightly', run_date: date, finished_at: new Date().toISOString(), ok: false, detail: { source: 'cloudflare', part, error: out.error } }) }).catch(() => {});
   }
   return out;
 }
 
 // ---------- Schedule ----------
+// Each tick (10:05-10:24 UTC) refreshes the chunk holding the least recently updated game, until every
+// game was refreshed in the last 12 hours, so a missed tick doesn't leave part of the season stale.
 const CHUNKS = [['02-01', '04-30'], ['05-01', '06-30'], ['07-01', '08-31'], ['09-01', '11-30']];
-export async function aablSchedule(env, { chunk = 0, season, dry = false } = {}) {
+export async function aablSchedule(env, { chunk = null, minute = 0, season, dry = false } = {}) {
   season = Number(season || await poolSeason(env));
+  if (chunk === null) {
+    const [old] = await sb(env, `schedule?select=game_date,updated_at&season=eq.${season}&order=updated_at.asc&limit=1`);
+    if (old && Date.now() - Date.parse(old.updated_at) < 12 * 3600e3) return null;
+    const md = old ? String(old.game_date).slice(5, 10) : null;
+    chunk = md ? Math.max(0, CHUNKS.findIndex(([f, t]) => md >= f && md <= t)) : minute % CHUNKS.length;
+  }
   const [from, to] = CHUNKS[chunk] || [];
   if (!from) return null;
   const fields = 'dates,date,games,gamePk,gameDate,officialDate,gameType,teams,away,home,team,id,name,score,venue,status,detailedState,startTimeTBD,doubleHeader,gameNumber';
