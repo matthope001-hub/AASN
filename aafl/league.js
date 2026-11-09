@@ -123,7 +123,8 @@ window.AAFL = (function () {
     const before = rows.map(r => ({ id: r.id, name: r.name, pts: r.pts - (lastDone ? lastDone.scores[r.id] : 0) }));
     const prevRank = {}; rank(before).forEach(r => { prevRank[r.id] = r.rank; });
     const sorted = rank(rows);
-    sorted.forEach(r => { r.move = lastDone ? prevRank[r.id] - r.rank : 0; r.real = r.unpaid ? 0 : r.pts - Object.values(L.credits[r.id] || {}).reduce((a, b) => a + b, 0); r.pct = r.graded ? r.real / r.graded : null; });   // real = points from actual picks (no credits); pct = null until a pick is graded
+    const r2 = x => Math.round(x * 100) / 100;   // 2-decimal rounding (kills float noise like 23.000000000000007)
+    sorted.forEach(r => { r.move = lastDone ? prevRank[r.id] - r.rank : 0; r.pts = r2(r.pts); r.real = r.unpaid ? 0 : r2(r.pts - Object.values(L.credits[r.id] || {}).reduce((a, b) => a + b, 0)); r.pct = r.graded ? r.real / r.graded : null; });   // real = points from actual picks (no credits); pct = null until a pick is graded
     return { teams: sorted, weeks, lastDone };
   }
 
